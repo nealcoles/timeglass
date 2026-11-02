@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Timeglass.Testing\Timeglass.Testing.csproj" />
     <ProjectReference Include="..\..\src\Timeglass.Storage\Timeglass.Storage.csproj" />
   </ItemGroup>
 

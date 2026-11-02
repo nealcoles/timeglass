@@ -94,6 +94,17 @@ public sealed class RecordingIntervalSink : IIntervalSink
 
         return ValueTask.CompletedTask;
     }
+
+    /// <summary>How often <see cref="FlushAsync"/> was called.</summary>
+    public int FlushCount => Volatile.Read(ref _flushCount);
+
+    private int _flushCount;
+
+    public ValueTask FlushAsync(CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _flushCount);
+        return ValueTask.CompletedTask;
+    }
 }
 
 /// <summary>Applies changes as upserts by id, the same way storage does.</summary>

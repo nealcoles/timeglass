@@ -143,9 +143,11 @@ public class TrackingServiceTests
         var interval = _sink.Intervals.ShouldHaveSingleItem();
         interval.IsOpen.ShouldBeFalse();
         interval.End.ShouldBe(T0.AddSeconds(10));
+        _sink.FlushCount.ShouldBe(1);
 
         await cts.CancelAsync();
         await run;
+        _sink.FlushCount.ShouldBe(2);
     }
 
     [Fact]
