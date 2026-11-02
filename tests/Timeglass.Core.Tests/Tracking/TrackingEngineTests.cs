@@ -1,3 +1,4 @@
+using Timeglass.Core.Apps;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Tracking;
 using Timeglass.Testing;
@@ -9,7 +10,7 @@ public class TrackingEngineTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 11, 2, 8, 0, 0, TimeSpan.Zero);
 
-    private readonly TrackingEngine _engine = new(new ExeNameAppIdentityResolver());
+    private readonly TrackingEngine _engine = new(new AliasAppIdentityResolver(AppAliasTable.Empty));
     private readonly IntervalTimeline _timeline = new();
 
     private static DateTimeOffset At(double seconds) => T0.AddSeconds(seconds);
@@ -255,7 +256,7 @@ public class TrackingEngineTests
     public void Interval_ids_come_from_the_id_factory()
     {
         var ids = new Queue<Guid>([Guid.Parse("00000000-0000-0000-0000-000000000001")]);
-        var engine = new TrackingEngine(new ExeNameAppIdentityResolver(), newId: _ => ids.Dequeue());
+        var engine = new TrackingEngine(new AliasAppIdentityResolver(AppAliasTable.Empty), newId: _ => ids.Dequeue());
 
         var opened = engine.Handle(new TrackingStarted(At(0), Outlook())).ShouldHaveSingleItem();
 

@@ -1,3 +1,4 @@
+using Timeglass.Core.Apps;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
 using Timeglass.Core.Tracking;
@@ -11,7 +12,7 @@ public class SessionTests
     private static readonly DateTimeOffset T0 = new(2026, 11, 2, 8, 0, 0, TimeSpan.Zero);
 
     private readonly TrackingEngine _engine = new(
-        new ExeNameAppIdentityResolver(),
+        new AliasAppIdentityResolver(AppAliasTable.Empty),
         TrackingOptions.Default with
         {
             IdleThreshold = TimeSpan.FromMinutes(5),

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Time.Testing;
+using Timeglass.Core.Apps;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
 using Timeglass.Core.Tracking;
@@ -18,7 +19,7 @@ public class TrackingServiceTests
 
     private TrackingService CreateService() =>
         new(
-            new TrackingEngine(new ExeNameAppIdentityResolver()),
+            new TrackingEngine(new AliasAppIdentityResolver(AppAliasTable.Empty)),
             _foreground,
             new FakeIdleSource(_time),
             _sessions,

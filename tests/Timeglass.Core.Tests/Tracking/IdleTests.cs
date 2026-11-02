@@ -1,3 +1,4 @@
+using Timeglass.Core.Apps;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Tracking;
 using Timeglass.Testing;
@@ -11,7 +12,7 @@ public class IdleTests
     private static readonly TimeSpan Threshold = TimeSpan.FromMinutes(5);
 
     private readonly TrackingEngine _engine = new(
-        new ExeNameAppIdentityResolver(),
+        new AliasAppIdentityResolver(AppAliasTable.Empty),
         TrackingOptions.Default with
         {
             IdleThreshold = TimeSpan.FromMinutes(5),
