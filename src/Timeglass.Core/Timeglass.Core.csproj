@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Apps/AppAliases.json" LogicalName="Timeglass.Core.Apps.AppAliases.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Timeglass.Core.Tests" />
   </ItemGroup>
 

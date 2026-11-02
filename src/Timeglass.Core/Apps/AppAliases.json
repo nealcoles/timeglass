@@ -1,0 +1,31 @@
+{
+  "apps": [
+    { "key": "outlook", "name": "Outlook", "exes": [ "outlook.exe", "olk.exe" ] },
+    { "key": "teams", "name": "Microsoft Teams", "exes": [ "ms-teams.exe", "teams.exe" ] },
+    { "key": "word", "name": "Word", "exes": [ "winword.exe" ] },
+    { "key": "excel", "name": "Excel", "exes": [ "excel.exe" ] },
+    { "key": "powerpoint", "name": "PowerPoint", "exes": [ "powerpnt.exe" ] },
+    { "key": "onenote", "name": "OneNote", "exes": [ "onenote.exe" ] },
+    { "key": "vscode", "name": "Visual Studio Code", "exes": [ "code.exe", "code - insiders.exe", "vscodium.exe" ] },
+    { "key": "visual-studio", "name": "Visual Studio", "exes": [ "devenv.exe" ] },
+    { "key": "rider", "name": "JetBrains Rider", "exes": [ "rider64.exe", "rider.exe" ] },
+    { "key": "intellij", "name": "IntelliJ IDEA", "exes": [ "idea64.exe", "idea.exe" ] },
+    { "key": "ssms", "name": "SQL Server Management Studio", "exes": [ "ssms.exe" ] },
+    { "key": "chrome", "name": "Google Chrome", "exes": [ "chrome.exe" ] },
+    { "key": "edge", "name": "Microsoft Edge", "exes": [ "msedge.exe" ] },
+    { "key": "firefox", "name": "Firefox", "exes": [ "firefox.exe" ] },
+    { "key": "brave", "name": "Brave", "exes": [ "brave.exe" ] },
+    { "key": "opera", "name": "Opera", "exes": [ "opera.exe" ] },
+    { "key": "vivaldi", "name": "Vivaldi", "exes": [ "vivaldi.exe" ] },
+    { "key": "explorer", "name": "File Explorer", "exes": [ "explorer.exe" ] },
+    { "key": "terminal", "name": "Windows Terminal", "exes": [ "windowsterminal.exe", "wt.exe" ] },
+    { "key": "powershell", "name": "PowerShell", "exes": [ "pwsh.exe", "powershell.exe" ] },
+    { "key": "notepad", "name": "Notepad", "exes": [ "notepad.exe" ] },
+    { "key": "notepad-plus-plus", "name": "Notepad++", "exes": [ "notepad++.exe" ] },
+    { "key": "slack", "name": "Slack", "exes": [ "slack.exe" ] },
+    { "key": "zoom", "name": "Zoom", "exes": [ "zoom.exe" ] },
+    { "key": "spotify", "name": "Spotify", "exes": [ "spotify.exe" ] },
+    { "key": "obsidian", "name": "Obsidian", "exes": [ "obsidian.exe" ] },
+    { "key": "petrel", "name": "Petrel", "exes": [ "petrel.exe" ] }
+  ]
+}

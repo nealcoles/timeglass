@@ -1,3 +1,4 @@
+using Timeglass.Core.Apps;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
 using Timeglass.Core.Tracking;
@@ -43,7 +44,7 @@ public class TrackingEnginePropertyTests
     public void Intervals_are_contiguous_non_overlapping_and_cover_the_tracked_time(int seed)
     {
         var random = new Random(seed);
-        var engine = new TrackingEngine(new ExeNameAppIdentityResolver(), new TrackingOptions
+        var engine = new TrackingEngine(new AliasAppIdentityResolver(AppAliasTable.Empty), new TrackingOptions
         {
             MinimumInterval = TimeSpan.FromMilliseconds(random.Next(0, 3000)),
             CheckpointInterval = TimeSpan.FromSeconds(random.Next(1, 30)),
