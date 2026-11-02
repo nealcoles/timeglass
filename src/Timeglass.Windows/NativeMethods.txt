@@ -1,0 +1,28 @@
+// Foreground window watcher
+SetWinEventHook
+UnhookWinEvent
+EVENT_SYSTEM_FOREGROUND
+EVENT_OBJECT_NAMECHANGE
+WINEVENT_OUTOFCONTEXT
+OBJECT_IDENTIFIER
+CHILDID_SELF
+GetForegroundWindow
+GetWindowText
+GetWindowTextLength
+GetWindowThreadProcessId
+
+// Message loop on the watcher thread
+GetMessage
+TranslateMessage
+DispatchMessage
+PostThreadMessage
+GetCurrentThreadId
+SetTimer
+KillTimer
+WM_QUIT
+WM_TIMER
+
+// Process lookup
+OpenProcess
+QueryFullProcessImageName
+CloseHandle
