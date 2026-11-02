@@ -49,7 +49,7 @@ jobs:
 
       - name: Test report
         if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         with:
           name: Tests (Linux)
           path: TestResults/**/*.trx
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload test results
         if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-linux
           path: TestResults
@@ -87,7 +87,7 @@ jobs:
 
       - name: Test report
         if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         with:
           name: Tests (Windows)
           path: TestResults/**/*.trx
@@ -96,7 +96,7 @@ jobs:
 
       - name: Upload test results
         if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-windows
           path: TestResults
@@ -135,7 +135,7 @@ jobs:
         run: npm run build
 
       - name: Upload web build
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: web/dist
