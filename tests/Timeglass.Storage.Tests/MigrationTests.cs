@@ -39,7 +39,15 @@ public sealed class MigrationTests : IDisposable
         Version(database).ShouldBe(Migrator.LatestVersion);
         using var connection = database.Connect();
         connection.Query<string>("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') ORDER BY name;")
-            .ShouldBe(["apps", "intervals", "ix_intervals_start_utc", "sqlite_autoindex_apps_1", "sqlite_autoindex_intervals_1"]);
+            .ShouldBe(
+            [
+                "apps",
+                "intervals",
+                "ix_intervals_start_utc",
+                "sqlite_autoindex_apps_1",
+                "sqlite_autoindex_intervals_1",
+                "ux_intervals_single_open",
+            ]);
     }
 
     [Fact]

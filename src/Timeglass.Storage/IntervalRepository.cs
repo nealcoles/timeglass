@@ -21,6 +21,10 @@ namespace Timeglass.Storage;
 /// A failed write is logged and dropped. Every change carries the full interval, so the next
 /// checkpoint of an open interval repairs it.
 /// </para>
+/// <para>
+/// At most one interval is open (enforced by a unique index). Storing an open interval closes
+/// any other one at its last checkpoint first.
+/// </para>
 /// </remarks>
 public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
 {
@@ -41,6 +45,10 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
             exe_path = excluded.exe_path,
             window_title = excluded.window_title,
             is_open = excluded.is_open;
+        """;
+
+    private const string CloseOthers = """
+        UPDATE intervals SET is_open = 0 WHERE is_open = 1 AND id <> @Id;
         """;
 
     private const string SelectRange = """
@@ -179,9 +187,18 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         foreach (var change in changes)
         {
             var interval = change.Interval;
+            var id = interval.Id.ToString("D");
+
+            if (interval.IsOpen)
+            {
+                // Only one interval can be open. If the write that closed the previous one was lost,
+                // it ends at its last checkpoint, the same as after a crash.
+                connection.Execute(CloseOthers, new { Id = id }, transaction);
+            }
+
             connection.Execute(UpsertInterval, new
             {
-                Id = interval.Id.ToString("D"),
+                Id = id,
                 StartUtc = interval.Start.ToUnixTimeMilliseconds(),
                 EndUtc = interval.End.ToUnixTimeMilliseconds(),
                 Kind = (int)interval.Kind,
