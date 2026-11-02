@@ -6,7 +6,6 @@
     <IsTestProject>true</IsTestProject>
     <!-- xUnit v3 test projects are executables. -->
     <OutputType>Exe</OutputType>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <!-- CA1707: underscores in test method names are fine. -->
     <NoWarn>$(NoWarn);CA1707</NoWarn>
   </PropertyGroup>
