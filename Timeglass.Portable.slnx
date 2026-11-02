@@ -1,0 +1,16 @@
+<!--
+  Projects that build and test on any OS (Linux CI, macOS).
+  Windows-only projects live in Timeglass.slnx.
+-->
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Timeglass.Core/Timeglass.Core.csproj" />
+    <Project Path="src/Timeglass.Storage/Timeglass.Storage.csproj" />
+    <Project Path="src/Timeglass.Api/Timeglass.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Timeglass.Core.Tests/Timeglass.Core.Tests.csproj" />
+    <Project Path="tests/Timeglass.Storage.Tests/Timeglass.Storage.Tests.csproj" />
+    <Project Path="tests/Timeglass.Api.Tests/Timeglass.Api.Tests.csproj" />
+  </Folder>
+</Solution>

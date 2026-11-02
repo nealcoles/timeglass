@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+coverage/
+artifacts/
+
+# Rider / VS Code
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Node / web
+node_modules/
+web/dist/
+web/coverage/
+web/test-results/
+web/playwright-report/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local data
+*.db
+*.db-shm
+*.db-wal

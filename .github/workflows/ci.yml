@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  dotnet-portable:
+    name: .NET (Linux, portable projects)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Timeglass.Portable.slnx
+
+      - name: Check formatting
+        run: dotnet format Timeglass.Portable.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Timeglass.Portable.slnx -c Release --no-restore
+
+      - name: Test
+        id: test
+        run: >
+          dotnet test Timeglass.Portable.slnx -c Release --no-build
+          --logger "trx" --results-directory TestResults
+          --collect "XPlat Code Coverage"
+
+      - name: Test report
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: dorny/test-reporter@v2
+        with:
+          name: Tests (Linux)
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+          fail-on-empty: true
+
+      - name: Upload test results
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-linux
+          path: TestResults
+
+  dotnet-windows:
+    name: .NET (Windows, full solution)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Timeglass.slnx
+
+      - name: Build
+        run: dotnet build Timeglass.slnx -c Release --no-restore
+
+      - name: Test
+        id: test
+        run: >
+          dotnet test Timeglass.slnx -c Release --no-build
+          --logger "trx" --results-directory TestResults
+
+      - name: Test report
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: dorny/test-reporter@v2
+        with:
+          name: Tests (Windows)
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+          fail-on-empty: true
+
+      - name: Upload test results
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-windows
+          path: TestResults
