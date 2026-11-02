@@ -118,6 +118,7 @@ public sealed class TrackingService
         }
 
         await ApplyAsync(new Queued(new TrackingStopped(_time.GetUtcNow()))).ConfigureAwait(false);
+        await FlushAsync().ConfigureAwait(false);
     }
 
     private async ValueTask ApplyAsync(Queued queued)
@@ -128,6 +129,11 @@ public sealed class TrackingService
             if (changes.Count > 0)
             {
                 await StoreAsync(changes).ConfigureAwait(false);
+            }
+
+            if (queued.Done is not null)
+            {
+                await FlushAsync().ConfigureAwait(false);
             }
         }
         finally
@@ -147,6 +153,20 @@ public sealed class TrackingService
 #pragma warning restore CA1031
         {
             _logger.LogError(ex, "Failed to store {Count} interval change(s)", changes.Count);
+        }
+    }
+
+    private async ValueTask FlushAsync()
+    {
+        try
+        {
+            await _sink.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Shutting down either way; log and carry on.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _logger.LogError(ex, "Failed to flush interval changes");
         }
     }
 

@@ -9,4 +9,18 @@
     <ProjectReference Include="..\Timeglass.Core\Timeglass.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Dapper" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Numbered scripts, applied in order. See Migrations/Migrator.cs. -->
+    <EmbeddedResource Include="Migrations/*.sql" LogicalName="Timeglass.Storage.Migrations.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Timeglass.Storage.Tests" />
+  </ItemGroup>
+
 </Project>
