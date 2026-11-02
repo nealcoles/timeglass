@@ -100,3 +100,43 @@ jobs:
         with:
           name: test-results-windows
           path: TestResults
+
+  web:
+    name: Web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload web build
+        uses: actions/upload-artifact@v5
+        with:
+          name: web-dist
+          path: web/dist
+          if-no-files-found: error
