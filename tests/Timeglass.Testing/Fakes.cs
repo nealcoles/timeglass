@@ -42,6 +42,8 @@ public sealed class FakeSessionEventSource : ISessionEventSource
     public event Action<SessionEvent>? SessionChanged;
 
     public void Raise(SessionEvent sessionEvent) => SessionChanged?.Invoke(sessionEvent);
+
+    public bool HasSubscribers => SessionChanged is not null;
 }
 
 /// <summary>Sink that records every change and keeps the latest state of each interval.</summary>

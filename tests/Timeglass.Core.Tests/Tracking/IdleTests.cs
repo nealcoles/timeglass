@@ -16,6 +16,7 @@ public class IdleTests
         {
             IdleThreshold = TimeSpan.FromMinutes(5),
             CheckpointInterval = TimeSpan.FromDays(1), // keep checkpoints out of these tests
+            ClockJumpThreshold = null,                 // events here are minutes apart
         });
 
     private readonly IntervalTimeline _timeline = new();

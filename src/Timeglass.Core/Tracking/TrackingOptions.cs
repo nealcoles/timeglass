@@ -22,6 +22,13 @@ public sealed record TrackingOptions
     public TimeSpan? IdleThreshold { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// A gap between two events longer than this is a clock jump (sleep without a suspend event,
+    /// or a manual clock change) and counts as away. Should be much larger than <see cref="TickInterval"/>.
+    /// <see langword="null"/> turns the check off.
+    /// </summary>
+    public TimeSpan? ClockJumpThreshold { get; init; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>
     /// App keys (see <see cref="Domain.AppIdentity.Key"/>) that never go idle while in the
     /// foreground, such as video players or meeting apps. Matched case-insensitively.
     /// </summary>

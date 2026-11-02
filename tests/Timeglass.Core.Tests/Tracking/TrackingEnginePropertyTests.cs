@@ -1,4 +1,5 @@
 using Timeglass.Core.Domain;
+using Timeglass.Core.Ports;
 using Timeglass.Core.Tracking;
 using Timeglass.Testing;
 
@@ -22,6 +23,10 @@ public class TrackingEnginePropertyTests
         null,
     ];
 
+    private static readonly SessionEvent[] LockOrSuspend = [SessionEvent.Locked, SessionEvent.Suspending];
+
+    private static readonly SessionEvent[] UnlockOrResume = [SessionEvent.Unlocked, SessionEvent.Resumed];
+
     public static TheoryData<int> Seeds()
     {
         var data = new TheoryData<int>();
@@ -43,6 +48,7 @@ public class TrackingEnginePropertyTests
             MinimumInterval = TimeSpan.FromMilliseconds(random.Next(0, 3000)),
             CheckpointInterval = TimeSpan.FromSeconds(random.Next(1, 30)),
             IdleThreshold = random.Next(4) == 0 ? null : TimeSpan.FromSeconds(random.Next(5, 120)),
+            ClockJumpThreshold = random.Next(4) == 0 ? null : TimeSpan.FromSeconds(random.Next(30, 300)),
         });
         var timeline = new IntervalTimeline();
 
@@ -54,11 +60,12 @@ public class TrackingEnginePropertyTests
         var steps = random.Next(1, 400);
         for (var i = 0; i < steps; i++)
         {
-            // Mostly forward in time, sometimes the same instant, occasionally backwards.
-            var deltaMs = random.Next(10) switch
+            // Mostly forward in time, sometimes the same instant, occasionally backwards or a jump (sleep).
+            var deltaMs = random.Next(40) switch
             {
-                0 => -random.Next(0, 5000),
-                1 => 0,
+                < 4 => -random.Next(0, 5000),
+                < 8 => 0,
+                39 => random.Next(60_000, 3_600_000),
                 _ => random.Next(1, 20_000),
             };
             now = now.AddMilliseconds(deltaMs);
@@ -73,14 +80,20 @@ public class TrackingEnginePropertyTests
                 lastInput = now;
             }
 
-            TrackingEvent e = random.Next(3) == 0
-                ? new Tick(now, lastInput)
-                : new ForegroundChanged(now, Pick(random));
+            TrackingEvent e = random.Next(12) switch
+            {
+                < 4 => new Tick(now, lastInput),
+                4 => new SessionChanged(now, LockOrSuspend[random.Next(2)]),
+                5 => new SessionChanged(now, UnlockOrResume[random.Next(2)], Pick(random)),
+                _ => new ForegroundChanged(now, Pick(random)),
+            };
             timeline.Apply(engine.Handle(e));
         }
 
         var stopAt = maxSeen.AddSeconds(random.Next(0, 60));
-        timeline.Apply(engine.Handle(new TrackingStopped(stopAt)));
+        timeline.Apply(engine.Handle(random.Next(2) == 0
+            ? new TrackingStopped(stopAt)
+            : new SessionChanged(stopAt, SessionEvent.ShuttingDown)));
 
         var intervals = timeline.Intervals;
 
