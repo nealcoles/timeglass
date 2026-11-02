@@ -7,6 +7,9 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <PackageVersion Include="Dapper" Version="2.1.89" />
   </ItemGroup>
+  <ItemGroup Label="Build tools">
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.366" />
+  </ItemGroup>
   <ItemGroup Label="Analyzers">
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" />
   </ItemGroup>
