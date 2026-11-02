@@ -1,0 +1,8 @@
+P:System.DateTime.Now;Use TimeProvider so time can be faked in tests
+P:System.DateTime.UtcNow;Use TimeProvider so time can be faked in tests
+P:System.DateTime.Today;Use TimeProvider so time can be faked in tests
+P:System.DateTimeOffset.Now;Use TimeProvider so time can be faked in tests
+P:System.DateTimeOffset.UtcNow;Use TimeProvider so time can be faked in tests
+M:System.Threading.Tasks.Task.Delay(System.TimeSpan);Use the TimeProvider overload
+M:System.Threading.Tasks.Task.Delay(System.Int32);Use the TimeProvider overload
+T:System.Threading.Timer;Use TimeProvider.CreateTimer
