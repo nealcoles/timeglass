@@ -37,6 +37,22 @@ namespace Timeglass.Core.Tracking;
 /// for whatever window is in front.</item>
 /// <item>Apps in <see cref="TrackingOptions.IdleExemptApps"/> (video, meetings) never go idle.</item>
 /// </list>
+/// <para>Session rules:</para>
+/// <list type="bullet">
+/// <item><see cref="SessionEvent.Locked"/> and <see cref="SessionEvent.Suspending"/> close the active
+/// interval at the event time and start <see cref="IntervalKind.Away"/>. If already away (idle), the
+/// away interval simply continues.</item>
+/// <item>While locked or suspended, input does not end the away interval (typing the password on the
+/// lock screen is input too). Only <see cref="SessionEvent.Unlocked"/> / <see cref="SessionEvent.Resumed"/>
+/// do, once neither lock nor suspend is left, and tracking resumes for the window in the event.</item>
+/// <item>An unlock or resume without a matching lock or suspend (missed event) is treated as a
+/// foreground change.</item>
+/// <item><see cref="SessionEvent.ShuttingDown"/> closes everything, like <see cref="TrackingStopped"/>.
+/// If the shutdown is cancelled, the next foreground change, unlock or resume starts tracking again.</item>
+/// <item>A gap between two events longer than <see cref="TrackingOptions.ClockJumpThreshold"/>
+/// (sleep with a missed suspend event, or the clock set forward) counts as away from the previous
+/// event. Tracking resumes on the first input after the gap, or on unlock/resume.</item>
+/// </list>
 /// </remarks>
 public sealed class TrackingEngine
 {
@@ -48,6 +64,10 @@ public sealed class TrackingEngine
     private WindowSnapshot? _foreground;
     private DateTimeOffset _lastAt;
     private DateTimeOffset _lastCheckpoint;
+    private DateTimeOffset _resumeAfter;
+    private bool _locked;
+    private bool _suspended;
+    private bool _shutDown;
 
     /// <summary>Creates an engine.</summary>
     /// <param name="resolver">Maps windows to apps.</param>
@@ -89,10 +109,21 @@ public sealed class TrackingEngine
 
         if (!IsTracking)
         {
+            if (_shutDown && RestartsAfterShutdown(trackingEvent, out var window))
+            {
+                Start(new TrackingStarted(trackingEvent.At, window), changes);
+            }
+
             return changes;
         }
 
+        var previous = _lastAt;
         var at = Clamp(trackingEvent.At);
+
+        if (Options.ClockJumpThreshold is { } jump && at - previous > jump)
+        {
+            GoAway(previous, resumeAfter: at, changes);
+        }
 
         switch (trackingEvent)
         {
@@ -110,19 +141,92 @@ public sealed class TrackingEngine
                 OnTick(at, tick.LastInputAt, changes);
                 break;
 
-            case TrackingStopped:
-                if (!IsAway)
-                {
-                    CommitPendingIfDue(at, changes);
-                }
+            case SessionChanged session:
+                OnSessionChanged(at, session, changes);
+                break;
 
-                _pending = null;
-                CloseCurrent(at, changes);
-                IsTracking = false;
+            case TrackingStopped:
+                Stop(at, changes);
                 break;
         }
 
         return changes;
+    }
+
+    private static bool RestartsAfterShutdown(TrackingEvent trackingEvent, out WindowSnapshot? window)
+    {
+        switch (trackingEvent)
+        {
+            case ForegroundChanged changed:
+                window = changed.Window;
+                return true;
+            case SessionChanged { Event: SessionEvent.Unlocked or SessionEvent.Resumed } session:
+                window = session.Window;
+                return true;
+            default:
+                window = null;
+                return false;
+        }
+    }
+
+    private void Stop(DateTimeOffset at, List<IntervalChange> changes)
+    {
+        if (!IsAway)
+        {
+            CommitPendingIfDue(at, changes);
+        }
+
+        _pending = null;
+        CloseCurrent(at, changes);
+        IsTracking = false;
+    }
+
+    private void OnSessionChanged(DateTimeOffset at, SessionChanged session, List<IntervalChange> changes)
+    {
+        switch (session.Event)
+        {
+            case SessionEvent.Locked or SessionEvent.Suspending:
+                _locked |= session.Event == SessionEvent.Locked;
+                _suspended |= session.Event == SessionEvent.Suspending;
+                if (!IsAway)
+                {
+                    // A switch made before locking counts; the lock itself ends it.
+                    CommitPendingIfDue(at, changes);
+                    _pending = null;
+                    CloseCurrent(at, changes);
+                    OpenAway(at, changes);
+                }
+
+                break;
+
+            case SessionEvent.Unlocked or SessionEvent.Resumed:
+                var wasSessionAway = _locked || _suspended;
+                _locked &= session.Event != SessionEvent.Unlocked;
+                _suspended &= session.Event != SessionEvent.Resumed;
+                _foreground = session.Window;
+
+                if (IsAway)
+                {
+                    if (!_locked && !_suspended)
+                    {
+                        CloseCurrent(at, changes);
+                        OpenActive(at, session.Window, changes);
+                    }
+                }
+                else if (!wasSessionAway)
+                {
+                    // Missed the lock or suspend: just a chance to pick up the window in front.
+                    CommitPendingIfDue(at, changes);
+                    OnForegroundChanged(at, session.Window);
+                }
+
+                break;
+
+            case SessionEvent.ShuttingDown:
+                Stop(at, changes);
+                _shutDown = true;
+                break;
+        }
     }
 
     private void Start(TrackingStarted started, List<IntervalChange> changes)
@@ -143,6 +247,9 @@ public sealed class TrackingEngine
 
         IsTracking = true;
         _pending = null;
+        _locked = false;
+        _suspended = false;
+        _shutDown = false;
         _foreground = started.Window;
         OpenActive(at, started.Window, changes);
     }
@@ -157,11 +264,14 @@ public sealed class TrackingEngine
 
         if (IsAway)
         {
-            ResumeIfInput(lastInputAt, changes);
+            if (!_locked && !_suspended)
+            {
+                ResumeIfInput(lastInputAt, changes);
+            }
         }
         else if (IsIdle(at, lastInputAt))
         {
-            GoAway(lastInputAt, changes);
+            GoAway(lastInputAt, resumeAfter: null, changes);
         }
         else
         {
@@ -182,24 +292,40 @@ public sealed class TrackingEngine
         return app is null || !Options.IdleExemptApps.Contains(app.Key);
     }
 
-    private void GoAway(DateTimeOffset lastInputAt, List<IntervalChange> changes)
+    /// <summary>
+    /// Ends the active interval at <paramref name="since"/> (but not before it started) and opens
+    /// an away interval there. Input only ends it once it is later than <paramref name="resumeAfter"/>,
+    /// which defaults to the away start. Already away: only moves <paramref name="resumeAfter"/> forward.
+    /// </summary>
+    private void GoAway(DateTimeOffset since, DateTimeOffset? resumeAfter, List<IntervalChange> changes)
     {
-        // Only switches the user made before walking away count.
-        if (_pending is not null && _pending.Since <= lastInputAt)
+        if (IsAway)
         {
-            CommitPendingIfDue(lastInputAt, changes);
+            if (resumeAfter > _resumeAfter)
+            {
+                _resumeAfter = resumeAfter.Value;
+            }
+
+            return;
+        }
+
+        // Only switches the user made before walking away count.
+        if (_pending is not null && _pending.Since <= since)
+        {
+            CommitPendingIfDue(since, changes);
         }
 
         _pending = null;
 
-        var awayFrom = _current is null || lastInputAt > _current.Start ? lastInputAt : _current.Start;
+        var awayFrom = _current is null || since > _current.Start ? since : _current.Start;
         CloseCurrent(awayFrom, changes);
         OpenAway(awayFrom, changes);
+        _resumeAfter = resumeAfter > awayFrom ? resumeAfter.Value : awayFrom;
     }
 
     private void ResumeIfInput(DateTimeOffset lastInputAt, List<IntervalChange> changes)
     {
-        if (_current is null || lastInputAt <= _current.Start)
+        if (_current is null || lastInputAt <= _resumeAfter)
         {
             return;
         }
@@ -284,7 +410,9 @@ public sealed class TrackingEngine
             Title: target.Title), changes);
     }
 
-    private void OpenAway(DateTimeOffset at, List<IntervalChange> changes) =>
+    private void OpenAway(DateTimeOffset at, List<IntervalChange> changes)
+    {
+        _resumeAfter = at;
         Open(new ActivityInterval(
             Id: _newId(at),
             Kind: IntervalKind.Away,
@@ -294,6 +422,7 @@ public sealed class TrackingEngine
             App: null,
             ExePath: null,
             Title: null), changes);
+    }
 
     private void Open(ActivityInterval interval, List<IntervalChange> changes)
     {

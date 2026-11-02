@@ -1,4 +1,5 @@
 using Timeglass.Core.Domain;
+using Timeglass.Core.Ports;
 
 namespace Timeglass.Core.Tracking;
 
@@ -20,3 +21,13 @@ public sealed record Tick(DateTimeOffset At, DateTimeOffset LastInputAt) : Track
 
 /// <summary>Tracking stops. Everything is closed.</summary>
 public sealed record TrackingStopped(DateTimeOffset At) : TrackingEvent(At);
+
+/// <summary>A lock, sleep or shutdown event from the session.</summary>
+/// <param name="At">When it happened.</param>
+/// <param name="Event">What happened.</param>
+/// <param name="Window">
+/// The window in front at the time. Read fresh for <see cref="SessionEvent.Unlocked"/> and
+/// <see cref="SessionEvent.Resumed"/>, ignored otherwise.
+/// </param>
+public sealed record SessionChanged(DateTimeOffset At, SessionEvent Event, WindowSnapshot? Window = null)
+    : TrackingEvent(At);

@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Time.Testing;
+using Timeglass.Core.Domain;
+using Timeglass.Core.Ports;
 using Timeglass.Core.Tracking;
 using Timeglass.Testing;
 using static Timeglass.Testing.TestWindows;
@@ -11,6 +13,7 @@ public class TrackingServiceTests
 
     private readonly FakeTimeProvider _time = new(T0);
     private readonly FakeForegroundWindowSource _foreground = new() { Current = Outlook() };
+    private readonly FakeSessionEventSource _sessions = new();
     private readonly RecordingIntervalSink _sink = new();
 
     private TrackingService CreateService() =>
@@ -18,6 +21,7 @@ public class TrackingServiceTests
             new TrackingEngine(new ExeNameAppIdentityResolver()),
             _foreground,
             new FakeIdleSource(_time),
+            _sessions,
             _sink,
             _time);
 
@@ -90,11 +94,57 @@ public class TrackingServiceTests
         var run = CreateService().RunAsync(cts.Token);
         await WaitUntilIdleAsync();
         _foreground.HasSubscribers.ShouldBeTrue();
+        _sessions.HasSubscribers.ShouldBeTrue();
 
         await cts.CancelAsync();
         await run;
 
         _foreground.HasSubscribers.ShouldBeFalse();
+        _sessions.HasSubscribers.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Lock_and_unlock_reach_the_engine_with_the_window_read_on_unlock()
+    {
+        using var cts = new CancellationTokenSource();
+        var run = CreateService().RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+
+        await AdvanceAsync(TimeSpan.FromSeconds(10));
+        _sessions.Raise(SessionEvent.Locked);
+        await AdvanceAsync(TimeSpan.FromSeconds(20));
+        _foreground.Current = Code(); // changed behind the lock screen, no event
+        _sessions.Raise(SessionEvent.Unlocked);
+        await AdvanceAsync(TimeSpan.FromSeconds(10));
+
+        await cts.CancelAsync();
+        await run;
+
+        _sink.Intervals.Select(i => (i.Kind, i.App?.Key, i.Start, i.End)).ShouldBe(
+        [
+            (IntervalKind.Active, "olk", T0, T0.AddSeconds(10)),
+            (IntervalKind.Away, null, T0.AddSeconds(10), T0.AddSeconds(30)),
+            (IntervalKind.Active, "code", T0.AddSeconds(30), T0.AddSeconds(40)),
+        ]);
+    }
+
+    [Fact]
+    public async Task Shutdown_handler_returns_only_after_everything_is_stored()
+    {
+        using var cts = new CancellationTokenSource();
+        var run = CreateService().RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+        await AdvanceAsync(TimeSpan.FromSeconds(10));
+
+        // Raised synchronously, as SystemEvents does; the OS may kill the process right after.
+        await Task.Run(() => _sessions.Raise(SessionEvent.ShuttingDown), TestContext.Current.CancellationToken);
+
+        var interval = _sink.Intervals.ShouldHaveSingleItem();
+        interval.IsOpen.ShouldBeFalse();
+        interval.End.ShouldBe(T0.AddSeconds(10));
+
+        await cts.CancelAsync();
+        await run;
     }
 
     [Fact]
