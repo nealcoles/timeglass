@@ -12,7 +12,7 @@ namespace Timeglass.Core.Tracking;
 /// Callers feed it events in order and apply the returned changes. This keeps every rule
 /// about "what time counts as what" testable with plain unit tests.
 /// </para>
-/// <para>Rules:</para>
+/// <para>Window rules:</para>
 /// <list type="bullet">
 /// <item>A foreground change does not take effect immediately. It becomes <em>pending</em>, and is
 /// committed once the new window has stayed in front for <see cref="TrackingOptions.MinimumInterval"/>.
@@ -23,6 +23,20 @@ namespace Timeglass.Core.Tracking;
 /// <item>Timestamps that go backwards are clamped to the last seen time, so intervals can never
 /// have negative length or overlap.</item>
 /// </list>
+/// <para>Idle rules:</para>
+/// <list type="bullet">
+/// <item>On each <see cref="Tick"/>, if there has been no input for <see cref="TrackingOptions.IdleThreshold"/>,
+/// the active interval is closed <em>at the last input time</em> (not at detection time) and an
+/// <see cref="IntervalKind.Away"/> interval starts there.</item>
+/// <item>The away start never goes before the start of the current interval, so earlier,
+/// already-closed intervals are never rewritten.</item>
+/// <item>A pending switch that happened after the last input is dropped: windows that change
+/// without anyone at the keyboard (pop-ups, notifications) don't count.</item>
+/// <item>While away, foreground changes are remembered but don't create intervals. When input
+/// resumes, the away interval ends at the new last input time and an active interval starts
+/// for whatever window is in front.</item>
+/// <item>Apps in <see cref="TrackingOptions.IdleExemptApps"/> (video, meetings) never go idle.</item>
+/// </list>
 /// </remarks>
 public sealed class TrackingEngine
 {
@@ -31,6 +45,7 @@ public sealed class TrackingEngine
 
     private ActivityInterval? _current;
     private Pending? _pending;
+    private WindowSnapshot? _foreground;
     private DateTimeOffset _lastAt;
     private DateTimeOffset _lastCheckpoint;
 
@@ -57,6 +72,8 @@ public sealed class TrackingEngine
     /// <summary>The currently open interval, if tracking.</summary>
     public ActivityInterval? Current => _current;
 
+    private bool IsAway => _current?.Kind == IntervalKind.Away;
+
     /// <summary>Processes one event and returns the resulting interval changes, in order.</summary>
     public IReadOnlyList<IntervalChange> Handle(TrackingEvent trackingEvent)
     {
@@ -80,17 +97,25 @@ public sealed class TrackingEngine
         switch (trackingEvent)
         {
             case ForegroundChanged changed:
-                CommitPendingIfDue(at, changes);
-                OnForegroundChanged(at, changed.Window);
+                _foreground = changed.Window;
+                if (!IsAway)
+                {
+                    CommitPendingIfDue(at, changes);
+                    OnForegroundChanged(at, changed.Window);
+                }
+
                 break;
 
-            case Tick:
-                CommitPendingIfDue(at, changes);
-                CheckpointIfDue(at, changes);
+            case Tick tick:
+                OnTick(at, tick.LastInputAt, changes);
                 break;
 
             case TrackingStopped:
-                CommitPendingIfDue(at, changes);
+                if (!IsAway)
+                {
+                    CommitPendingIfDue(at, changes);
+                }
+
                 _pending = null;
                 CloseCurrent(at, changes);
                 IsTracking = false;
@@ -118,7 +143,69 @@ public sealed class TrackingEngine
 
         IsTracking = true;
         _pending = null;
-        Open(at, started.Window, changes);
+        _foreground = started.Window;
+        OpenActive(at, started.Window, changes);
+    }
+
+    private void OnTick(DateTimeOffset at, DateTimeOffset lastInputAt, List<IntervalChange> changes)
+    {
+        // Input can't be in the future, whatever the OS reports.
+        if (lastInputAt > at)
+        {
+            lastInputAt = at;
+        }
+
+        if (IsAway)
+        {
+            ResumeIfInput(lastInputAt, changes);
+        }
+        else if (IsIdle(at, lastInputAt))
+        {
+            GoAway(lastInputAt, changes);
+        }
+        else
+        {
+            CommitPendingIfDue(at, changes);
+        }
+
+        CheckpointIfDue(at, changes);
+    }
+
+    private bool IsIdle(DateTimeOffset at, DateTimeOffset lastInputAt)
+    {
+        if (Options.IdleThreshold is not { } threshold || at - lastInputAt < threshold)
+        {
+            return false;
+        }
+
+        var app = _pending?.Target.App ?? _current?.App;
+        return app is null || !Options.IdleExemptApps.Contains(app.Key);
+    }
+
+    private void GoAway(DateTimeOffset lastInputAt, List<IntervalChange> changes)
+    {
+        // Only switches the user made before walking away count.
+        if (_pending is not null && _pending.Since <= lastInputAt)
+        {
+            CommitPendingIfDue(lastInputAt, changes);
+        }
+
+        _pending = null;
+
+        var awayFrom = _current is null || lastInputAt > _current.Start ? lastInputAt : _current.Start;
+        CloseCurrent(awayFrom, changes);
+        OpenAway(awayFrom, changes);
+    }
+
+    private void ResumeIfInput(DateTimeOffset lastInputAt, List<IntervalChange> changes)
+    {
+        if (_current is null || lastInputAt <= _current.Start)
+        {
+            return;
+        }
+
+        CloseCurrent(lastInputAt, changes);
+        OpenActive(lastInputAt, _foreground, changes);
     }
 
     private void OnForegroundChanged(DateTimeOffset at, WindowSnapshot? window)
@@ -168,7 +255,7 @@ public sealed class TrackingEngine
         }
 
         CloseCurrent(pending.Since, changes);
-        Open(pending.Since, pending.Window, changes);
+        OpenActive(pending.Since, pending.Window, changes);
     }
 
     private void CheckpointIfDue(DateTimeOffset at, List<IntervalChange> changes)
@@ -183,10 +270,10 @@ public sealed class TrackingEngine
         changes.Add(new IntervalChange(IntervalChangeKind.Updated, _current));
     }
 
-    private void Open(DateTimeOffset at, WindowSnapshot? window, List<IntervalChange> changes)
+    private void OpenActive(DateTimeOffset at, WindowSnapshot? window, List<IntervalChange> changes)
     {
         var target = Describe(window);
-        _current = new ActivityInterval(
+        Open(new ActivityInterval(
             Id: _newId(at),
             Kind: IntervalKind.Active,
             Start: at,
@@ -194,9 +281,25 @@ public sealed class TrackingEngine
             IsOpen: true,
             App: target.App,
             ExePath: target.ExePath,
-            Title: target.Title);
-        _lastCheckpoint = at;
-        changes.Add(new IntervalChange(IntervalChangeKind.Opened, _current));
+            Title: target.Title), changes);
+    }
+
+    private void OpenAway(DateTimeOffset at, List<IntervalChange> changes) =>
+        Open(new ActivityInterval(
+            Id: _newId(at),
+            Kind: IntervalKind.Away,
+            Start: at,
+            End: at,
+            IsOpen: true,
+            App: null,
+            ExePath: null,
+            Title: null), changes);
+
+    private void Open(ActivityInterval interval, List<IntervalChange> changes)
+    {
+        _current = interval;
+        _lastCheckpoint = interval.Start;
+        changes.Add(new IntervalChange(IntervalChangeKind.Opened, interval));
     }
 
     private void CloseCurrent(DateTimeOffset at, List<IntervalChange> changes)

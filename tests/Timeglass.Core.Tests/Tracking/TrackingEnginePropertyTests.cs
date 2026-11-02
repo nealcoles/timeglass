@@ -42,11 +42,13 @@ public class TrackingEnginePropertyTests
         {
             MinimumInterval = TimeSpan.FromMilliseconds(random.Next(0, 3000)),
             CheckpointInterval = TimeSpan.FromSeconds(random.Next(1, 30)),
+            IdleThreshold = random.Next(4) == 0 ? null : TimeSpan.FromSeconds(random.Next(5, 120)),
         });
         var timeline = new IntervalTimeline();
 
         var now = T0;
         var maxSeen = T0;
+        var lastInput = T0;
         timeline.Apply(engine.Handle(new TrackingStarted(now, Pick(random))));
 
         var steps = random.Next(1, 400);
@@ -65,8 +67,14 @@ public class TrackingEnginePropertyTests
                 maxSeen = now;
             }
 
+            // The user is either active (input now) or has walked away (input stays put).
+            if (random.Next(4) != 0)
+            {
+                lastInput = now;
+            }
+
             TrackingEvent e = random.Next(3) == 0
-                ? new Tick(now, now)
+                ? new Tick(now, lastInput)
                 : new ForegroundChanged(now, Pick(random));
             timeline.Apply(engine.Handle(e));
         }
