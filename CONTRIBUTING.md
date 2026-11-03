@@ -118,6 +118,8 @@ npm run build
 - Storage tests use real SQLite files in a temp folder (`TempDatabase`).
 - Anything that calls Win32 gets an integration test in `Timeglass.Windows.IntegrationTests`.
 - API endpoints get tests in `Timeglass.Api.Tests`.
+- The tray host and its wiring get tests in `Timeglass.App.Tests` (Windows only). A new service
+  registered in `TimeglassHost` is covered by the composition test there.
 - Frontend components get Vitest + Testing Library tests next to the component, with MSW for
   API calls.
 - Never skip or disable a failing test to get CI green. Fix the code or the test.

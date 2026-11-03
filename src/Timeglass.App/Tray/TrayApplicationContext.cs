@@ -1,0 +1,208 @@
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace Timeglass.App.Tray;
+
+/// <summary>
+/// The tray icon and its menu. There is no main window: the WinForms message loop runs for this
+/// context until <i>Quit</i>, or until the host stops.
+/// </summary>
+/// <remarks>
+/// Create it on the UI thread (the STA thread that calls <see cref="Application.Run(ApplicationContext)"/>).
+/// Events from other threads are posted to that thread.
+/// </remarks>
+internal sealed partial class TrayApplicationContext : ApplicationContext
+{
+    private readonly TrackingController _tracking;
+    private readonly TodayActiveTime _today;
+    private readonly DashboardLauncher _dashboard;
+    private readonly ILogger _logger;
+    private readonly SynchronizationContext _ui;
+    private readonly CancellationTokenRegistration _stopping;
+
+    private readonly Icon _activeIcon = LoadIcon("timeglass.ico");
+    private readonly Icon _pausedIcon = LoadIcon("timeglass-paused.ico");
+    private readonly ContextMenuStrip _menu = new();
+    private readonly ToolStripMenuItem _openDashboard = new("&Open dashboard");
+    private readonly ToolStripMenuItem _pause = new("&Pause tracking");
+    private readonly ToolStripMenuItem _settings = new("&Settings (coming soon)") { Enabled = false };
+    private readonly ToolStripMenuItem _quit = new("&Quit");
+    private readonly NotifyIcon _icon;
+    private readonly System.Windows.Forms.Timer _refresh = new();
+
+    private TimeSpan? _activeToday;
+    private bool _disposed;
+
+    public TrayApplicationContext(
+        TrackingController tracking,
+        TodayActiveTime today,
+        DashboardLauncher dashboard,
+        IOptions<TimeglassOptions> options,
+        IHostApplicationLifetime lifetime,
+        ILogger<TrayApplicationContext> logger)
+    {
+        _tracking = tracking;
+        _today = today;
+        _dashboard = dashboard;
+        _logger = logger;
+
+        _openDashboard.Font = new Font(_openDashboard.Font, FontStyle.Bold);
+        _openDashboard.Click += (_, _) => OpenDashboard();
+        _pause.Click += OnPauseClicked;
+        _quit.Click += (_, _) => ExitThread();
+        _menu.Items.AddRange([_openDashboard, _pause, _settings, new ToolStripSeparator(), _quit]);
+        _menu.Opening += (_, _) => RefreshTooltip();
+
+        // Creating the menu installed the WinForms synchronization context on this thread.
+        _ui = SynchronizationContext.Current
+            ?? throw new InvalidOperationException("Create the tray on the UI thread.");
+
+        _icon = new NotifyIcon { ContextMenuStrip = _menu };
+        _icon.DoubleClick += (_, _) => OpenDashboard();
+
+        _refresh.Interval = (int)options.Value.TooltipRefreshInterval.TotalMilliseconds;
+        _refresh.Tick += (_, _) => RefreshTooltip();
+
+        _tracking.StateChanged += OnTrackingStateChanged;
+        _stopping = lifetime.ApplicationStopping.Register(() => Post(ExitThread));
+
+        UpdateState();
+    }
+
+    /// <summary>Puts the icon in the tray and starts refreshing the tooltip.</summary>
+    public void Show()
+    {
+        _icon.Visible = true;
+        _refresh.Start();
+        RefreshTooltip();
+    }
+
+    /// <summary>Opens the dashboard on behalf of a second launch. Callable from any thread.</summary>
+    public void Activate() => Post(OpenDashboard);
+
+    protected override void ExitThreadCore()
+    {
+        // Remove the icon now; otherwise it lingers until the mouse passes over it.
+        _icon.Visible = false;
+        _refresh.Stop();
+        base.ExitThreadCore();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !_disposed)
+        {
+            _disposed = true;
+            _tracking.StateChanged -= OnTrackingStateChanged;
+            _stopping.Dispose();
+            _refresh.Dispose();
+            _icon.Visible = false;
+            _icon.Dispose();
+            _menu.Dispose();
+            _openDashboard.Font.Dispose();
+            _activeIcon.Dispose();
+            _pausedIcon.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    private static Icon LoadIcon(string name)
+    {
+        using var stream = typeof(TrayApplicationContext).Assembly.GetManifestResourceStream($"Timeglass.App.Assets.{name}")
+            ?? throw new InvalidOperationException($"Missing icon resource '{name}'.");
+        return new Icon(stream, SystemInformation.SmallIconSize);
+    }
+
+    private void Post(Action action) =>
+        _ui.Post(_ =>
+        {
+            if (!_disposed)
+            {
+                action();
+            }
+        }, null);
+
+    private void OpenDashboard()
+    {
+        if (!_dashboard.TryOpen())
+        {
+            _icon.ShowBalloonTip(
+                5000,
+                "Timeglass",
+                _dashboard.Url is null
+                    ? "The dashboard isn't available yet. Timeglass is tracking in the background."
+                    : "Could not open the dashboard in your browser.",
+                ToolTipIcon.Info);
+        }
+    }
+
+    private async void OnPauseClicked(object? sender, EventArgs e)
+    {
+        _pause.Enabled = false;
+        try
+        {
+            if (_tracking.IsPaused)
+            {
+                await _tracking.ResumeAsync().ConfigureAwait(true);
+            }
+            else
+            {
+                await _tracking.PauseAsync().ConfigureAwait(true);
+            }
+        }
+#pragma warning disable CA1031 // An async void handler must not throw into the message loop.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogPauseFailed(_logger, ex);
+        }
+        finally
+        {
+            if (!_disposed)
+            {
+                _pause.Enabled = true;
+            }
+        }
+    }
+
+    private void OnTrackingStateChanged() => Post(() =>
+    {
+        UpdateState();
+        RefreshTooltip();
+    });
+
+    private void UpdateState()
+    {
+        var paused = _tracking.IsPaused;
+        _pause.Text = paused ? "&Resume tracking" : "&Pause tracking";
+        _icon.Icon = paused ? _pausedIcon : _activeIcon;
+        _icon.Text = TrayText.Tooltip(_activeToday, paused);
+    }
+
+    private async void RefreshTooltip()
+    {
+        try
+        {
+            _activeToday = await _today.GetAsync().ConfigureAwait(true);
+        }
+#pragma warning disable CA1031 // The tooltip is not worth crashing over; keep the last value.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            LogRefreshFailed(_logger, ex);
+        }
+
+        if (!_disposed)
+        {
+            _icon.Text = TrayText.Tooltip(_activeToday, _tracking.IsPaused);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Could not pause or resume tracking")]
+    private static partial void LogPauseFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read today's active time")]
+    private static partial void LogRefreshFailed(ILogger logger, Exception exception);
+}

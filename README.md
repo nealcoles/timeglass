@@ -7,8 +7,8 @@ away (idle, locked, asleep), and shows where your day went in a local web UI.
 Everything stays on your machine: data goes into a local SQLite file, and the UI talks to a
 small HTTP API that only listens on `127.0.0.1`.
 
-> **Status:** early development. The tracking engine, storage and Windows foreground watcher
-> are in place; the tray host, the HTTP API and the real UI are still being built. See the
+> **Status:** early development. The tray app tracks and stores your day; the HTTP API and the
+> real UI are still being built, so there is nothing to look at yet. See the
 > [issues](https://github.com/sevenam/timeglass/issues) and milestones for what's next.
 > Screenshots will follow once there is a UI worth showing.
 
@@ -96,7 +96,18 @@ npm run build      # output in web/dist
 
 ## Run
 
-The tray app is not functional yet (#20). For frontend work, start the Vite dev server:
+On Windows, run the tray app:
+
+```sh
+dotnet run --project src/Timeglass.App
+```
+
+It puts an hourglass in the notification area and tracks until you choose **Quit** from its
+menu. Only one copy runs per user session; starting it again asks the running one to open the
+dashboard. To keep test data out of your real database, pass another file:
+`dotnet run --project src/Timeglass.App -- --Timeglass:DatabasePath=C:\temp\test.db`.
+
+The dashboard isn't served yet (#27, #30). For frontend work, start the Vite dev server:
 
 ```sh
 cd web

@@ -1,13 +1,81 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Timeglass.App.Tray;
+using Timeglass.Core.Ports;
+
 namespace Timeglass.App;
 
-internal static class Program
+internal static partial class Program
 {
     /// <summary>
-    /// Entry point. The tray host is implemented in #20; for now the app only initializes WinForms.
+    /// Entry point. Builds and starts the generic host, then runs the WinForms message loop for the
+    /// tray icon on this STA thread until Quit, logoff or shutdown, and finally stops the host,
+    /// which closes the open interval and writes everything to the database.
     /// </summary>
     [STAThread]
-    private static void Main()
+    private static int Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+
+        using var instance = new SingleInstance();
+        if (!instance.IsFirst)
+        {
+            instance.SignalFirst();
+            return 0;
+        }
+
+        IHost host;
+        try
+        {
+            host = TimeglassHost.CreateBuilder(args).Build();
+        }
+#pragma warning disable CA1031 // Report any startup failure to the user instead of crashing silently.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            ShowStartupError(ex);
+            return 1;
+        }
+
+        try
+        {
+            var logger = host.Services.GetRequiredService<ILogger<TrayApplicationContext>>();
+            try
+            {
+                // SystemEvents attaches to the thread that first uses it. Resolve the session source
+                // here so lock, sleep and shutdown events arrive through this thread's message loop.
+                host.Services.GetRequiredService<ISessionEventSource>();
+                host.Start();
+            }
+#pragma warning disable CA1031 // As above.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                LogStartupFailed(logger, ex);
+                ShowStartupError(ex);
+                return 1;
+            }
+
+            using var tray = ActivatorUtilities.CreateInstance<TrayApplicationContext>(host.Services);
+            instance.StartListening(tray.Activate);
+            tray.Show();
+            Application.Run(tray);
+            return 0;
+        }
+        finally
+        {
+            TimeglassHost.StopAndDispose(host);
+        }
     }
+
+    private static void ShowStartupError(Exception ex) =>
+        MessageBox.Show(
+            $"Timeglass could not start.\n\n{ex.GetBaseException().Message}",
+            "Timeglass",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Timeglass could not start")]
+    private static partial void LogStartupFailed(ILogger logger, Exception exception);
 }
