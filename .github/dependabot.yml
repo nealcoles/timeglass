@@ -33,6 +33,11 @@ updates:
       npm:
         applies-to: version-updates
         patterns: ["*"]
+        # TypeScript 7 (the Go-native compiler) can't install yet: typescript-eslint 8.x
+        # peers on typescript <6.1.0. Keeping typescript out of the group gives it its own
+        # PR that can wait for typescript-eslint without holding back every other npm
+        # update. Fold it back into the group once typescript-eslint supports 7.
+        exclude-patterns: ["typescript"]
 
   - package-ecosystem: github-actions
     directory: /
