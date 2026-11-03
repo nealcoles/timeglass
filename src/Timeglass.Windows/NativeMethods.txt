@@ -32,3 +32,6 @@ WIN32_ERROR
 // UWP apps: find the app's window inside the ApplicationFrameHost frame
 EnumChildWindows
 GetClassName
+
+// Idle detection
+GetLastInputInfo
