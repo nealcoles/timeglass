@@ -44,7 +44,7 @@ jobs:
             build-mode: none
             runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Code scanning has to be enabled in the repository settings (on a private repo
       # that needs GitHub Code Security). Until it is, the analysis still runs, but the
