@@ -1,0 +1,11 @@
+name: Timeglass CodeQL config
+
+# security-and-quality adds maintainability queries on top of the default security set.
+queries:
+  - uses: security-and-quality
+
+paths-ignore:
+  - web/dist
+  - web/coverage
+  - "**/bin"
+  - "**/obj"

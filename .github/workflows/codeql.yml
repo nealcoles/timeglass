@@ -1,0 +1,66 @@
+name: CodeQL
+
+# Static security analysis (#6). Results show up under Security → Code scanning.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 05:17 UTC, so new queries also run against code that hasn't changed.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # C# is built on Windows so Timeglass.Windows and Timeglass.App, which
+          # target net10.0-windows, are analysed with their real build.
+          - language: csharp
+            build-mode: manual
+            runs-on: windows-latest
+          - language: javascript-typescript
+            build-mode: none
+            runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        if: ${{ matrix.language == 'csharp' }}
+        with:
+          global-json-file: global.json
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Build
+        if: ${{ matrix.build-mode == 'manual' }}
+        run: dotnet build Timeglass.slnx -c Release
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
