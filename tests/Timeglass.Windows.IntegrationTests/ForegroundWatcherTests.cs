@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Timeglass.Core.Domain;
 using Timeglass.Windows.Foreground;
 
@@ -114,6 +115,8 @@ public sealed class ForegroundWatcherTests : IDisposable
         snapshot.ProcessId.ShouldBe(Environment.ProcessId);
         snapshot.ExePath.ShouldBe(Environment.ProcessPath, StringCompareShould.IgnoreCase);
         snapshot.ExeName.ShouldBe(Path.GetFileName(Environment.ProcessPath), StringCompareShould.IgnoreCase);
+        var description = FileVersionInfo.GetVersionInfo(Environment.ProcessPath!).FileDescription;
+        snapshot.FileDescription.ShouldBe(string.IsNullOrWhiteSpace(description) ? null : description.Trim());
     }
 
     [Fact(Timeout = TestTimeout)]

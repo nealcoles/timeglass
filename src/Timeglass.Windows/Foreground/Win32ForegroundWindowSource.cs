@@ -45,6 +45,7 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
     private readonly ForegroundWatcherOptions _options;
     private readonly ILogger _logger;
     private readonly ForegroundChangeDetector _detector = new();
+    private readonly WindowInspector _inspector = WindowInspector.CreateDefault();
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _started = new();
 
@@ -81,7 +82,7 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
     public event Action<WindowSnapshot?>? ForegroundChanged;
 
     /// <inheritdoc />
-    public WindowSnapshot? GetCurrent() => WindowInspector.Read(PInvoke.GetForegroundWindow());
+    public WindowSnapshot? GetCurrent() => _inspector.Read(PInvoke.GetForegroundWindow());
 
     /// <summary>Removes the hooks and stops the watcher thread.</summary>
     public void Dispose()
@@ -207,7 +208,7 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
                 return;
             }
 
-            ForegroundChanged?.Invoke(WindowInspector.Read(window));
+            ForegroundChanged?.Invoke(_inspector.Read(window));
         }
 #pragma warning disable CA1031 // An exception here would end the message loop and with it all tracking.
         catch (Exception ex)
