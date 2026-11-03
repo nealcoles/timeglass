@@ -56,7 +56,18 @@ dotnet test Timeglass.slnx -c Release --no-build
 ```
 
 The Windows integration tests bring their own windows to the front. Leave the keyboard and
-mouse alone while they run, or they may fail.
+mouse alone while they run, or they may fail. CI runs them as a separate step; to do the same:
+
+```sh
+dotnet test Timeglass.slnx -c Release --no-build --filter "Category!=WindowsIntegration"
+dotnet test Timeglass.slnx -c Release --no-build --filter "Category=WindowsIntegration"
+```
+
+A test that calls real Win32 APIs is tagged `[Trait("Category", Desktop.Category)]` and has
+`Timeout = Desktop.TestTimeout`, so a hung message loop fails that test instead of stalling the
+run. Tests that change the foreground window also join `[Collection(ForegroundCollection.Name)]`
+so they run one at a time. The UWP test opens Calculator and is skipped where it isn't
+installed (as on Windows Server images).
 
 ### .NET on Linux or macOS (portable projects)
 

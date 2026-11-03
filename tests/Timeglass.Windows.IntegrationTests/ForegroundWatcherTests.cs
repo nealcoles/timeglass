@@ -5,10 +5,10 @@ using Timeglass.Windows.Foreground;
 
 namespace Timeglass.Windows.IntegrationTests;
 
-[Trait("Category", "WindowsIntegration")]
+[Trait("Category", Desktop.Category)]
+[Collection(ForegroundCollection.Name)]
 public sealed class ForegroundWatcherTests : IDisposable
 {
-    private const int TestTimeout = 30_000;
     private static readonly TimeSpan EventTimeout = TimeSpan.FromSeconds(10);
 
     private readonly TestDesktop _desktop = new();
@@ -48,7 +48,7 @@ public sealed class ForegroundWatcherTests : IDisposable
         ?? throw new ShouldAssertException(
             $"No foreground event with title '{title}'. Seen: {string.Join(", ", _events.Select(e => e?.Title ?? "<none>"))}");
 
-    [Fact(Timeout = TestTimeout)]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public async Task Detects_a_foreground_change()
     {
         var first = _desktop.Open(UniqueTitle("first"));
@@ -60,9 +60,10 @@ public sealed class ForegroundWatcherTests : IDisposable
 
         var snapshot = await WaitForTitleAsync(second.Text);
         snapshot.ProcessId.ShouldBe(Environment.ProcessId);
+        snapshot.ExePath.ShouldBe(Environment.ProcessPath, StringCompareShould.IgnoreCase);
     }
 
-    [Fact(Timeout = TestTimeout)]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public async Task Detects_a_title_change_of_the_foreground_window()
     {
         var window = _desktop.Open(UniqueTitle("before"));
@@ -75,7 +76,7 @@ public sealed class ForegroundWatcherTests : IDisposable
         await WaitForTitleAsync(renamed);
     }
 
-    [Fact(Timeout = TestTimeout)]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public async Task Title_changes_of_background_windows_are_ignored()
     {
         var front = _desktop.Open(UniqueTitle("front"));
@@ -89,7 +90,7 @@ public sealed class ForegroundWatcherTests : IDisposable
         (await FindTitleAsync(renamed, TimeSpan.FromSeconds(1))).ShouldBeNull();
     }
 
-    [Fact(Timeout = TestTimeout)]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public async Task Polling_catches_a_change_when_hooks_are_off()
     {
         var first = _desktop.Open(UniqueTitle("first"));
@@ -102,7 +103,7 @@ public sealed class ForegroundWatcherTests : IDisposable
         await WaitForTitleAsync(second.Text);
     }
 
-    [Fact(Timeout = TestTimeout)]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public void GetCurrent_reads_the_foreground_window_of_this_process()
     {
         var window = _desktop.Open(UniqueTitle("current"));
@@ -119,7 +120,7 @@ public sealed class ForegroundWatcherTests : IDisposable
         snapshot.FileDescription.ShouldBe(string.IsNullOrWhiteSpace(description) ? null : description.Trim());
     }
 
-    [Fact(Timeout = TestTimeout)]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public async Task No_events_after_dispose()
     {
         var window = _desktop.Open(UniqueTitle("disposed"));
