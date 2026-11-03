@@ -76,6 +76,11 @@ SystemEvents ───┘                                                       
      `Win32ForegroundWindowSource` with `SetWinEventHook` (`EVENT_SYSTEM_FOREGROUND`,
      `EVENT_OBJECT_NAMECHANGE`) plus polling every 2 s to catch missed events. Each event carries
      a `WindowSnapshot` (process id, exe path and name, title, file description).
+     `ProcessResolver` fills in the process details and caches them by process id and start
+     time. UWP apps, whose windows belong to `ApplicationFrameHost.exe`, are resolved to the
+     app's own process through the frame's `CoreWindow` child. Processes the user may not query
+     (elevated or protected) get the exe name `unknown-elevated` and show up as "Elevated app"
+     instead of failing.
    - `IIdleSource`: time of the last keyboard or mouse input.
    - `ISessionEventSource`: lock, unlock, suspend, resume, shutdown.
 2. **Engine.** `TrackingService` turns those into `TrackingEvent`s (`ForegroundChanged`, `Tick`,

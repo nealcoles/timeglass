@@ -1,7 +1,7 @@
 using Timeglass.Core.Domain;
+using Timeglass.Windows.Processes;
 using Windows.Win32;
 using Windows.Win32.Foundation;
-using Windows.Win32.System.Threading;
 
 namespace Timeglass.Windows.Foreground;
 
@@ -9,13 +9,28 @@ namespace Timeglass.Windows.Foreground;
 /// Reads a <see cref="WindowSnapshot"/> for a window handle.
 /// </summary>
 /// <remarks>
-/// Basic version: process id, exe path and title. UWP apps, elevated processes, file descriptions
-/// and caching come with #16.
+/// The process behind the window is resolved by a <see cref="ProcessResolver"/> (exe path, file
+/// description, caching, elevated processes). For UWP apps hosted by <c>ApplicationFrameHost.exe</c>,
+/// the snapshot describes the app's own process, found through the frame window's children, while
+/// the title stays the frame window's.
 /// </remarks>
-internal static class WindowInspector
+internal sealed class WindowInspector
 {
     /// <summary>Titles longer than this are cut off.</summary>
     public const int MaxTitleLength = 512;
+
+    private const int MaxClassNameLength = 256;
+
+    private readonly ProcessResolver _processes;
+
+    public WindowInspector(ProcessResolver processes)
+    {
+        _processes = processes;
+    }
+
+    /// <summary>An inspector that uses the real Win32 process APIs.</summary>
+    public static WindowInspector CreateDefault() =>
+        new(new ProcessResolver(Win32ProcessOpener.Instance, Win32ProcessOpener.ReadFileDescription));
 
     /// <summary>Reads the title of a window, or null if it has none.</summary>
     public static string? ReadTitle(HWND window)
@@ -26,44 +41,65 @@ internal static class WindowInspector
     }
 
     /// <summary>Reads a snapshot, or returns null for a null handle.</summary>
-    public static WindowSnapshot? Read(HWND window)
+    public WindowSnapshot? Read(HWND window)
     {
         if (window.IsNull)
         {
             return null;
         }
 
-        uint processId;
-        unsafe
+        var processId = ProcessIdOf(window);
+        var process = _processes.Resolve(processId);
+
+        if (UwpAppLocator.IsFrameHost(process.ExeName)
+            && UwpAppLocator.PickAppProcess(processId, ChildrenOf(window)) is { } appProcessId)
         {
-            _ = PInvoke.GetWindowThreadProcessId(window, &processId);
+            var app = _processes.Resolve(appProcessId);
+            if (!string.IsNullOrEmpty(app.ExeName))
+            {
+                processId = appProcessId;
+                process = app;
+            }
         }
 
-        var exePath = ReadExePath(processId) ?? string.Empty;
         return new WindowSnapshot(
             ProcessId: (int)processId,
-            ExePath: exePath,
-            ExeName: Path.GetFileName(exePath),
-            Title: ReadTitle(window));
+            ExePath: process.ExePath,
+            ExeName: process.ExeName,
+            Title: ReadTitle(window),
+            FileDescription: process.FileDescription);
     }
 
-    private static string? ReadExePath(uint processId)
+    private static unsafe uint ProcessIdOf(HWND window)
     {
-        if (processId == 0)
+        uint processId;
+        _ = PInvoke.GetWindowThreadProcessId(window, &processId);
+        return processId;
+    }
+
+    private static List<ChildWindow> ChildrenOf(HWND window)
+    {
+        var children = new List<ChildWindow>();
+        PInvoke.EnumChildWindows(window, (child, _) =>
         {
-            return null;
+            children.Add(new ChildWindow(ProcessIdOf(child), ReadClassName(child)));
+            return true;
+        }, default);
+        return children;
+    }
+
+    private static string? ReadClassName(HWND window)
+    {
+        Span<char> buffer = stackalloc char[MaxClassNameLength];
+        int length;
+        unsafe
+        {
+            fixed (char* chars = buffer)
+            {
+                length = PInvoke.GetClassName(window, chars, buffer.Length);
+            }
         }
 
-        using var process = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
-        if (process.IsInvalid)
-        {
-            return null;
-        }
-
-        Span<char> buffer = stackalloc char[1024];
-        var size = (uint)buffer.Length;
-        return PInvoke.QueryFullProcessImageName(process, PROCESS_NAME_FORMAT.PROCESS_NAME_WIN32, buffer, ref size)
-            ? new string(buffer[..(int)size])
-            : null;
+        return length > 0 ? new string(buffer[..length]) : null;
     }
 }
