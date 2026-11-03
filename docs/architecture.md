@@ -32,7 +32,7 @@ Parts marked _(planned)_ don't exist yet; the issue number says where they are b
 | `Timeglass.Core`    | `net10.0`         | Domain records, ports (interfaces), the tracking engine and service, app identity resolution. |
 | `Timeglass.Storage` | `net10.0`         | SQLite database, migrations, `IntervalRepository` (implements `IIntervalSink`).               |
 | `Timeglass.Api`     | `net10.0`         | Local HTTP API for the UI _(planned, #27)_.                                                   |
-| `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events _(#18)_. |
+| `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events.        |
 | `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: tray icon, single instance, wiring _(planned, #20)_.                         |
 | `web/`              | Node / browser    | React + TypeScript UI, built with Vite and served by the app _(planned, #30)_.                |
 
@@ -82,7 +82,10 @@ SystemEvents ───┘                                                       
      (elevated or protected) get the exe name `unknown-elevated` and show up as "Elevated app"
      instead of failing.
    - `IIdleSource`: time of the last keyboard or mouse input.
-   - `ISessionEventSource`: lock, unlock, suspend, resume, shutdown.
+   - `ISessionEventSource`: lock, unlock, suspend, resume, shutdown. `Win32SessionEventSource`
+     listens to `SystemEvents`: a remote or console disconnect counts as a lock and a reconnect
+     as an unlock; logoff and shutdown (`SessionEnding`) become `ShuttingDown`. It must be
+     disposed, since the static `SystemEvents` otherwise keeps its handlers alive.
 2. **Engine.** `TrackingService` turns those into `TrackingEvent`s (`ForegroundChanged`, `Tick`,
    `SessionChanged`, `TrackingStarted`, `TrackingStopped`) and feeds them to `TrackingEngine`,
    a pure state machine with no clock, I/O or locks. The engine:
