@@ -3,10 +3,10 @@ using Timeglass.Windows.Idle;
 
 namespace Timeglass.Windows.IntegrationTests.Idle;
 
-[Trait("Category", "WindowsIntegration")]
+[Trait("Category", Desktop.Category)]
 public class Win32IdleSourceTests
 {
-    [Fact]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public void Idle_time_is_between_zero_and_uptime()
     {
         var idle = Win32IdleSource.GetIdleMilliseconds();
@@ -16,7 +16,7 @@ public class Win32IdleSourceTests
         idle.ShouldBeLessThanOrEqualTo(uptime);
     }
 
-    [Fact]
+    [Fact(Timeout = Desktop.TestTimeout)]
     public void Last_input_is_not_in_the_future_and_not_before_boot()
     {
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 3, 12, 0, 0, TimeSpan.Zero));

@@ -114,8 +114,8 @@ public class Win32SessionEventSourceTests
         Should.NotThrow(() => _hub.Power(PowerModes.Suspend));
     }
 
-    [Fact]
-    [Trait("Category", "WindowsIntegration")]
+    [Fact(Timeout = Desktop.TestTimeout)]
+    [Trait("Category", Desktop.Category)]
     public void Subscribes_to_and_unsubscribes_from_the_real_system_events()
     {
         // Can't lock or suspend the CI machine; this checks that SystemEvents accepts the handlers.
