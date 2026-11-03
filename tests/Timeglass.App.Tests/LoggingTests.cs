@@ -129,7 +129,7 @@ public sealed class LoggingTests : IDisposable
 
     [Fact]
     public void None_writes_nothing() =>
-        FileLogging.ToSerilog(LogLevel.None).ShouldBeGreaterThan(LogEventLevel.Fatal);
+        ((int)FileLogging.ToSerilog(LogLevel.None)).ShouldBeGreaterThan((int)LogEventLevel.Fatal);
 
     [Fact]
     public void The_log_folder_defaults_to_local_app_data()
