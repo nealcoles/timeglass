@@ -25,7 +25,7 @@ jobs:
     name: .NET (Linux, portable projects)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -92,7 +92,7 @@ jobs:
           && github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name == github.repository
           && github.actor != 'dependabot[bot]' }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -120,7 +120,7 @@ jobs:
     name: .NET (Windows, full solution)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -161,9 +161,9 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: web/.nvmrc
           cache: npm
