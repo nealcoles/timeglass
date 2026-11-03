@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-      security-events: write
+      security-events: write # also grants read, used by the code scanning check
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +45,23 @@ jobs:
             runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      # Code scanning has to be enabled in the repository settings (on a private repo
+      # that needs GitHub Code Security). Until it is, the analysis still runs, but the
+      # results are kept as a SARIF artifact instead of failing at the upload.
+      - name: Check that code scanning is enabled
+        id: scanning
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if out=$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?per_page=1" 2>&1) \
+             || ! grep -q "Code scanning is not enabled" <<<"$out"; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Code scanning is off::Code scanning is not enabled for this repository, so results are uploaded as the codeql-sarif-${{ matrix.language }} artifact only. Enable it under Settings → Code security."
+          fi
 
       - uses: actions/setup-dotnet@v5
         if: ${{ matrix.language == 'csharp' }}
@@ -64,3 +81,13 @@ jobs:
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
+          upload: ${{ steps.scanning.outputs.enabled == 'true' && 'always' || 'never' }}
+          output: sarif-results
+
+      - name: Upload SARIF
+        if: ${{ steps.scanning.outputs.enabled != 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-sarif-${{ matrix.language }}
+          path: sarif-results
+          if-no-files-found: error
