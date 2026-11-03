@@ -1,0 +1,49 @@
+# Dependency updates (#6). One grouped PR per ecosystem per week keeps the noise down.
+# Security updates are not grouped, so each one arrives as its own PR as soon as an
+# advisory is published (needs Dependabot alerts and security updates enabled in the
+# repository settings).
+version: 2
+
+updates:
+  # Directory.Packages.props (central package management) and dotnet-tools.json.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [area:ci]
+    commit-message:
+      prefix: deps
+    groups:
+      nuget:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [area:web]
+    commit-message:
+      prefix: deps
+    groups:
+      npm:
+        applies-to: version-updates
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [area:ci]
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        applies-to: version-updates
+        patterns: ["*"]
