@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Timeglass.Core.Apps;
 using Timeglass.Core.Domain;
@@ -16,6 +17,7 @@ public class TrackingServiceTests
     private readonly FakeForegroundWindowSource _foreground = new() { Current = Outlook() };
     private readonly FakeSessionEventSource _sessions = new();
     private readonly RecordingIntervalSink _sink = new();
+    private readonly RecordingLogger<TrackingService> _log = new();
 
     private TrackingService CreateService() =>
         new(
@@ -24,7 +26,8 @@ public class TrackingServiceTests
             new FakeIdleSource(_time),
             _sessions,
             _sink,
-            _time);
+            _time,
+            _log);
 
     /// <summary>Advances fake time one second at a time so ticks fire and get processed.</summary>
     private async Task AdvanceAsync(TimeSpan by)
@@ -168,5 +171,30 @@ public class TrackingServiceTests
 
         run.IsCompletedSuccessfully.ShouldBeTrue();
         _sink.Intervals.ShouldContain(i => i.App!.Key == "code" && !i.IsOpen);
+    }
+
+    [Fact]
+    public async Task Interval_changes_are_logged_at_debug_without_window_titles()
+    {
+        using var cts = new CancellationTokenSource();
+        var run = CreateService().RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+
+        await AdvanceAsync(TimeSpan.FromSeconds(16));
+        _foreground.SwitchTo(Code());
+        await AdvanceAsync(TimeSpan.FromSeconds(5));
+
+        await cts.CancelAsync();
+        await run;
+
+        var entries = _log.Entries;
+        entries.ShouldContain(e => e.Level == LogLevel.Debug && e.Message.Contains("Opened", StringComparison.Ordinal) && e.Message.Contains("olk", StringComparison.Ordinal));
+        entries.ShouldContain(e => e.Level == LogLevel.Debug && e.Message.Contains("Closed", StringComparison.Ordinal) && e.Message.Contains("olk", StringComparison.Ordinal));
+        entries.ShouldContain(e => e.Level == LogLevel.Debug && e.Message.Contains("Opened", StringComparison.Ordinal) && e.Message.Contains("code", StringComparison.Ordinal));
+        entries.ShouldContain(e => e.Level == LogLevel.Trace && e.Message.Contains("checkpoint", StringComparison.Ordinal));
+
+        // Titles are private: not in the log at any level.
+        string[] titles = [Outlook().Title!, Code().Title!];
+        entries.ShouldAllBe(e => !titles.Any(t => e.Message.Contains(t, StringComparison.Ordinal)));
     }
 }

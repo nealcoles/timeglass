@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Timeglass.App.Logging;
 using Timeglass.Core.Apps;
 using Timeglass.Core.Ports;
 using Timeglass.Core.Tracking;
@@ -38,6 +39,7 @@ internal static partial class TimeglassHost
 
         // There is no console; the tray menu and session events end the app.
         builder.Services.Configure<ConsoleLifetimeOptions>(o => o.SuppressStatusMessages = true);
+        builder.Logging.AddTimeglassLogging();
 
         AddTimeglass(builder.Services);
         return builder;
@@ -76,6 +78,8 @@ internal static partial class TimeglassHost
         services.AddHostedService(sp => sp.GetRequiredService<TrackingController>());
         services.AddSingleton<TodayActiveTime>();
         services.AddSingleton<DashboardLauncher>();
+        services.AddSingleton<LogFolder>();
+        services.AddSingleton<CrashHandler>();
 
         return services;
     }

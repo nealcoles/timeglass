@@ -20,6 +20,10 @@
   <ItemGroup>
     <!-- Generic host: DI, configuration, logging and lifetime. -->
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- Rolling log files behind Microsoft.Extensions.Logging (#21). -->
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
   <ItemGroup>

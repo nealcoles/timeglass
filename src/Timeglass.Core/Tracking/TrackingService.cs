@@ -12,9 +12,10 @@ namespace Timeglass.Core.Tracking;
 /// </summary>
 /// <remarks>
 /// Ports may raise events on any thread. Everything after the channel runs sequentially,
-/// so the engine needs no locking.
+/// so the engine needs no locking. Interval changes are logged at Debug (checkpoints at Trace)
+/// with the app and kind only: window titles are private and never logged.
 /// </remarks>
-public sealed class TrackingService
+public sealed partial class TrackingService
 {
     private readonly TrackingEngine _engine;
     private readonly IForegroundWindowSource _foreground;
@@ -128,6 +129,7 @@ public sealed class TrackingService
             var changes = _engine.Handle(queued.Event);
             if (changes.Count > 0)
             {
+                LogChanges(changes);
                 await StoreAsync(changes).ConfigureAwait(false);
             }
 
@@ -169,6 +171,29 @@ public sealed class TrackingService
             _logger.LogError(ex, "Failed to flush interval changes");
         }
     }
+
+    private void LogChanges(IReadOnlyList<IntervalChange> changes)
+    {
+        foreach (var (kind, interval) in changes)
+        {
+            var app = interval.App?.Key ?? "-";
+            if (kind == IntervalChangeKind.Updated)
+            {
+                LogCheckpoint(_logger, interval.Kind, app, interval.End);
+            }
+            else
+            {
+                LogIntervalChanged(_logger, kind, interval.Kind, app, kind == IntervalChangeKind.Opened ? interval.Start : interval.End);
+            }
+        }
+    }
+
+    // Never add the window title to these: logs get attached to bug reports.
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Interval {Change}: {Kind} {App} at {At:O}")]
+    private static partial void LogIntervalChanged(ILogger logger, IntervalChangeKind change, IntervalKind kind, string app, DateTimeOffset at);
+
+    [LoggerMessage(Level = LogLevel.Trace, Message = "Interval checkpoint: {Kind} {App} until {End:O}")]
+    private static partial void LogCheckpoint(ILogger logger, IntervalKind kind, string app, DateTimeOffset end);
 
     /// <summary>An event waiting for the reader, with an optional signal for when it has been stored.</summary>
     private sealed record Queued(TrackingEvent Event, TaskCompletionSource? Done = null);

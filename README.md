@@ -119,14 +119,19 @@ another port. Until the API exists, the page shows the tracker as offline.
 
 ## Where data is stored
 
-| What     | Where                                            |
-| -------- | ------------------------------------------------ |
-| Database | `%LOCALAPPDATA%\Timeglass\timeglass.db` (SQLite) |
+| What      | Where                                                  |
+| --------- | ------------------------------------------------------ |
+| Database  | `%LOCALAPPDATA%\Timeglass\timeglass.db` (SQLite)       |
+| Log files | `%LOCALAPPDATA%\Timeglass\logs\timeglass-YYYYMMDD.log` |
 
 The database uses WAL mode, so you will also see `timeglass.db-wal` and `timeglass.db-shm`
 next to it while the app runs. Timestamps are stored as UTC Unix milliseconds. To start over,
-quit the app and delete the folder. Settings (#22) and log files (#21) will live in the same
-folder once they exist.
+quit the app and delete the folder. Settings (#22) will live in the same folder once they exist.
+
+Log files roll over daily (and past 10 MB) and are deleted after seven days. The tray menu's
+_Open log folder_ opens them. The level is `Information` by default; start with
+`--Timeglass:LogLevel=Debug` to also log tracking state changes. Window titles are never
+written to the log.
 
 ## Documentation
 
