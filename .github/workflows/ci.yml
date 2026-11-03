@@ -45,7 +45,7 @@ jobs:
         run: >
           dotnet test Timeglass.Portable.slnx -c Release --no-build
           --logger "trx" --results-directory TestResults
-          --collect "XPlat Code Coverage"
+          --collect "XPlat Code Coverage" --settings coverage.runsettings
 
       - name: Test report
         if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
@@ -62,6 +62,59 @@ jobs:
         with:
           name: test-results-linux
           path: TestResults
+
+      # Coverage (#5): merge the per-project Cobertura files, show them on the job
+      # summary and the PR, and fail when an assembly drops below its threshold.
+      # Timeglass.Windows and Timeglass.App are not in the portable solution and
+      # have no threshold: they are thin adapters covered by integration tests.
+      - name: Merge coverage
+        id: coverage
+        if: ${{ !cancelled() && steps.test.outcome == 'success' }}
+        run: |
+          dotnet tool restore
+          dotnet reportgenerator \
+            "-reports:TestResults/**/coverage.cobertura.xml" \
+            "-targetdir:coverage" \
+            "-reporttypes:Cobertura;MarkdownSummaryGithub;Html"
+          cat coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() && steps.coverage.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-dotnet
+          path: coverage
+
+      - name: Comment coverage on PR
+        # Fork and Dependabot PRs get a read-only token, so they only get the job summary.
+        if: >-
+          ${{ !cancelled() && steps.coverage.outcome == 'success'
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- timeglass-coverage-dotnet -->';
+            const body = `${marker}\n${fs.readFileSync('coverage/SummaryGithub.md', 'utf8')}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.user.type === 'Bot' && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Check coverage thresholds
+        if: ${{ !cancelled() && steps.coverage.outcome == 'success' }}
+        run: >
+          python3 build/check-coverage.py coverage/Cobertura.xml
+          Timeglass.Core=90
+          Timeglass.Storage=80
+          Timeglass.Api=80
 
   dotnet-windows:
     name: .NET (Windows, full solution)
@@ -128,8 +181,14 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Fails when line coverage of web/src drops below the threshold in vite.config.ts (#5).
       - name: Test
+        id: test
         run: npm run test:coverage
+
+      - name: Coverage summary
+        if: ${{ !cancelled() && steps.test.outcome != 'skipped' && hashFiles('web/coverage/coverage-summary.json') != '' }}
+        run: node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build
         run: npm run build
