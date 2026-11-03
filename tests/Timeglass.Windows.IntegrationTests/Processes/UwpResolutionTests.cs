@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Timeglass.Core.Domain;
 using Timeglass.Windows.Foreground;
-using Timeglass.Windows.Processes;
 using Windows.Management.Deployment;
 using Windows.Win32.Foundation;
 
