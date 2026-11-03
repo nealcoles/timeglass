@@ -33,7 +33,7 @@ Parts marked _(planned)_ don't exist yet; the issue number says where they are b
 | `Timeglass.Storage` | `net10.0`         | SQLite database, migrations, `IntervalRepository` (implements `IIntervalSink`).               |
 | `Timeglass.Api`     | `net10.0`         | Local HTTP API for the UI _(planned, #27)_.                                                   |
 | `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events.        |
-| `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: tray icon, single instance, wiring _(planned, #20)_.                         |
+| `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: generic host, composition root, tray icon, single instance.                  |
 | `web/`              | Node / browser    | React + TypeScript UI, built with Vite and served by the app _(planned, #30)_.                |
 
 The rule:
@@ -128,6 +128,33 @@ days (including DST) is a reporting concern (#25).
 
 To change the schema, add the next numbered `.sql` file. Never edit a script that has shipped.
 
+## The host
+
+`Timeglass.App` builds a generic host (`Microsoft.Extensions.Hosting`) for dependency injection,
+configuration, logging and lifetime. `TimeglassHost.AddTimeglass` is the composition root, the
+only code that knows every project. The container validates the whole graph when it is built,
+so a missing registration fails at startup and in `Timeglass.App.Tests`.
+
+Startup, in `Program.Main` on the STA main thread:
+
+1. **Single instance.** A named mutex in the session's `Local\` namespace. If another instance
+   holds it, this launch sends `activate` over a named pipe (current user only, named per
+   session) and exits; the running instance opens the dashboard.
+2. **Host start.** Resolving the services opens the database (migrations, crash recovery) and
+   creates the Windows sources. The session source is resolved on the main thread first, so
+   `SystemEvents` delivers its events through the tray's message loop. `TrackingController`, a
+   hosted service, starts the `TrackingService` run.
+3. **Tray.** `TrayApplicationContext` shows a `NotifyIcon` with _Open dashboard_,
+   _Pause tracking_, _Settings_ (#22) and _Quit_, and `Application.Run` pumps messages until
+   Quit or the host stops. The tooltip shows today's active time, refreshed every 30 s.
+4. **Shutdown.** After the message loop ends, the host is stopped and disposed off the UI
+   thread: tracking closes the open interval and flushes, and the repository drains its queue.
+   On logoff or shutdown the same flush already happened in the `ShuttingDown` handler, since
+   Windows may end the process before the message loop returns.
+
+Pausing ends the current tracking run the same way (close and flush); resuming starts a new one.
+The embedded API (#27) will be another hosted service.
+
 ## Threading model
 
 ```text
@@ -162,6 +189,7 @@ To change the schema, add the next numbered `.sql` file. Never edit a script tha
 | SQLite           | `Timeglass.Storage.Tests` (real temp files)         | Linux, Windows |
 | API              | `Timeglass.Api.Tests`                               | Linux, Windows |
 | Win32 adapters   | `Timeglass.Windows.IntegrationTests` (real windows) | Windows only   |
+| Host and wiring  | `Timeglass.App.Tests` (DI graph, single instance)   | Windows only   |
 | Frontend         | `web/src/**/*.test.tsx` (Vitest, MSW)               | Linux          |
 
 Shared fakes for the ports live in `tests/Timeglass.Testing`. Coverage thresholds:
