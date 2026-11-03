@@ -32,7 +32,7 @@ Parts marked _(planned)_ don't exist yet; the issue number says where they are b
 | `Timeglass.Core`    | `net10.0`         | Domain records, ports (interfaces), the tracking engine and service, app identity resolution. |
 | `Timeglass.Storage` | `net10.0`         | SQLite database, migrations, `IntervalRepository` (implements `IIntervalSink`).               |
 | `Timeglass.Api`     | `net10.0`         | Local HTTP API for the UI _(planned, #27)_.                                                   |
-| `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle _(#17)_, session events _(#18)_. |
+| `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events _(#18)_. |
 | `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: tray icon, single instance, wiring _(planned, #20)_.                         |
 | `web/`              | Node / browser    | React + TypeScript UI, built with Vite and served by the app _(planned, #30)_.                |
 
