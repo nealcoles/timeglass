@@ -1,7 +1,9 @@
+using System.Security;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Timeglass.App.Logging;
+using Timeglass.Windows.Autostart;
 
 namespace Timeglass.App.Tray;
 
@@ -19,6 +21,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly TodayActiveTime _today;
     private readonly DashboardLauncher _dashboard;
     private readonly LogFolder _logFolder;
+    private readonly AutostartRegistration _autostart;
     private readonly ILogger _logger;
     private readonly SynchronizationContext _ui;
     private readonly CancellationTokenRegistration _stopping;
@@ -28,6 +31,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _openDashboard = new("&Open dashboard");
     private readonly ToolStripMenuItem _pause = new("&Pause tracking");
+    private readonly ToolStripMenuItem _startWithWindows = new("Start with &Windows");
     private readonly ToolStripMenuItem _settings = new("&Settings (coming soon)") { Enabled = false };
     private readonly ToolStripMenuItem _openLogFolder = new("Open &log folder");
     private readonly ToolStripMenuItem _quit = new("&Quit");
@@ -42,6 +46,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         TodayActiveTime today,
         DashboardLauncher dashboard,
         LogFolder logFolder,
+        AutostartRegistration autostart,
         IOptions<TimeglassOptions> options,
         IHostApplicationLifetime lifetime,
         ILogger<TrayApplicationContext> logger)
@@ -50,15 +55,21 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         _today = today;
         _dashboard = dashboard;
         _logFolder = logFolder;
+        _autostart = autostart;
         _logger = logger;
 
         _openDashboard.Font = new Font(_openDashboard.Font, FontStyle.Bold);
         _openDashboard.Click += (_, _) => OpenDashboard();
         _pause.Click += OnPauseClicked;
+        _startWithWindows.Click += (_, _) => ToggleAutostart();
         _openLogFolder.Click += (_, _) => OpenLogFolder();
         _quit.Click += (_, _) => ExitThread();
-        _menu.Items.AddRange([_openDashboard, _pause, _settings, _openLogFolder, new ToolStripSeparator(), _quit]);
-        _menu.Opening += (_, _) => RefreshTooltip();
+        _menu.Items.AddRange([_openDashboard, _pause, _startWithWindows, _settings, _openLogFolder, new ToolStripSeparator(), _quit]);
+        _menu.Opening += (_, _) =>
+        {
+            RefreshAutostart();
+            RefreshTooltip();
+        };
 
         // Creating the menu installed the WinForms synchronization context on this thread.
         _ui = SynchronizationContext.Current
@@ -74,6 +85,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         _stopping = lifetime.ApplicationStopping.Register(() => Post(ExitThread));
 
         UpdateState();
+        RefreshAutostart();
     }
 
     /// <summary>Puts the icon in the tray and starts refreshing the tooltip.</summary>
@@ -152,6 +164,39 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         }
     }
 
+    /// <summary>Shows the registry's state, so a change made in Task Manager is not overwritten.</summary>
+    private void RefreshAutostart()
+    {
+        try
+        {
+            _startWithWindows.Checked = _autostart.IsEnabled;
+            _startWithWindows.Enabled = true;
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            LogAutostartFailed(_logger, ex);
+            _startWithWindows.Checked = false;
+            _startWithWindows.Enabled = false;
+        }
+    }
+
+    private void ToggleAutostart()
+    {
+        try
+        {
+            var enable = !_autostart.IsEnabled;
+            _autostart.SetEnabled(enable);
+            LogAutostartChanged(_logger, enable, _autostart.ExecutablePath);
+        }
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
+        {
+            LogAutostartFailed(_logger, ex);
+            _icon.ShowBalloonTip(5000, "Timeglass", "Could not change whether Timeglass starts with Windows.", ToolTipIcon.Warning);
+        }
+
+        RefreshAutostart();
+    }
+
     private async void OnPauseClicked(object? sender, EventArgs e)
     {
         _pause.Enabled = false;
@@ -216,6 +261,12 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not pause or resume tracking")]
     private static partial void LogPauseFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Start with Windows changed (enabled: {Enabled}) for {Path}")]
+    private static partial void LogAutostartChanged(ILogger logger, bool enabled, string path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read or change the autostart registration")]
+    private static partial void LogAutostartFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read today's active time")]
     private static partial void LogRefreshFailed(ILogger logger, Exception exception);
