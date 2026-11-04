@@ -145,8 +145,9 @@ Startup, in `Program.Main` on the STA main thread:
    `SystemEvents` delivers its events through the tray's message loop. `TrackingController`, a
    hosted service, starts the `TrackingService` run.
 3. **Tray.** `TrayApplicationContext` shows a `NotifyIcon` with _Open dashboard_,
-   _Pause tracking_, _Settings_ (#22) and _Quit_, and `Application.Run` pumps messages until
-   Quit or the host stops. The tooltip shows today's active time, refreshed every 30 s.
+   _Pause tracking_, _Settings_ (#22), _Open log folder_ and _Quit_, and `Application.Run`
+   pumps messages until Quit or the host stops. The tooltip shows today's active time,
+   refreshed every 30 s.
 4. **Shutdown.** After the message loop ends, the host is stopped and disposed off the UI
    thread: tracking closes the open interval and flushes, and the repository drains its queue.
    On logoff or shutdown the same flush already happened in the `ShuttingDown` handler, since
@@ -154,6 +155,25 @@ Startup, in `Program.Main` on the STA main thread:
 
 Pausing ends the current tracking run the same way (close and flush); resuming starts a new one.
 The embedded API (#27) will be another hosted service.
+
+### Logging and crashes
+
+Code logs through `Microsoft.Extensions.Logging` only. The host replaces the default providers
+with a rolling file (Serilog's file sink, in `%LOCALAPPDATA%\Timeglass\logs`, daily files kept
+seven days) and the debugger output. `TimeglassOptions.LogLevel` sets the file's level through
+a level switch, so a configuration reload changes it without a restart. Framework categories
+(`Microsoft.*`, `System.*`) are kept at Warning.
+
+Levels: tracking state changes (interval opened or closed, with app and kind) at Debug,
+checkpoints at Trace, recoverable failures at Warning or Error. **Window titles are never
+logged**, at any level: log files end up attached to bug reports.
+
+`CrashHandler` catches what nothing else did. A UI thread exception (`Application.ThreadException`)
+is logged as Critical and the app quits the normal way, so the open interval is closed and
+stored. An unobserved task exception is logged and marked observed. An exception on another
+thread (`AppDomain.UnhandledException`) is logged, but the process ends regardless; the next
+start closes the interval it left open. The file is written through on every entry, so the
+last entry survives the crash.
 
 ## Threading model
 

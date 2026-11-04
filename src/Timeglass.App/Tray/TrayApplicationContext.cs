@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Timeglass.App.Logging;
 
 namespace Timeglass.App.Tray;
 
@@ -17,6 +18,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly TrackingController _tracking;
     private readonly TodayActiveTime _today;
     private readonly DashboardLauncher _dashboard;
+    private readonly LogFolder _logFolder;
     private readonly ILogger _logger;
     private readonly SynchronizationContext _ui;
     private readonly CancellationTokenRegistration _stopping;
@@ -27,6 +29,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _openDashboard = new("&Open dashboard");
     private readonly ToolStripMenuItem _pause = new("&Pause tracking");
     private readonly ToolStripMenuItem _settings = new("&Settings (coming soon)") { Enabled = false };
+    private readonly ToolStripMenuItem _openLogFolder = new("Open &log folder");
     private readonly ToolStripMenuItem _quit = new("&Quit");
     private readonly NotifyIcon _icon;
     private readonly System.Windows.Forms.Timer _refresh = new();
@@ -38,6 +41,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         TrackingController tracking,
         TodayActiveTime today,
         DashboardLauncher dashboard,
+        LogFolder logFolder,
         IOptions<TimeglassOptions> options,
         IHostApplicationLifetime lifetime,
         ILogger<TrayApplicationContext> logger)
@@ -45,13 +49,15 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         _tracking = tracking;
         _today = today;
         _dashboard = dashboard;
+        _logFolder = logFolder;
         _logger = logger;
 
         _openDashboard.Font = new Font(_openDashboard.Font, FontStyle.Bold);
         _openDashboard.Click += (_, _) => OpenDashboard();
         _pause.Click += OnPauseClicked;
+        _openLogFolder.Click += (_, _) => OpenLogFolder();
         _quit.Click += (_, _) => ExitThread();
-        _menu.Items.AddRange([_openDashboard, _pause, _settings, new ToolStripSeparator(), _quit]);
+        _menu.Items.AddRange([_openDashboard, _pause, _settings, _openLogFolder, new ToolStripSeparator(), _quit]);
         _menu.Opening += (_, _) => RefreshTooltip();
 
         // Creating the menu installed the WinForms synchronization context on this thread.
@@ -135,6 +141,14 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
                     ? "The dashboard isn't available yet. Timeglass is tracking in the background."
                     : "Could not open the dashboard in your browser.",
                 ToolTipIcon.Info);
+        }
+    }
+
+    private void OpenLogFolder()
+    {
+        if (!_logFolder.TryOpen())
+        {
+            _icon.ShowBalloonTip(5000, "Timeglass", "Could not open the log folder.", ToolTipIcon.Warning);
         }
     }
 

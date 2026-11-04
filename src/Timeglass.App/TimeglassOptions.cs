@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Timeglass.App.Logging;
 using Timeglass.Storage;
 
 namespace Timeglass.App;
@@ -22,4 +24,13 @@ internal sealed class TimeglassOptions
 
     /// <summary>How often the tray tooltip refreshes today's active time.</summary>
     public TimeSpan TooltipRefreshInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Lowest level written to the log file. Changes apply without a restart when the
+    /// configuration reloads. <c>Debug</c> adds tracking state changes (never window titles).
+    /// </summary>
+    public LogLevel LogLevel { get; set; } = LogLevel.Information;
+
+    /// <summary>Folder for the log files. Defaults to <see cref="LogFolder.DefaultPath"/>.</summary>
+    public string? LogDirectory { get; set; }
 }

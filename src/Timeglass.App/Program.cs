@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Timeglass.App.Logging;
 using Timeglass.App.Tray;
 using Timeglass.Core.Ports;
 
@@ -13,9 +14,13 @@ internal static partial class Program
     /// tray icon on this STA thread until Quit, logoff or shutdown, and finally stops the host,
     /// which closes the open interval and writes everything to the database.
     /// </summary>
+    /// <returns>0 on a normal exit, 1 if startup failed or an unhandled exception ended the app.</returns>
     [STAThread]
     private static int Main(string[] args)
     {
+        // Route UI thread exceptions to Application.ThreadException (CrashHandler) instead of
+        // the WinForms error dialog. Must happen before any control is created.
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         ApplicationConfiguration.Initialize();
 
         using var instance = new SingleInstance();
@@ -41,6 +46,8 @@ internal static partial class Program
         try
         {
             var logger = host.Services.GetRequiredService<ILogger<TrayApplicationContext>>();
+            var crashes = host.Services.GetRequiredService<CrashHandler>();
+            crashes.Install();
             try
             {
                 // SystemEvents attaches to the thread that first uses it. Resolve the session source
@@ -61,7 +68,7 @@ internal static partial class Program
             instance.StartListening(tray.Activate);
             tray.Show();
             Application.Run(tray);
-            return 0;
+            return crashes.HasCrashed ? 1 : 0;
         }
         finally
         {
