@@ -1,12 +1,16 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Timeglass.App.Logging;
+using Timeglass.App.Settings;
 using Timeglass.Core.Apps;
 using Timeglass.Core.Ports;
+using Timeglass.Core.Settings;
 using Timeglass.Core.Tracking;
 using Timeglass.Storage;
+using Timeglass.Storage.Settings;
 using Timeglass.Windows.Foreground;
 using Timeglass.Windows.Idle;
 using Timeglass.Windows.Sessions;
@@ -51,19 +55,40 @@ internal static partial class TimeglassHost
         services.AddOptions<TimeglassOptions>().BindConfiguration(TimeglassOptions.Section);
         services.AddSingleton(TimeProvider.System);
 
+        // The user's settings.json, watched for changes.
+        services.AddSingleton(sp => SettingsConfiguration.Open(
+            sp.GetRequiredService<IOptions<TimeglassOptions>>().Value.SettingsPath ?? SettingsFile.DefaultPath));
+        AddTimeglassSettings(services);
+
         // Storage. Opening the database applies migrations and closes intervals left open by a crash.
         services.AddSingleton(OpenDatabase);
         services.AddSingleton<IntervalRepository>();
         services.AddSingleton<IIntervalSink>(sp => sp.GetRequiredService<IntervalRepository>());
 
-        // Engine. Settings (#22) will replace these defaults.
-        services.AddSingleton(AppAliasTable.BuiltIn);
-        services.AddSingleton<IAppIdentityResolver, AliasAppIdentityResolver>();
-        services.AddSingleton(TrackingOptions.Default);
+        // Engine, configured from the settings. The service reads the current options before
+        // every event; the resolver gets a new alias table whenever the settings change.
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<LiveSettings>();
+            var resolver = new AliasAppIdentityResolver(settings.Current.Aliases);
+            settings.Changed += s => resolver.Table = s.Aliases;
+            return resolver;
+        });
+        services.AddSingleton<IAppIdentityResolver>(sp => sp.GetRequiredService<AliasAppIdentityResolver>());
         services.AddSingleton(sp => new TrackingEngine(
             sp.GetRequiredService<IAppIdentityResolver>(),
-            sp.GetRequiredService<TrackingOptions>()));
-        services.AddSingleton<TrackingService>();
+            sp.GetRequiredService<LiveSettings>().GetTrackingOptions()));
+        services.AddSingleton(sp => new TrackingService(
+            sp.GetRequiredService<TrackingEngine>(),
+            sp.GetRequiredService<IForegroundWindowSource>(),
+            sp.GetRequiredService<IIdleSource>(),
+            sp.GetRequiredService<ISessionEventSource>(),
+            sp.GetRequiredService<IIntervalSink>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<TrackingService>>())
+        {
+            CurrentOptions = sp.GetRequiredService<LiveSettings>().GetTrackingOptions,
+        });
 
         // Windows sources.
         services.AddSingleton(new ForegroundWatcherOptions());
@@ -80,6 +105,30 @@ internal static partial class TimeglassHost
         services.AddSingleton<DashboardLauncher>();
         services.AddSingleton<LogFolder>();
         services.AddSingleton<CrashHandler>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Binds <see cref="TimeglassSettings"/> to the registered <see cref="SettingsConfiguration"/>,
+    /// validated with data annotations when the host starts and on every reload, and registers
+    /// <see cref="LiveSettings"/>, which is what the app reads.
+    /// </summary>
+    public static IServiceCollection AddTimeglassSettings(IServiceCollection services)
+    {
+        services.AddOptions<TimeglassSettings>()
+            .Configure<SettingsConfiguration>((settings, source) => source.Configuration.Bind(settings))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Makes IOptionsMonitor<TimeglassSettings> and LiveSettings see edits to the file.
+        services.AddSingleton<IOptionsChangeTokenSource<TimeglassSettings>>(sp =>
+            new ConfigurationChangeTokenSource<TimeglassSettings>(sp.GetRequiredService<SettingsConfiguration>().Configuration));
+
+        services.AddSingleton(sp => new LiveSettings(
+            sp.GetRequiredService<IOptionsFactory<TimeglassSettings>>(),
+            sp.GetRequiredService<IEnumerable<IOptionsChangeTokenSource<TimeglassSettings>>>(),
+            () => sp.GetRequiredService<ILogger<LiveSettings>>()));
 
         return services;
     }

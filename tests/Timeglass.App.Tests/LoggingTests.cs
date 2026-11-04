@@ -4,6 +4,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog.Events;
 using Timeglass.App.Logging;
+using Timeglass.App.Settings;
+using Timeglass.Core.Settings;
+using Timeglass.Storage.Settings;
 
 namespace Timeglass.App.Tests;
 
@@ -17,19 +20,18 @@ public sealed class LoggingTests : IDisposable
 
     private IHost BuildHost(LogLevel? level = null)
     {
-        var settings = new Dictionary<string, string?>
+        if (level is { } l)
+        {
+            SettingsFile.Save(_folder.SettingsPath, new TimeglassSettings { LogLevel = l });
+        }
+
+        var builder = TimeglassHost.CreateBuilder([]);
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             [$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.DatabasePath)}"] = _folder.DatabasePath,
             [$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.LogDirectory)}"] = LogDirectory,
-        };
-        if (level is { } l)
-        {
-            settings[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.LogLevel)}"] = Enum.GetName(l);
-        }
-
-        // An in-memory source keeps values across a reload, unlike values set on other providers.
-        var builder = TimeglassHost.CreateBuilder([]);
-        builder.Configuration.AddInMemoryCollection(settings);
+            [$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.SettingsPath)}"] = _folder.SettingsPath,
+        });
         return builder.Build();
     }
 
@@ -107,9 +109,9 @@ public sealed class LoggingTests : IDisposable
         var logger = host.Services.GetRequiredService<ILogger<LoggingTests>>();
         logger.LogDebug("Before the change");
 
-        var configuration = (IConfigurationRoot)host.Services.GetRequiredService<IConfiguration>();
-        configuration[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.LogLevel)}"] = nameof(LogLevel.Debug);
-        configuration.Reload();
+        // Reloading by hand applies the change now instead of after the file watcher's delay.
+        SettingsFile.Save(_folder.SettingsPath, new TimeglassSettings { LogLevel = LogLevel.Debug });
+        ((IConfigurationRoot)host.Services.GetRequiredService<SettingsConfiguration>().Configuration).Reload();
         logger.LogDebug("After the change");
 
         var log = ReadLogAfterDisposing(host);

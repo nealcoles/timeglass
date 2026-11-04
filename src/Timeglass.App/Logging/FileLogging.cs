@@ -6,6 +6,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Extensions.Logging;
+using Timeglass.App.Settings;
 
 namespace Timeglass.App.Logging;
 
@@ -16,8 +17,8 @@ namespace Timeglass.App.Logging;
 /// </summary>
 /// <remarks>
 /// Code logs through <see cref="Microsoft.Extensions.Logging.ILogger"/> only; Serilog is just the
-/// file sink. The level comes from <see cref="TimeglassOptions.LogLevel"/> and changes live when
-/// the configuration reloads. Window titles are never logged at Information or above.
+/// file sink. The level comes from <see cref="Core.Settings.TimeglassSettings.LogLevel"/> and
+/// changes live when the settings file changes. Window titles are never logged at Information or above.
 /// </remarks>
 internal static class FileLogging
 {
@@ -69,16 +70,17 @@ internal static class FileLogging
 
     private static SerilogLoggerProvider CreateFileProvider(IServiceProvider services)
     {
-        var options = services.GetRequiredService<IOptionsMonitor<TimeglassOptions>>();
-        var level = new LoggingLevelSwitch(ToSerilog(options.CurrentValue.LogLevel));
+        var options = services.GetRequiredService<IOptions<TimeglassOptions>>().Value;
+        var settings = services.GetRequiredService<LiveSettings>();
+        var level = new LoggingLevelSwitch(ToSerilog(settings.Current.Settings.LogLevel));
 
-        // Lives as long as the app (the provider is a singleton), so the subscription is never removed.
-        _ = options.OnChange(o => level.MinimumLevel = ToSerilog(o.LogLevel));
+        // Lives as long as the app (the provider is a singleton), so the handler is never removed.
+        settings.Changed += s => level.MinimumLevel = ToSerilog(s.Settings.LogLevel);
 
         var logger = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(level)
             .WriteTo.File(
-                Path.Combine(LogFolder.Resolve(options.CurrentValue), FileNamePattern),
+                Path.Combine(LogFolder.Resolve(options), FileNamePattern),
                 outputTemplate: OutputTemplate,
                 formatProvider: CultureInfo.InvariantCulture,
                 fileSizeLimitBytes: FileSizeLimitBytes,

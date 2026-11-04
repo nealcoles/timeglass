@@ -82,7 +82,7 @@ public sealed partial class AppAliasTable
     /// its executables to it, e.g. <c>{ key: "outlook", name: "Mail", exes: [] }</c>.</item>
     /// <item>Any other override is a new app, or a title rule, and is looked up before the existing ones.</item>
     /// <item>Executables claimed by an override without a title pattern are taken away from the
-    /// existing apps, so the override always wins.</item>
+    /// existing apps, so the override always wins. An existing app left without executables is dropped.</item>
     /// </list>
     /// </remarks>
     public AppAliasTable WithOverrides(IEnumerable<AppAlias> overrides)
@@ -125,7 +125,7 @@ public sealed partial class AppAliasTable
             }
         }
 
-        return new AppAliasTable(added.Concat(merged));
+        return new AppAliasTable(added.Concat(merged.Where(a => a.Exes.Count > 0)));
     }
 
     /// <summary>Finds the alias for an executable and window title, if any.</summary>

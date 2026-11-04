@@ -5,6 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Round-trips settings.json through the configuration binder, as the host reads it. -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Timeglass.Testing\Timeglass.Testing.csproj" />
     <ProjectReference Include="..\..\src\Timeglass.Storage\Timeglass.Storage.csproj" />
   </ItemGroup>

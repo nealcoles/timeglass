@@ -17,6 +17,7 @@ public sealed class CompositionTests : IDisposable
     {
         var builder = TimeglassHost.CreateBuilder([]);
         builder.Configuration[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.DatabasePath)}"] = _folder.DatabasePath;
+        builder.Configuration[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.SettingsPath)}"] = _folder.SettingsPath;
         return builder;
     }
 

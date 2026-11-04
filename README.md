@@ -123,15 +123,43 @@ another port. Until the API exists, the page shows the tracker as offline.
 | --------- | ------------------------------------------------------ |
 | Database  | `%LOCALAPPDATA%\Timeglass\timeglass.db` (SQLite)       |
 | Log files | `%LOCALAPPDATA%\Timeglass\logs\timeglass-YYYYMMDD.log` |
+| Settings  | `%LOCALAPPDATA%\Timeglass\settings.json`              |
 
 The database uses WAL mode, so you will also see `timeglass.db-wal` and `timeglass.db-shm`
 next to it while the app runs. Timestamps are stored as UTC Unix milliseconds. To start over,
-quit the app and delete the folder. Settings (#22) will live in the same folder once they exist.
+quit the app and delete the folder.
 
 Log files roll over daily (and past 10 MB) and are deleted after seven days. The tray menu's
-_Open log folder_ opens them. The level is `Information` by default; start with
-`--Timeglass:LogLevel=Debug` to also log tracking state changes. Window titles are never
-written to the log.
+_Open log folder_ opens them. The level is `Information` by default; set `"logLevel": "Debug"`
+in the settings to also log tracking state changes. Window titles are never written to the log.
+
+## Settings
+
+`settings.json` is created with the defaults on first start. Edits apply while the app runs;
+an edit with invalid values is logged and ignored (the previous settings stay), while invalid
+settings at startup stop the app with a message that names the problem.
+
+| Setting              | Default         | Meaning                                                                         |
+| -------------------- | --------------- | ------------------------------------------------------------------------------- |
+| `idleThreshold`      | `"00:05:00"`    | No input for this long counts as away (30 s to 4 h). `null` turns it off.       |
+| `idleExemptApps`     | `[]`            | App keys that never go idle in front, e.g. `["vlc", "zoom"]`.                   |
+| `minimumInterval`    | `"00:00:01"`    | Shorter visits to a window count towards the previous one (up to 1 min).        |
+| `checkpointInterval` | `"00:00:15"`    | How often the open interval is saved, bounding loss on a crash (1 s to 10 min). |
+| `recordWindowTitles` | `true`          | Store window titles. Applied by the privacy controls (#24).                     |
+| `excludedApps`       | `[]`            | App keys that are not recorded. Applied by the privacy controls (#24).          |
+| `appAliases`         | `[]`            | Renames and extra apps on top of the built-in aliases, see below.               |
+| `apiPort`            | `5381`          | Port of the local API (#27), 1024 to 65535.                                     |
+| `logLevel`           | `"Information"` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` or `None`.      |
+
+An alias with the key of a built-in app renames it, or adds executables to it; any other key
+adds an app. For example, to call Outlook "Mail" and count Cursor as VS Code:
+
+```json
+"appAliases": [
+  { "key": "outlook", "name": "Mail" },
+  { "key": "vscode", "exes": ["cursor.exe"] }
+]
+```
 
 ## Documentation
 

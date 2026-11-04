@@ -20,6 +20,8 @@
   <ItemGroup>
     <!-- Generic host: DI, configuration, logging and lifetime. -->
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- ValidateDataAnnotations for the user's settings (#22). -->
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
     <!-- Rolling log files behind Microsoft.Extensions.Logging (#21). -->
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Extensions.Logging" />

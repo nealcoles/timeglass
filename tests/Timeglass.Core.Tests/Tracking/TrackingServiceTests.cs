@@ -19,7 +19,7 @@ public class TrackingServiceTests
     private readonly RecordingIntervalSink _sink = new();
     private readonly RecordingLogger<TrackingService> _log = new();
 
-    private TrackingService CreateService() =>
+    private TrackingService CreateService(Func<TrackingOptions>? currentOptions = null) =>
         new(
             new TrackingEngine(new AliasAppIdentityResolver(AppAliasTable.Empty)),
             _foreground,
@@ -27,7 +27,10 @@ public class TrackingServiceTests
             _sessions,
             _sink,
             _time,
-            _log);
+            _log)
+        {
+            CurrentOptions = currentOptions,
+        };
 
     /// <summary>Advances fake time one second at a time so ticks fire and get processed.</summary>
     private async Task AdvanceAsync(TimeSpan by)
@@ -86,6 +89,26 @@ public class TrackingServiceTests
         var open = _sink.Intervals.ShouldHaveSingleItem();
         open.IsOpen.ShouldBeTrue();
         open.End.ShouldBe(T0.AddSeconds(15));
+
+        await cts.CancelAsync();
+        await run;
+    }
+
+    [Fact]
+    public async Task Changed_options_apply_on_the_next_tick_without_a_restart()
+    {
+        // Stands in for the host's live settings: another thread swaps the options.
+        var options = TrackingOptions.Default;
+        using var cts = new CancellationTokenSource();
+        var run = CreateService(() => Volatile.Read(ref options)).RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+        await AdvanceAsync(TimeSpan.FromSeconds(2));
+
+        Volatile.Write(ref options, TrackingOptions.Default with { CheckpointInterval = TimeSpan.FromSeconds(5) });
+        await AdvanceAsync(TimeSpan.FromSeconds(4));
+
+        // With the default 15 s there would be no checkpoint yet.
+        _sink.Intervals.ShouldHaveSingleItem().End.ShouldBe(T0.AddSeconds(5));
 
         await cts.CancelAsync();
         await run;

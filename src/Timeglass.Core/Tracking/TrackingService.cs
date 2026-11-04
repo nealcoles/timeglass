@@ -51,11 +51,24 @@ public sealed partial class TrackingService
     public TimeSpan ShutdownFlushTimeout { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
+    /// Returns the options to use, read before every event so changed settings apply on the next
+    /// tick without a restart. Called on the reader, so it must be cheap and thread-safe. When
+    /// <see langword="null"/>, the engine keeps the options it was created with.
+    /// </summary>
+    /// <remarks><see cref="TrackingOptions.TickInterval"/> is read once, when a run starts.</remarks>
+    public Func<TrackingOptions>? CurrentOptions { get; init; }
+
+    /// <summary>
     /// Tracks until <paramref name="cancellationToken"/> is cancelled, then closes the open
     /// interval and returns once the final changes have reached the sink.
     /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        if (CurrentOptions is { } current)
+        {
+            _engine.Options = current();
+        }
+
         var channel = Channel.CreateUnbounded<Queued>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -126,6 +139,11 @@ public sealed partial class TrackingService
     {
         try
         {
+            if (CurrentOptions is { } current)
+            {
+                _engine.Options = current();
+            }
+
             var changes = _engine.Handle(queued.Event);
             if (changes.Count > 0)
             {
