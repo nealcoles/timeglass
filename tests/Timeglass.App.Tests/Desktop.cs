@@ -37,13 +37,15 @@ public static class Desktop
     }
 }
 
-/// <summary>A temp folder for a database file, deleted on dispose.</summary>
+/// <summary>A temp folder for a database and settings file, deleted on dispose.</summary>
 public sealed class TempFolder : IDisposable
 {
     public string Path { get; } =
         System.IO.Path.Combine(System.IO.Path.GetTempPath(), "timeglass-tests", Guid.NewGuid().ToString("N"));
 
     public string DatabasePath => System.IO.Path.Combine(Path, "timeglass.db");
+
+    public string SettingsPath => System.IO.Path.Combine(Path, "settings.json");
 
     public void Dispose()
     {
