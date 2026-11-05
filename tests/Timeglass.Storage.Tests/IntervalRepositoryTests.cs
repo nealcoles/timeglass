@@ -191,4 +191,34 @@ public sealed class IntervalRepositoryTests : IAsyncLifetime
         stored.ShouldBe(expected.Intervals);
         stored.Select(i => i.App!.Key).ShouldBe(["outlook", "vscode"]);
     }
+
+    [Fact]
+    public async Task Day_summary_clips_stored_intervals_to_the_local_day()
+    {
+        // T0 is 09:00 in Oslo. Local midnight is 23:00 UTC, 900 minutes after T0.
+        var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+        var code = new AppIdentity("code", "Code");
+        await StoreAsync(
+            Active(-700, -600),           // the day before
+            Active(0, 120),               // 09:00 to 11:00, Outlook
+            Away(120, 180),
+            Active(180, 240, app: code),  // 12:00 to 13:00
+            Active(840, 960, app: code)); // 22:00 to 00:00, half of it tomorrow
+        await _repository.ApplyAsync([new(IntervalChangeKind.Opened, Active(960, 975, open: true))], Ct);
+        await _repository.FlushAsync(Ct);
+
+        var today = await _repository.GetDaySummaryAsync(new DateOnly(2026, 11, 2), oslo, At(1020), cancellationToken: Ct);
+        var tomorrow = await _repository.GetDaySummaryAsync(new DateOnly(2026, 11, 3), oslo, At(1020), cancellationToken: Ct);
+
+        today.Start.ShouldBe(At(-540));
+        today.Active.ShouldBe(TimeSpan.FromMinutes(120 + 60 + 60));
+        today.Away.ShouldBe(TimeSpan.FromMinutes(60));
+        today.FirstActivity.ShouldBe(At(0));
+        today.LastActivity.ShouldBe(At(900));
+        today.Apps.Select(a => (a.App.Key, a.Duration.TotalMinutes, a.Percent)).ShouldBe([("code", 120, 50), ("outlook", 120, 50)]);
+
+        // 60 minutes left of the evening interval, and the open one running from 960 until now (1020).
+        tomorrow.Active.ShouldBe(TimeSpan.FromMinutes(120));
+        tomorrow.Apps.Select(a => a.App.Key).ShouldBe(["code", "outlook"]);
+    }
 }
