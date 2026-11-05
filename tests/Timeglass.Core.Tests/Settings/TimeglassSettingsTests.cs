@@ -27,8 +27,38 @@ public class TimeglassSettingsTests
     {
         var options = new TimeglassSettings().ToTrackingOptions(TrackingOptions.Default);
 
-        options.ShouldBe(TrackingOptions.Default with { IdleExemptApps = options.IdleExemptApps });
+        options.ShouldBe(TrackingOptions.Default with
+        {
+            IdleExemptApps = options.IdleExemptApps,
+            ExcludedApps = options.ExcludedApps,
+            AppsWithoutTitles = options.AppsWithoutTitles,
+        });
         options.IdleExemptApps.ShouldBeEmpty();
+        options.ExcludedApps.ShouldBeEmpty();
+        options.AppsWithoutTitles.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Privacy_settings_map_to_the_engine_options()
+    {
+        var options = new TimeglassSettings
+        {
+            RecordWindowTitles = false,
+            ExcludedApps = [" keepass "],
+            AppsWithoutTitles = ["Outlook"],
+        }.ToTrackingOptions(TrackingOptions.Default);
+
+        options.RecordWindowTitles.ShouldBeFalse();
+        options.ExcludedApps.ShouldBe(["keepass"]);
+        options.AppsWithoutTitles.Contains("outlook").ShouldBeTrue();
+    }
+
+    [Fact]
+    public void An_app_cannot_be_both_excluded_and_without_titles()
+    {
+        var errors = Errors(new TimeglassSettings { ExcludedApps = ["keepass", "outlook"], AppsWithoutTitles = ["Outlook "] });
+
+        errors.ShouldBe(["outlook cannot be in both ExcludedApps and AppsWithoutTitles; pick one."]);
     }
 
     [Fact]
@@ -61,12 +91,13 @@ public class TimeglassSettingsTests
     [Fact]
     public void Empty_app_keys_are_rejected()
     {
-        var errors = Errors(new TimeglassSettings { IdleExemptApps = ["vlc", " "], ExcludedApps = [""] });
+        var errors = Errors(new TimeglassSettings { IdleExemptApps = ["vlc", " "], ExcludedApps = [""], AppsWithoutTitles = ["\t"] });
 
         errors.ShouldBe(
         [
             "IdleExemptApps must not contain empty app keys.",
             "ExcludedApps must not contain empty app keys.",
+            "AppsWithoutTitles must not contain empty app keys.",
         ]);
     }
 

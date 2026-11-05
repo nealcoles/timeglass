@@ -53,6 +53,25 @@ namespace Timeglass.Core.Tracking;
 /// (sleep with a missed suspend event, or the clock set forward) counts as away from the previous
 /// event. Tracking resumes on the first input after the gap, or on unlock/resume.</item>
 /// </list>
+/// <para>Privacy rules:</para>
+/// <list type="bullet">
+/// <item>While an app in <see cref="TrackingOptions.ExcludedApps"/> is in front, no interval is open:
+/// its time is a gap, as if tracking were paused. Switching to it follows the window rules (it
+/// has to stay in front for the minimum interval), and so does switching away from it. The user
+/// doesn't go idle in an excluded app, since there is nothing to end. Locking or sleeping still
+/// starts <see cref="IntervalKind.Away"/>.</item>
+/// <item>Apps in <see cref="TrackingOptions.AppsWithoutTitles"/>, and every app when
+/// <see cref="TrackingOptions.RecordWindowTitles"/> is off, get intervals without a title. Title
+/// changes within such an app are not window changes.</item>
+/// <item>Options can change at any time. On the next event, an open interval of an app that is now
+/// excluded is closed (without its title), an open interval whose title may no longer be stored
+/// loses it, and if the app in front is no longer excluded, an interval opens for it.</item>
+/// </list>
+/// <para>
+/// Pausing is not an engine state: the host stops the run (<see cref="TrackingStopped"/>), which
+/// closes the open interval, and starts a new one (<see cref="TrackingStarted"/>) on resume.
+/// Paused time is a gap: nothing is stored for it.
+/// </para>
 /// </remarks>
 public sealed class TrackingEngine
 {
@@ -120,10 +139,17 @@ public sealed class TrackingEngine
         var previous = _lastAt;
         var at = Clamp(trackingEvent.At);
 
-        if (Options.ClockJumpThreshold is { } jump && at - previous > jump)
+        var jumped = Options.ClockJumpThreshold is { } jump && at - previous > jump;
+
+        // Before anything else closes the open interval with content the options no longer allow.
+        ScrubCurrent(jumped ? previous : at, changes);
+
+        if (jumped)
         {
             GoAway(previous, resumeAfter: at, changes);
         }
+
+        OpenIfNoLongerExcluded(at, changes);
 
         switch (trackingEvent)
         {
@@ -236,13 +262,14 @@ public sealed class TrackingEngine
         {
             // Restart without stop: close what we have first.
             at = Clamp(started.At);
+            ScrubCurrent(at, changes);
             _pending = null;
             CloseCurrent(at, changes);
         }
         else
         {
-            at = started.At;
-            _lastAt = at;
+            // After a pause: never before the end of the previous run, so runs can't overlap.
+            at = Clamp(started.At);
         }
 
         IsTracking = true;
@@ -283,6 +310,12 @@ public sealed class TrackingEngine
 
     private bool IsIdle(DateTimeOffset at, DateTimeOffset lastInputAt)
     {
+        // In an excluded app nothing is open, so there is nothing to end.
+        if (_current is null)
+        {
+            return false;
+        }
+
         if (Options.IdleThreshold is not { } threshold || at - lastInputAt < threshold)
         {
             return false;
@@ -334,6 +367,39 @@ public sealed class TrackingEngine
         OpenActive(lastInputAt, _foreground, changes);
     }
 
+    /// <summary>
+    /// Applies changed privacy options to the open interval: an excluded app's interval is closed
+    /// at <paramref name="at"/> without its title, and a title that may no longer be stored is removed.
+    /// </summary>
+    private void ScrubCurrent(DateTimeOffset at, List<IntervalChange> changes)
+    {
+        if (_current is not { Kind: IntervalKind.Active, App: { } app } current)
+        {
+            return;
+        }
+
+        if (IsExcluded(app))
+        {
+            _current = current with { Title = null };
+            _pending = null;
+            CloseCurrent(at, changes);
+        }
+        else if (current.Title is not null && !KeepsTitle(app))
+        {
+            _current = current with { Title = null };
+            changes.Add(new IntervalChange(IntervalChangeKind.Updated, _current));
+        }
+    }
+
+    /// <summary>Opens an interval for the window in front if its app was excluded and no longer is.</summary>
+    private void OpenIfNoLongerExcluded(DateTimeOffset at, List<IntervalChange> changes)
+    {
+        if (_current is null && _pending is null && !Describe(_foreground).Excluded)
+        {
+            OpenActive(at, _foreground, changes);
+        }
+    }
+
     private void OnForegroundChanged(DateTimeOffset at, WindowSnapshot? window)
     {
         var target = Describe(window);
@@ -341,6 +407,13 @@ public sealed class TrackingEngine
         if (_current is not null && target.Matches(_current))
         {
             // Back to the current window (or a duplicate event): cancel any pending switch.
+            _pending = null;
+            return;
+        }
+
+        if (_current is null && target.Excluded)
+        {
+            // From one excluded window to another, or back to it before a switch away was due.
             _pending = null;
             return;
         }
@@ -366,15 +439,17 @@ public sealed class TrackingEngine
         var pending = _pending;
         _pending = null;
 
-        if (_current is not null && _current.Start == pending.Since)
+        // Described again: the options may have changed since the switch.
+        var target = Describe(pending.Window);
+        if (_current is not null && _current.Start == pending.Since && !target.Excluded)
         {
             // The current interval has zero length: replace its content instead of
             // emitting an empty interval.
             _current = _current with
             {
-                App = pending.Target.App,
-                ExePath = pending.Target.ExePath,
-                Title = pending.Target.Title,
+                App = target.App,
+                ExePath = target.ExePath,
+                Title = target.Title,
             };
             changes.Add(new IntervalChange(IntervalChangeKind.Updated, _current));
             return;
@@ -396,9 +471,16 @@ public sealed class TrackingEngine
         changes.Add(new IntervalChange(IntervalChangeKind.Updated, _current));
     }
 
+    /// <summary>Opens an active interval for <paramref name="window"/>, or nothing if its app is excluded.</summary>
     private void OpenActive(DateTimeOffset at, WindowSnapshot? window, List<IntervalChange> changes)
     {
         var target = Describe(window);
+        if (target.Excluded)
+        {
+            _current = null;
+            return;
+        }
+
         Open(new ActivityInterval(
             Id: _newId(at),
             Kind: IntervalKind.Active,
@@ -454,12 +536,29 @@ public sealed class TrackingEngine
         return at;
     }
 
-    private Target Describe(WindowSnapshot? window) =>
-        window is null
-            ? new Target(AppIdentity.Unknown, null, null)
-            : new Target(_resolver.Resolve(window), window.ExePath, window.Title);
+    private Target Describe(WindowSnapshot? window)
+    {
+        if (window is null)
+        {
+            return new Target(AppIdentity.Unknown, null, null, IsExcluded(AppIdentity.Unknown));
+        }
 
-    private sealed record Target(AppIdentity App, string? ExePath, string? Title)
+        var app = _resolver.Resolve(window);
+        var excluded = IsExcluded(app);
+        return new Target(
+            app,
+            excluded ? null : window.ExePath,
+            excluded || !KeepsTitle(app) ? null : window.Title,
+            excluded);
+    }
+
+    private bool IsExcluded(AppIdentity app) => Options.ExcludedApps.Contains(app.Key);
+
+    private bool KeepsTitle(AppIdentity app) =>
+        Options.RecordWindowTitles && !Options.AppsWithoutTitles.Contains(app.Key);
+
+    /// <summary>What an interval for a window would contain, with the privacy options applied.</summary>
+    private sealed record Target(AppIdentity App, string? ExePath, string? Title, bool Excluded)
     {
         public bool Matches(ActivityInterval interval) =>
             interval.Kind == IntervalKind.Active

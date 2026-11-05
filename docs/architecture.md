@@ -95,6 +95,9 @@ SystemEvents ───┘                                                       
      the switch once it sticks so no time is lost;
    - closes the active interval at the last input time after 5 minutes without input, and on
      lock or sleep, and opens an `Away` interval;
+   - applies the privacy settings: no interval at all while an app in `excludedApps` is in
+     front, and no title for apps in `appsWithoutTitles` or when `recordWindowTitles` is off
+     ([ADR 0005](adr/0005-privacy-gaps-not-intervals.md));
    - emits `IntervalChange`s (`Opened`, `Updated`, `Closed`), each carrying the full
      `ActivityInterval`. The open interval gets an `Updated` checkpoint every 15 s.
 
@@ -105,7 +108,10 @@ SystemEvents ───┘                                                       
    lost or failed write is repaired by the next checkpoint, and a crash loses at most one
    checkpoint interval. On startup, `TimeglassDatabase.Open` applies migrations and closes any
    interval left open by a crash at its last checkpoint. A unique index allows at most one
-   open interval.
+   open interval. `TrackingService.DeleteRangeAsync` deletes a time range (for the UI, through
+   the API): it runs in order with the tracking events, closes the open interval first if the
+   range reaches it, and the repository cuts intervals at the range edges with `secure_delete`
+   on.
 4. **API** _(planned, #27, #29)_. ASP.NET Core minimal API on `127.0.0.1`, reading intervals by
    time range and aggregating them (day summary, timeline, week). Loopback only, with Host
    header validation and an access token.
@@ -123,7 +129,8 @@ applied in order by `Migrator`.
 | `apps`      | `id`, `key` (unique, e.g. `outlook`), `display_name`                                                                             |
 | `intervals` | `id` (engine GUID), `start_utc`, `end_utc` (Unix ms), `kind` (0 active, 1 away), `app_id`, `exe_path`, `window_title`, `is_open` |
 
-Intervals never overlap and `end_utc >= start_utc`. All times are UTC; converting to local
+Intervals never overlap and `end_utc >= start_utc`. They are contiguous within a tracking run;
+paused time and time in an excluded app are gaps. All times are UTC; converting to local
 days (including DST) is a reporting concern (#25).
 
 To change the schema, add the next numbered `.sql` file. Never edit a script that has shipped.
@@ -145,7 +152,8 @@ Startup, in `Program.Main` on the STA main thread:
    `SystemEvents` delivers its events through the tray's message loop. `TrackingController`, a
    hosted service, starts the `TrackingService` run.
 3. **Tray.** `TrayApplicationContext` shows a `NotifyIcon` with _Open dashboard_,
-   _Pause tracking_, _Start with Windows_, _Settings_ (#22), _Open log folder_ and _Quit_, and
+   _Pause tracking_ (for 30 minutes, an hour, until midnight or until resumed; _Resume tracking_
+   while paused), _Start with Windows_, _Settings_ (#22), _Open log folder_ and _Quit_, and
    `Application.Run` pumps messages until Quit or the host stops. The tooltip shows today's
    active time, refreshed every 30 s. _Start with Windows_ is a value in the current user's
    `Run` key (`AutostartRegistration` in `Timeglass.Windows`), which also honours the
@@ -157,7 +165,10 @@ Startup, in `Program.Main` on the STA main thread:
    On logoff or shutdown the same flush already happened in the `ShuttingDown` handler, since
    Windows may end the process before the message loop returns.
 
-Pausing ends the current tracking run the same way (close and flush); resuming starts a new one.
+Pausing ends the current tracking run the same way (close and flush); resuming starts a new one,
+so paused time is not stored. `TrackingController` resumes a timed pause by itself, checking the
+wall clock at least every 30 s so the pause ends on time after sleep. A pause does not survive
+a restart.
 The embedded API (#27) will be another hosted service.
 
 ### Logging and crashes

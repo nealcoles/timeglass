@@ -35,10 +35,40 @@ public sealed record TrackingOptions
     public IReadOnlySet<string> IdleExemptApps { get; init; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Whether window titles are stored. When false, every interval is stored without a title.
+    /// </summary>
+    public bool RecordWindowTitles { get; init; } = true;
+
+    /// <summary>
+    /// App keys that are not tracked at all. While one of them is in front, no interval is open:
+    /// the time is a gap, like a pause. Matched case-insensitively.
+    /// </summary>
+    public IReadOnlySet<string> ExcludedApps { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// App keys whose time is tracked but whose window titles are never stored.
+    /// Matched case-insensitively.
+    /// </summary>
+    public IReadOnlySet<string> AppsWithoutTitles { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Default options.</summary>
     public static TrackingOptions Default { get; } = new();
 
     /// <summary>Returns a copy with the given idle-exempt app keys.</summary>
     public TrackingOptions WithIdleExemptApps(params IEnumerable<string> appKeys) =>
-        this with { IdleExemptApps = new HashSet<string>(appKeys, StringComparer.OrdinalIgnoreCase) };
+        this with { IdleExemptApps = KeySet(appKeys) };
+
+    /// <summary>Returns a copy with the given excluded (not tracked) app keys.</summary>
+    public TrackingOptions WithExcludedApps(params IEnumerable<string> appKeys) =>
+        this with { ExcludedApps = KeySet(appKeys) };
+
+    /// <summary>Returns a copy with the given app keys whose titles are not stored.</summary>
+    public TrackingOptions WithAppsWithoutTitles(params IEnumerable<string> appKeys) =>
+        this with { AppsWithoutTitles = KeySet(appKeys) };
+
+    private static HashSet<string> KeySet(IEnumerable<string> appKeys) =>
+        new(appKeys, StringComparer.OrdinalIgnoreCase);
 }

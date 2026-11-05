@@ -9,6 +9,7 @@ costs. They explain _why_; [architecture.md](../architecture.md) explains _how_.
 | [0002](0002-sqlite-with-stored-intervals.md) | SQLite with stored intervals, not samples        | Accepted |
 | [0003](0003-local-http-api-and-react-ui.md)  | Local HTTP API and React UI instead of native UI | Accepted |
 | [0004](0004-github-actions-pipeline.md)      | GitHub Actions as the pipeline                   | Accepted |
+| [0005](0005-privacy-gaps-not-intervals.md)   | Paused and excluded time is a gap                | Accepted |
 
 ## Writing a new one
 

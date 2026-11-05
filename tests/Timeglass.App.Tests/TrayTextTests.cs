@@ -27,6 +27,22 @@ public class TrayTextTests
         TrayText.Tooltip(null, paused: false).ShouldBe("Timeglass");
 
     [Fact]
+    public void Tooltip_says_when_a_pause_ends() =>
+        TrayText.Tooltip(TimeSpan.FromMinutes(5), paused: true, new DateTime(2026, 11, 5, 14, 30, 0))
+            .ShouldBe("Timeglass: 5 min active today (paused until 14:30)");
+
+    [Fact]
+    public void A_pause_until_tomorrow_ends_at_midnight() =>
+        TrayText.Tooltip(null, paused: true, new DateTime(2026, 11, 6)).ShouldBe("Timeglass (paused until midnight)");
+
+    [Fact]
+    public void Resume_item_says_when_the_pause_ends()
+    {
+        TrayText.ResumeItem(null).ShouldBe("&Resume tracking");
+        TrayText.ResumeItem(new DateTime(2026, 11, 5, 9, 5, 0)).ShouldBe("&Resume tracking (paused until 09:05)");
+    }
+
+    [Fact]
     public void Tooltip_fits_the_notification_area_limit() =>
-        TrayText.Tooltip(TimeSpan.MaxValue, paused: true).Length.ShouldBeLessThanOrEqualTo(TrayText.MaxTooltipLength);
+        TrayText.Tooltip(TimeSpan.MaxValue, paused: true, DateTime.MaxValue).Length.ShouldBeLessThanOrEqualTo(TrayText.MaxTooltipLength);
 }

@@ -38,11 +38,16 @@ public sealed class TimeglassSettings : IValidatableObject
     [Range(typeof(TimeSpan), "00:00:01", "00:10:00", ErrorMessage = "{0} must be between {1} and {2}.")]
     public TimeSpan CheckpointInterval { get; set; } = TrackingOptions.Default.CheckpointInterval;
 
-    /// <summary>Whether window titles are stored. Applied by the privacy controls (#24).</summary>
+    /// <summary>Whether window titles are stored. When false, no interval gets a title.</summary>
     public bool RecordWindowTitles { get; set; } = true;
 
-    /// <summary>App keys that are not recorded. Applied by the privacy controls (#24).</summary>
+    /// <summary>
+    /// App keys that are not tracked at all: while one is in front, nothing is recorded.
+    /// </summary>
     public List<string> ExcludedApps { get; set; } = [];
+
+    /// <summary>App keys whose time is tracked but whose window titles are never stored.</summary>
+    public List<string> AppsWithoutTitles { get; set; } = [];
 
     /// <summary>
     /// The user's app aliases and renames, applied on top of <see cref="AppAliasTable.BuiltIn"/>
@@ -64,11 +69,15 @@ public sealed class TimeglassSettings : IValidatableObject
     public TrackingOptions ToTrackingOptions(TrackingOptions baseline)
     {
         ArgumentNullException.ThrowIfNull(baseline);
-        return baseline.WithIdleExemptApps(IdleExemptApps.Select(a => a.Trim())) with
+        return baseline
+            .WithIdleExemptApps(IdleExemptApps.Select(a => a.Trim()))
+            .WithExcludedApps(ExcludedApps.Select(a => a.Trim()))
+            .WithAppsWithoutTitles(AppsWithoutTitles.Select(a => a.Trim())) with
         {
             IdleThreshold = IdleThreshold,
             MinimumInterval = MinimumInterval,
             CheckpointInterval = CheckpointInterval,
+            RecordWindowTitles = RecordWindowTitles,
         };
     }
 
@@ -82,7 +91,12 @@ public sealed class TimeglassSettings : IValidatableObject
     /// <inheritdoc />
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        foreach (var (name, keys) in new[] { (nameof(IdleExemptApps), IdleExemptApps), (nameof(ExcludedApps), ExcludedApps) })
+        foreach (var (name, keys) in new[]
+        {
+            (nameof(IdleExemptApps), IdleExemptApps),
+            (nameof(ExcludedApps), ExcludedApps),
+            (nameof(AppsWithoutTitles), AppsWithoutTitles),
+        })
         {
             if (keys is null)
             {
@@ -92,6 +106,20 @@ public sealed class TimeglassSettings : IValidatableObject
             if (keys.Any(string.IsNullOrWhiteSpace))
             {
                 yield return new ValidationResult($"{name} must not contain empty app keys.", [name]);
+            }
+        }
+
+        if (ExcludedApps is not null && AppsWithoutTitles is not null)
+        {
+            var both = ExcludedApps.Select(a => a.Trim())
+                .Intersect(AppsWithoutTitles.Select(a => a.Trim()), StringComparer.OrdinalIgnoreCase)
+                .Where(a => a.Length > 0)
+                .ToList();
+            if (both.Count > 0)
+            {
+                yield return new ValidationResult(
+                    $"{string.Join(", ", both)} cannot be in both {nameof(ExcludedApps)} and {nameof(AppsWithoutTitles)}; pick one.",
+                    [nameof(ExcludedApps), nameof(AppsWithoutTitles)]);
             }
         }
 

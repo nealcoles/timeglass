@@ -113,5 +113,96 @@ public class TrackingEnginePropertyTests
         total.ShouldBe(stopAt - T0);
     }
 
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void With_privacy_options_intervals_never_overlap_and_never_hold_what_is_excluded(int seed)
+    {
+        var random = new Random(seed);
+        string[] keys = ["olk", "code", "ms-teams", "firefox", "unknown"];
+        TrackingOptions RandomOptions()
+        {
+            var shuffled = keys.OrderBy(_ => random.Next()).ToArray();
+            var excluded = shuffled.Take(random.Next(0, 3)).ToArray();
+            var withoutTitles = shuffled.Skip(excluded.Length).Take(random.Next(0, 3)).ToArray();
+            return new TrackingOptions
+            {
+                MinimumInterval = TimeSpan.FromMilliseconds(random.Next(0, 3000)),
+                CheckpointInterval = TimeSpan.FromSeconds(random.Next(1, 30)),
+                IdleThreshold = random.Next(4) == 0 ? null : TimeSpan.FromSeconds(random.Next(5, 120)),
+                ClockJumpThreshold = random.Next(4) == 0 ? null : TimeSpan.FromSeconds(random.Next(30, 300)),
+                RecordWindowTitles = random.Next(4) != 0,
+            }.WithExcludedApps(excluded).WithAppsWithoutTitles(withoutTitles);
+        }
+
+        var engine = new TrackingEngine(new AliasAppIdentityResolver(AppAliasTable.Empty), RandomOptions());
+        var timeline = new IntervalTimeline();
+        var changes = new List<(TrackingOptions Options, IntervalChange Change)>();
+        void Apply(TrackingEvent e)
+        {
+            var result = engine.Handle(e);
+            changes.AddRange(result.Select(c => (engine.Options, c)));
+            timeline.Apply(result);
+        }
+
+        var now = T0;
+        var lastInput = T0;
+        Apply(new TrackingStarted(now, Pick(random)));
+
+        var steps = random.Next(1, 400);
+        for (var i = 0; i < steps; i++)
+        {
+            now = now.AddMilliseconds(random.Next(40) switch
+            {
+                < 4 => -random.Next(0, 5000),
+                39 => random.Next(60_000, 3_600_000),
+                _ => random.Next(0, 20_000),
+            });
+            if (random.Next(4) != 0)
+            {
+                lastInput = now;
+            }
+
+            if (random.Next(30) == 0)
+            {
+                engine.Options = RandomOptions();
+            }
+
+            Apply(random.Next(14) switch
+            {
+                < 4 => new Tick(now, lastInput),
+                4 => new SessionChanged(now, LockOrSuspend[random.Next(2)]),
+                5 => new SessionChanged(now, UnlockOrResume[random.Next(2)], Pick(random)),
+                6 => new TrackingStopped(now),
+                7 => new TrackingStarted(now, Pick(random)),
+                _ => new ForegroundChanged(now, Pick(random)),
+            });
+        }
+
+        Apply(new TrackingStopped(now.AddSeconds(1)));
+
+        var intervals = timeline.Intervals;
+        intervals.ShouldAllBe(iv => !iv.IsOpen, "everything is closed after stop");
+        intervals.ShouldAllBe(iv => iv.End >= iv.Start, "no negative intervals");
+        for (var i = 1; i < intervals.Count; i++)
+        {
+            intervals[i].Start.ShouldBeGreaterThanOrEqualTo(intervals[i - 1].End, $"interval {i} overlaps {i - 1}");
+        }
+
+        // Each change obeys the options in effect when it was made.
+        foreach (var (options, (kind, interval)) in changes)
+        {
+            if (kind == IntervalChangeKind.Opened && interval.App is { } app)
+            {
+                options.ExcludedApps.ShouldNotContain(app.Key, "an excluded app never gets an interval");
+            }
+
+            if (interval.App is { } titled && (!options.RecordWindowTitles || options.AppsWithoutTitles.Contains(titled.Key)
+                || options.ExcludedApps.Contains(titled.Key)))
+            {
+                interval.Title.ShouldBeNull($"{titled.Key} must not have a title");
+            }
+        }
+    }
+
     private static WindowSnapshot? Pick(Random random) => Pool[random.Next(Pool.Length)];
 }
