@@ -113,10 +113,18 @@ public sealed class PrivacyStorageTests : IAsyncLifetime
 
         await _repository.DeleteRangeAsync(At(0), At(10), Ct);
         await _repository.DisposeAsync();
-        _database.Dispose(); // checkpoints the WAL into the file and releases it
+        using (var connection = _database.Connect())
+        {
+            connection.Execute("PRAGMA wal_checkpoint(TRUNCATE);");
+        }
+
+        _database.Dispose();
+        string[] files = [_temp.Path, _temp.Path + "-wal"];
+        var contents = files.Where(File.Exists).Select(f => System.Text.Encoding.Latin1.GetString(ReadShared(f))).ToList();
         _repository = new IntervalRepository(_database = _temp.Open());
 
-        File.ReadAllText(_temp.Path, System.Text.Encoding.Latin1).ShouldNotContain(secret);
+        contents.ShouldNotBeEmpty();
+        contents.ShouldAllBe(c => !c.Contains(secret, StringComparison.Ordinal));
         StoredTitles().ShouldBe(["Inbox"]);
     }
 
@@ -155,6 +163,15 @@ public sealed class PrivacyStorageTests : IAsyncLifetime
         var stored = await _repository.GetRangeAsync(DateTimeOffset.MinValue, DateTimeOffset.MaxValue, Ct);
         stored.Select(i => i.App?.Key).ShouldBe(["code", "ms-teams"]);
         StoredTitles().ShouldBe(["Program.cs - timeglass"]);
+    }
+
+    /// <summary>Reads a file even while another handle has it open, as Windows may still have.</summary>
+    private static byte[] ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
     }
 
     private static async Task AdvanceAsync(FakeTimeProvider time, int seconds)
