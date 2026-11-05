@@ -104,7 +104,10 @@ dotnet run --project src/Timeglass.App
 
 It puts an hourglass in the notification area and tracks until you choose **Quit** from its
 menu. Only one copy runs per user session; starting it again asks the running one to open the
-dashboard. To keep test data out of your real database, pass another file:
+dashboard. **Start with Windows** in the menu adds Timeglass to
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (no admin needed); the check mark is read
+from the registry each time, so turning Timeglass off in Task Manager's _Startup apps_ shows up
+here too, and turning it back on here clears that. To keep test data out of your real database, pass another file:
 `dotnet run --project src/Timeglass.App -- --Timeglass:DatabasePath=C:\temp\test.db`.
 
 The dashboard isn't served yet (#27, #30). For frontend work, start the Vite dev server:

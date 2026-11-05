@@ -145,9 +145,13 @@ Startup, in `Program.Main` on the STA main thread:
    `SystemEvents` delivers its events through the tray's message loop. `TrackingController`, a
    hosted service, starts the `TrackingService` run.
 3. **Tray.** `TrayApplicationContext` shows a `NotifyIcon` with _Open dashboard_,
-   _Pause tracking_, _Settings_ (#22), _Open log folder_ and _Quit_, and `Application.Run`
-   pumps messages until Quit or the host stops. The tooltip shows today's active time,
-   refreshed every 30 s.
+   _Pause tracking_, _Start with Windows_, _Settings_ (#22), _Open log folder_ and _Quit_, and
+   `Application.Run` pumps messages until Quit or the host stops. The tooltip shows today's
+   active time, refreshed every 30 s. _Start with Windows_ is a value in the current user's
+   `Run` key (`AutostartRegistration` in `Timeglass.Windows`), which also honours the
+   _disabled_ flag Task Manager writes under `StartupApproved\Run`. It is not in
+   `settings.json`: the check mark is read from the registry each time the menu opens, so it
+   can't drift.
 4. **Shutdown.** After the message loop ends, the host is stopped and disposed off the UI
    thread: tracking closes the open interval and flushes, and the repository drains its queue.
    On logoff or shutdown the same flush already happened in the `ShuttingDown` handler, since

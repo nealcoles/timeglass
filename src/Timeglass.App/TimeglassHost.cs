@@ -11,6 +11,7 @@ using Timeglass.Core.Settings;
 using Timeglass.Core.Tracking;
 using Timeglass.Storage;
 using Timeglass.Storage.Settings;
+using Timeglass.Windows.Autostart;
 using Timeglass.Windows.Foreground;
 using Timeglass.Windows.Idle;
 using Timeglass.Windows.Sessions;
@@ -104,6 +105,7 @@ internal static partial class TimeglassHost
         services.AddSingleton<TodayActiveTime>();
         services.AddSingleton<DashboardLauncher>();
         services.AddSingleton<LogFolder>();
+        services.AddSingleton(_ => new AutostartRegistration(CurrentUserStartupRegistry.Instance, AutostartExecutable));
         services.AddSingleton<CrashHandler>();
 
         return services;
@@ -132,6 +134,14 @@ internal static partial class TimeglassHost
 
         return services;
     }
+
+    /// <summary>
+    /// The exe that <i>Start with Windows</i> registers: the one running now. Once the app is
+    /// installed with Velopack (#40), this becomes the installer's stable launcher, whose path
+    /// stays the same across updates.
+    /// </summary>
+    public static string AutostartExecutable =>
+        Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Timeglass.exe");
 
     /// <summary>
     /// Stops and disposes the host off the UI thread. Called after the message loop has ended,
