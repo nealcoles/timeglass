@@ -25,6 +25,11 @@ namespace Timeglass.Storage;
 /// At most one interval is open (enforced by a unique index). Storing an open interval closes
 /// any other one at its last checkpoint first.
 /// </para>
+/// <para>
+/// <see cref="DeleteRangeAsync"/> goes through the same writer, so it is ordered with the
+/// changes queued before it. It runs with <c>secure_delete</c> on, so deleted titles are
+/// overwritten in the file rather than left in free pages.
+/// </para>
 /// </remarks>
 public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
 {
@@ -60,6 +65,22 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         ORDER BY i.start_utc, i.end_utc;
         """;
 
+    private const string SelectOverlapping = """
+        SELECT i.id AS Id, i.start_utc AS StartUtc, i.end_utc AS EndUtc, i.kind AS Kind, i.is_open AS IsOpen,
+               i.exe_path AS ExePath, i.window_title AS Title
+        FROM intervals i
+        WHERE i.is_open = 0 AND i.start_utc < @To AND (i.end_utc > @From OR i.start_utc >= @From);
+        """;
+
+    private const string DeleteInterval = "DELETE FROM intervals WHERE id = @Id;";
+
+    private const string UpdateBounds = "UPDATE intervals SET start_utc = @StartUtc, end_utc = @EndUtc WHERE id = @Id;";
+
+    private const string InsertPiece = """
+        INSERT INTO intervals (id, start_utc, end_utc, kind, app_id, exe_path, window_title, is_open)
+        SELECT @NewId, @StartUtc, @EndUtc, kind, app_id, exe_path, window_title, 0 FROM intervals WHERE id = @Id;
+        """;
+
     private readonly TimeglassDatabase _database;
     private readonly ILogger _logger;
     private readonly Channel<WriteItem> _queue = Channel.CreateUnbounded<WriteItem>(new UnboundedChannelOptions
@@ -89,6 +110,24 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(changes);
         Enqueue(new WriteItem(changes, Flushed: null));
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Deletes [<paramref name="from"/>, <paramref name="to"/>) after the changes queued so far,
+    /// cutting intervals that overlap its edges (<see cref="IntervalRange.Delete"/>). The open
+    /// interval is not touched. Completes once the deletion is stored; throws if it failed.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="to"/> is before <paramref name="from"/>.</exception>
+    public async ValueTask DeleteRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        if (to < from)
+        {
+            throw new ArgumentException("The range must not end before it starts.", nameof(to));
+        }
+
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Enqueue(new WriteItem(Changes: null, done, new DeleteRange(from, to)));
+        await done.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -147,12 +186,11 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
                 batch.Add(item);
             }
 
-            var changes = batch.Where(i => i.Changes is not null).SelectMany(i => i.Changes!).ToList();
-            if (changes.Count > 0)
+            if (batch.Any(i => i.Changes is not null || i.Delete is not null))
             {
                 try
                 {
-                    Write(changes);
+                    Write(batch);
                     _lastError = null;
                 }
 #pragma warning disable CA1031 // The writer must survive a failed write; the error goes to the log and to flushers.
@@ -161,7 +199,7 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
                 {
                     _lastError = ex;
                     _appIds.Clear(); // ids from a rolled-back transaction are not real
-                    _logger.LogError(ex, "Failed to write {Count} interval change(s)", changes.Count);
+                    _logger.LogError(ex, "Failed to write {Count} interval change(s)", batch.Sum(i => i.Changes?.Count ?? 0));
                 }
             }
 
@@ -179,11 +217,85 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         }
     }
 
-    private void Write(List<IntervalChange> changes)
+    private void Write(List<WriteItem> batch)
     {
         using var connection = _database.Connect();
-        using var transaction = connection.BeginTransaction();
+        if (batch.Any(i => i.Delete is not null))
+        {
+            // Per connection, and not allowed inside a transaction.
+            connection.Execute("PRAGMA secure_delete = ON;");
+        }
 
+        try
+        {
+            using var transaction = connection.BeginTransaction();
+            foreach (var item in batch)
+            {
+                if (item.Changes is not null)
+                {
+                    WriteChanges(connection, transaction, item.Changes);
+                }
+
+                if (item.Delete is { } delete)
+                {
+                    WriteDelete(connection, transaction, delete);
+                }
+            }
+
+            transaction.Commit();
+        }
+        finally
+        {
+            if (batch.Any(i => i.Delete is not null))
+            {
+                // Connections are pooled; don't leave the setting behind.
+                connection.Execute("PRAGMA secure_delete = OFF;");
+            }
+        }
+    }
+
+    private static void WriteDelete(SqliteConnection connection, SqliteTransaction transaction, DeleteRange delete)
+    {
+        var rows = connection.Query<IntervalRow>(SelectOverlapping, new
+        {
+            From = delete.From.ToUnixTimeMilliseconds(),
+            To = delete.To.ToUnixTimeMilliseconds(),
+        }, transaction).ToList();
+
+        foreach (var row in rows)
+        {
+            var pieces = IntervalRange.Delete(row.ToInterval(), delete.From, delete.To, Guid.CreateVersion7);
+            var id = row.Id;
+            var keepsRow = pieces.Count > 0 && pieces[0].Id.ToString("D") == id;
+            foreach (var piece in pieces.Skip(keepsRow ? 1 : 0))
+            {
+                connection.Execute(InsertPiece, new
+                {
+                    NewId = piece.Id.ToString("D"),
+                    Id = id,
+                    StartUtc = piece.Start.ToUnixTimeMilliseconds(),
+                    EndUtc = piece.End.ToUnixTimeMilliseconds(),
+                }, transaction);
+            }
+
+            if (keepsRow)
+            {
+                connection.Execute(UpdateBounds, new
+                {
+                    Id = id,
+                    StartUtc = pieces[0].Start.ToUnixTimeMilliseconds(),
+                    EndUtc = pieces[0].End.ToUnixTimeMilliseconds(),
+                }, transaction);
+            }
+            else
+            {
+                connection.Execute(DeleteInterval, new { Id = id }, transaction);
+            }
+        }
+    }
+
+    private void WriteChanges(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<IntervalChange> changes)
+    {
         foreach (var change in changes)
         {
             var interval = change.Interval;
@@ -208,8 +320,6 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
                 IsOpen = interval.IsOpen ? 1 : 0,
             }, transaction);
         }
-
-        transaction.Commit();
     }
 
     private long GetAppId(SqliteConnection connection, SqliteTransaction transaction, AppIdentity app)
@@ -223,7 +333,9 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         return id;
     }
 
-    private sealed record WriteItem(IReadOnlyList<IntervalChange>? Changes, TaskCompletionSource? Flushed);
+    private sealed record WriteItem(IReadOnlyList<IntervalChange>? Changes, TaskCompletionSource? Flushed, DeleteRange? Delete = null);
+
+    private sealed record DeleteRange(DateTimeOffset From, DateTimeOffset To);
 
     private sealed class IntervalRow
     {

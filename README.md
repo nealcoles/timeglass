@@ -148,11 +148,23 @@ settings at startup stop the app with a message that names the problem.
 | `idleExemptApps`     | `[]`            | App keys that never go idle in front, e.g. `["vlc", "zoom"]`.                   |
 | `minimumInterval`    | `"00:00:01"`    | Shorter visits to a window count towards the previous one (up to 1 min).        |
 | `checkpointInterval` | `"00:00:15"`    | How often the open interval is saved, bounding loss on a crash (1 s to 10 min). |
-| `recordWindowTitles` | `true`          | Store window titles. Applied by the privacy controls (#24).                     |
-| `excludedApps`       | `[]`            | App keys that are not recorded. Applied by the privacy controls (#24).          |
+| `recordWindowTitles` | `true`          | Store window titles. `false` stores every interval without its title.           |
+| `excludedApps`       | `[]`            | App keys that are not tracked at all: while one is in front, nothing is stored. |
+| `appsWithoutTitles`  | `[]`            | App keys whose time is tracked but whose window titles are never stored.        |
 | `appAliases`         | `[]`            | Renames and extra apps on top of the built-in aliases, see below.               |
 | `apiPort`            | `5381`          | Port of the local API (#27), 1024 to 65535.                                     |
 | `logLevel`           | `"Information"` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` or `None`.      |
+
+An app can be in `excludedApps` or `appsWithoutTitles`, not both. Privacy settings apply to the
+open interval as soon as they change: an interval of a newly excluded app is closed, and a
+title that may no longer be stored is removed from it.
+
+## Pausing and privacy
+
+The tray menu's _Pause tracking_ pauses for 30 minutes, an hour, until midnight or until you
+resume; the tray icon switches to its paused look and the tooltip says until when. Paused time is not stored at all
+(it is a gap, not an interval), and neither is time in an excluded app. A pause ends when the
+app restarts. See [ADR 0005](docs/adr/0005-privacy-gaps-not-intervals.md).
 
 An alias with the key of a built-in app renames it, or adds executables to it; any other key
 adds an app. For example, to call Outlook "Mail" and count Cursor as VS Code:

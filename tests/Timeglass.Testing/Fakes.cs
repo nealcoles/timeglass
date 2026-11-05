@@ -105,6 +105,31 @@ public sealed class RecordingIntervalSink : IIntervalSink
         Interlocked.Increment(ref _flushCount);
         return ValueTask.CompletedTask;
     }
+
+    /// <summary>The ranges passed to <see cref="DeleteRangeAsync"/>, in order.</summary>
+    public IReadOnlyList<(DateTimeOffset From, DateTimeOffset To)> DeletedRanges
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _deleted];
+            }
+        }
+    }
+
+    private readonly List<(DateTimeOffset From, DateTimeOffset To)> _deleted = [];
+
+    public ValueTask DeleteRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            _deleted.Add((from, to));
+            _timeline.DeleteRange(from, to);
+        }
+
+        return ValueTask.CompletedTask;
+    }
 }
 
 /// <summary>Applies changes as upserts by id, the same way storage does.</summary>
@@ -120,6 +145,19 @@ public sealed class IntervalTimeline
         foreach (var change in changes)
         {
             _byId[change.Interval.Id] = change.Interval;
+        }
+    }
+
+    /// <summary>Deletes a range from the closed intervals, the same way storage does.</summary>
+    public void DeleteRange(DateTimeOffset from, DateTimeOffset to)
+    {
+        foreach (var interval in _byId.Values.Where(i => !i.IsOpen).ToList())
+        {
+            _byId.Remove(interval.Id);
+            foreach (var piece in IntervalRange.Delete(interval, from, to, Guid.CreateVersion7))
+            {
+                _byId[piece.Id] = piece;
+            }
         }
     }
 }

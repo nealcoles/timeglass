@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Timeglass.App.Logging;
+using Timeglass.Core.Tracking;
 using Timeglass.Windows.Autostart;
 
 namespace Timeglass.App.Tray;
@@ -31,6 +32,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly ContextMenuStrip _menu = new();
     private readonly ToolStripMenuItem _openDashboard = new("&Open dashboard");
     private readonly ToolStripMenuItem _pause = new("&Pause tracking");
+    private readonly ToolStripMenuItem _resume = new("&Resume tracking");
     private readonly ToolStripMenuItem _startWithWindows = new("Start with &Windows");
     private readonly ToolStripMenuItem _settings = new("&Settings (coming soon)") { Enabled = false };
     private readonly ToolStripMenuItem _openLogFolder = new("Open &log folder");
@@ -60,11 +62,18 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
 
         _openDashboard.Font = new Font(_openDashboard.Font, FontStyle.Bold);
         _openDashboard.Click += (_, _) => OpenDashboard();
-        _pause.Click += OnPauseClicked;
+        _pause.DropDownItems.AddRange(
+        [
+            PauseItem("For &30 minutes", PauseLength.ThirtyMinutes),
+            PauseItem("For 1 &hour", PauseLength.OneHour),
+            PauseItem("Until &tomorrow", PauseLength.UntilTomorrow),
+            PauseItem("Until I &resume", PauseLength.UntilResumed),
+        ]);
+        _resume.Click += OnResumeClicked;
         _startWithWindows.Click += (_, _) => ToggleAutostart();
         _openLogFolder.Click += (_, _) => OpenLogFolder();
         _quit.Click += (_, _) => ExitThread();
-        _menu.Items.AddRange([_openDashboard, _pause, _startWithWindows, _settings, _openLogFolder, new ToolStripSeparator(), _quit]);
+        _menu.Items.AddRange([_openDashboard, _pause, _resume, _startWithWindows, _settings, _openLogFolder, new ToolStripSeparator(), _quit]);
         _menu.Opening += (_, _) =>
         {
             RefreshAutostart();
@@ -197,19 +206,22 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         RefreshAutostart();
     }
 
-    private async void OnPauseClicked(object? sender, EventArgs e)
+    private ToolStripMenuItem PauseItem(string text, PauseLength length)
+    {
+        var item = new ToolStripMenuItem(text);
+        item.Click += (_, _) => SetPaused(() => _tracking.PauseAsync(length));
+        return item;
+    }
+
+    private void OnResumeClicked(object? sender, EventArgs e) => SetPaused(_tracking.ResumeAsync);
+
+    private async void SetPaused(Func<Task> change)
     {
         _pause.Enabled = false;
+        _resume.Enabled = false;
         try
         {
-            if (_tracking.IsPaused)
-            {
-                await _tracking.ResumeAsync().ConfigureAwait(true);
-            }
-            else
-            {
-                await _tracking.PauseAsync().ConfigureAwait(true);
-            }
+            await change().ConfigureAwait(true);
         }
 #pragma warning disable CA1031 // An async void handler must not throw into the message loop.
         catch (Exception ex)
@@ -222,6 +234,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
             if (!_disposed)
             {
                 _pause.Enabled = true;
+                _resume.Enabled = true;
             }
         }
     }
@@ -235,9 +248,11 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private void UpdateState()
     {
         var paused = _tracking.IsPaused;
-        _pause.Text = paused ? "&Resume tracking" : "&Pause tracking";
+        _pause.Visible = !paused;
+        _resume.Visible = paused;
+        _resume.Text = TrayText.ResumeItem(PausedUntilLocal());
         _icon.Icon = paused ? _pausedIcon : _activeIcon;
-        _icon.Text = TrayText.Tooltip(_activeToday, paused);
+        _icon.Text = Tooltip();
     }
 
     private async void RefreshTooltip()
@@ -255,9 +270,13 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
 
         if (!_disposed)
         {
-            _icon.Text = TrayText.Tooltip(_activeToday, _tracking.IsPaused);
+            _icon.Text = Tooltip();
         }
     }
+
+    private string Tooltip() => TrayText.Tooltip(_activeToday, _tracking.IsPaused, PausedUntilLocal());
+
+    private DateTime? PausedUntilLocal() => _tracking.PausedUntil?.ToLocalTime().DateTime;
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not pause or resume tracking")]
     private static partial void LogPauseFailed(ILogger logger, Exception exception);

@@ -25,6 +25,9 @@ public sealed partial class TrackingService
     private readonly TimeProvider _time;
     private readonly ILogger _logger;
 
+    // The running run's queue, or null between runs.
+    private Channel<Queued>? _queue;
+
     /// <summary>Creates the service.</summary>
     public TrackingService(
         TrackingEngine engine,
@@ -74,6 +77,7 @@ public sealed partial class TrackingService
             SingleReader = true,
             SingleWriter = false,
         });
+        Volatile.Write(ref _queue, channel);
 
         void OnForeground(WindowSnapshot? window) =>
             channel.Writer.TryWrite(new Queued(new ForegroundChanged(_time.GetUtcNow(), window)));
@@ -123,6 +127,7 @@ public sealed partial class TrackingService
             _foreground.ForegroundChanged -= OnForeground;
             _sessions.SessionChanged -= OnSession;
             channel.Writer.TryComplete();
+            Interlocked.CompareExchange(ref _queue, null, channel);
         }
 
         // Drain anything that arrived before shutdown, then close everything.
@@ -135,8 +140,46 @@ public sealed partial class TrackingService
         await FlushAsync().ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Deletes everything recorded in [<paramref name="from"/>, <paramref name="to"/>), cutting
+    /// intervals that overlap its edges. The future can't be deleted, so the range ends now at
+    /// the latest.
+    /// </summary>
+    /// <remarks>
+    /// While tracking, the deletion runs in order with the tracking events. If the range reaches
+    /// into the open interval, that interval is closed first and a new one is started for the
+    /// window in front, so the tracker never writes deleted time back. An idle or locked user is
+    /// treated as present again from that moment, until the next tick says otherwise.
+    /// </remarks>
+    /// <exception cref="ArgumentException"><paramref name="to"/> is before <paramref name="from"/>.</exception>
+    public async Task DeleteRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    {
+        if (to < from)
+        {
+            throw new ArgumentException("The range must not end before it starts.", nameof(to));
+        }
+
+        var queued = new Queued(null, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously), new DeleteRequest(from, to));
+        if (Volatile.Read(ref _queue) is { } queue && queue.Writer.TryWrite(queued))
+        {
+            // The reader (or the drain after cancellation) runs it.
+            await queued.Done!.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // Not tracking: nothing is open.
+        var now = _time.GetUtcNow();
+        await _sink.DeleteRangeAsync(from, to < now ? to : now, cancellationToken).ConfigureAwait(false);
+    }
+
     private async ValueTask ApplyAsync(Queued queued)
     {
+        if (queued.Delete is { } delete)
+        {
+            await DeleteWhileTrackingAsync(delete, queued.Done!).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
             if (CurrentOptions is { } current)
@@ -144,7 +187,7 @@ public sealed partial class TrackingService
                 _engine.Options = current();
             }
 
-            var changes = _engine.Handle(queued.Event);
+            var changes = _engine.Handle(queued.Event!);
             if (changes.Count > 0)
             {
                 LogChanges(changes);
@@ -159,6 +202,37 @@ public sealed partial class TrackingService
         finally
         {
             queued.Done?.TrySetResult();
+        }
+    }
+
+    private async ValueTask DeleteWhileTrackingAsync(DeleteRequest delete, TaskCompletionSource done)
+    {
+        var now = _time.GetUtcNow();
+        var to = delete.To < now ? delete.To : now;
+        var restart = _engine.IsTracking && _engine.Current is { } open && open.Start < to;
+
+        try
+        {
+            if (restart)
+            {
+                await ApplyAsync(new Queued(new TrackingStopped(now))).ConfigureAwait(false);
+            }
+
+            await _sink.DeleteRangeAsync(delete.From, to, CancellationToken.None).ConfigureAwait(false);
+            done.TrySetResult();
+        }
+#pragma warning disable CA1031 // The caller gets the error; tracking carries on.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            done.TrySetException(ex);
+        }
+        finally
+        {
+            if (restart)
+            {
+                await ApplyAsync(new Queued(new TrackingStarted(now, _foreground.GetCurrent()))).ConfigureAwait(false);
+            }
         }
     }
 
@@ -213,6 +287,11 @@ public sealed partial class TrackingService
     [LoggerMessage(Level = LogLevel.Trace, Message = "Interval checkpoint: {Kind} {App} until {End:O}")]
     private static partial void LogCheckpoint(ILogger logger, IntervalKind kind, string app, DateTimeOffset end);
 
-    /// <summary>An event waiting for the reader, with an optional signal for when it has been stored.</summary>
-    private sealed record Queued(TrackingEvent Event, TaskCompletionSource? Done = null);
+    /// <summary>
+    /// An event (or a deletion) waiting for the reader, with an optional signal for when it has
+    /// been stored.
+    /// </summary>
+    private sealed record Queued(TrackingEvent? Event, TaskCompletionSource? Done = null, DeleteRequest? Delete = null);
+
+    private sealed record DeleteRequest(DateTimeOffset From, DateTimeOffset To);
 }

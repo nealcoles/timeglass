@@ -25,7 +25,7 @@ public sealed class TrackingControllerTests : IDisposable
             new FakeSessionEventSource(),
             _sink,
             _time);
-        _controller = new TrackingController(service, NullLogger<TrackingController>.Instance);
+        _controller = new TrackingController(service, _time, NullLogger<TrackingController>.Instance);
     }
 
     public void Dispose() => _controller.Dispose();
@@ -86,5 +86,78 @@ public sealed class TrackingControllerTests : IDisposable
         await _controller.PauseAsync();
 
         changes.ShouldBe(2);
+    }
+    [Fact]
+    public async Task A_timed_pause_resumes_by_itself_when_it_ends()
+    {
+        await _controller.StartAsync(TestContext.Current.CancellationToken);
+        await _controller.PauseAsync(PauseLength.ThirtyMinutes);
+
+        _controller.IsPaused.ShouldBeTrue();
+        _controller.PausedUntil.ShouldBe(_time.GetUtcNow().AddMinutes(30));
+
+        for (var i = 0; i < 59; i++)
+        {
+            _time.Advance(TimeSpan.FromSeconds(30));
+        }
+
+        _controller.IsPaused.ShouldBeTrue();
+        _time.Advance(TimeSpan.FromSeconds(30));
+        await WaitUntilAsync(() => !_controller.IsPaused);
+
+        _controller.PausedUntil.ShouldBeNull();
+        await _controller.StopAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_timed_pause_ends_on_time_even_if_the_clock_jumps_past_it()
+    {
+        // Sleep: the wall clock moves on while timers don't fire.
+        await _controller.StartAsync(TestContext.Current.CancellationToken);
+        await _controller.PauseAsync(_time.GetUtcNow().AddHours(1));
+
+        _time.Advance(TimeSpan.FromHours(3));
+        await WaitUntilAsync(() => !_controller.IsPaused);
+
+        await _controller.StopAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Resuming_early_cancels_the_pause_end()
+    {
+        await _controller.StartAsync(TestContext.Current.CancellationToken);
+        await _controller.PauseAsync(PauseLength.OneHour);
+        await _controller.ResumeAsync();
+        await _controller.PauseAsync();
+
+        _time.Advance(TimeSpan.FromHours(2));
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        _controller.IsPaused.ShouldBeTrue();
+        _controller.PausedUntil.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Pausing_while_paused_changes_when_the_pause_ends()
+    {
+        var changes = 0;
+        _controller.StateChanged += () => changes++;
+
+        await _controller.PauseAsync(); // not started, no end: nothing changes
+        await _controller.PauseAsync(PauseLength.OneHour);
+        await _controller.PauseAsync(PauseLength.OneHour); // the same end again
+
+        _controller.PausedUntil.ShouldBe(_time.GetUtcNow().AddHours(1));
+        changes.ShouldBe(1);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 200 && !condition(); i++)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        condition().ShouldBeTrue();
     }
 }

@@ -50,6 +50,7 @@ public sealed class SettingsFileTests : IDisposable
             CheckpointInterval = TimeSpan.FromSeconds(30),
             RecordWindowTitles = false,
             ExcludedApps = ["keepass"],
+            AppsWithoutTitles = ["outlook"],
             AppAliases = [new AppAliasSetting { Key = "outlook", Name = "Mail" }],
             ApiPort = 6000,
             LogLevel = LogLevel.Debug,

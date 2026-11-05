@@ -220,4 +220,91 @@ public class TrackingServiceTests
         string[] titles = [Outlook().Title!, Code().Title!];
         entries.ShouldAllBe(e => !titles.Any(t => e.Message.Contains(t, StringComparison.Ordinal)));
     }
+    [Fact]
+    public async Task Deleting_into_the_open_interval_closes_it_first_and_tracking_carries_on()
+    {
+        using var cts = new CancellationTokenSource();
+        var service = CreateService();
+        var run = service.RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+        await AdvanceAsync(TimeSpan.FromSeconds(30));
+        _foreground.SwitchTo(Code());
+        await AdvanceAsync(TimeSpan.FromSeconds(30));
+
+        // The last 40 seconds, and a bit of the future, which can't be deleted.
+        await service.DeleteRangeAsync(T0.AddSeconds(20), T0.AddSeconds(90), TestContext.Current.CancellationToken);
+        await AdvanceAsync(TimeSpan.FromSeconds(10));
+        await cts.CancelAsync();
+        await run;
+
+        _sink.DeletedRanges.ShouldBe([(T0.AddSeconds(20), T0.AddSeconds(60))]);
+        _sink.Intervals.Select(i => (i.App?.Key, i.Start, i.End)).ShouldBe(
+        [
+            ("olk", T0, T0.AddSeconds(20)),
+            ("code", T0.AddSeconds(60), T0.AddSeconds(70)),
+        ]);
+    }
+
+    [Fact]
+    public async Task Deleting_before_the_open_interval_leaves_it_running()
+    {
+        using var cts = new CancellationTokenSource();
+        var service = CreateService();
+        var run = service.RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+        await AdvanceAsync(TimeSpan.FromSeconds(30));
+        _foreground.SwitchTo(Code());
+        await AdvanceAsync(TimeSpan.FromSeconds(30));
+        var open = _sink.Intervals[^1];
+
+        await service.DeleteRangeAsync(T0, T0.AddSeconds(10), TestContext.Current.CancellationToken);
+
+        _sink.Intervals[^1].ShouldBe(open);
+        _sink.Intervals.Count.ShouldBe(2);
+        await cts.CancelAsync();
+        await run;
+    }
+
+    [Fact]
+    public async Task Deleting_while_not_tracking_goes_straight_to_the_sink()
+    {
+        var service = CreateService();
+
+        await service.DeleteRangeAsync(T0.AddHours(-2), T0.AddHours(1), TestContext.Current.CancellationToken);
+
+        _sink.DeletedRanges.ShouldBe([(T0.AddHours(-2), T0)]);
+    }
+
+    [Fact]
+    public async Task A_failed_delete_reaches_the_caller_and_tracking_carries_on()
+    {
+        var sink = new FailingDeleteSink(_sink);
+        var service = new TrackingService(
+            new TrackingEngine(new AliasAppIdentityResolver(AppAliasTable.Empty)),
+            _foreground, new FakeIdleSource(_time), _sessions, sink, _time);
+        using var cts = new CancellationTokenSource();
+        var run = service.RunAsync(cts.Token);
+        await WaitUntilIdleAsync();
+        await AdvanceAsync(TimeSpan.FromSeconds(30));
+
+        await Should.ThrowAsync<IOException>(() =>
+            service.DeleteRangeAsync(T0, T0.AddSeconds(30), TestContext.Current.CancellationToken));
+        await AdvanceAsync(TimeSpan.FromSeconds(16));
+
+        _sink.Intervals[^1].IsOpen.ShouldBeTrue();
+        await cts.CancelAsync();
+        await run;
+        run.IsCompletedSuccessfully.ShouldBeTrue();
+    }
+
+    private sealed class FailingDeleteSink(IIntervalSink inner) : IIntervalSink
+    {
+        public ValueTask ApplyAsync(IReadOnlyList<IntervalChange> changes, CancellationToken cancellationToken) =>
+            inner.ApplyAsync(changes, cancellationToken);
+
+        public ValueTask FlushAsync(CancellationToken cancellationToken) => inner.FlushAsync(cancellationToken);
+
+        public ValueTask DeleteRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
+            throw new IOException("disk full");
+    }
 }
