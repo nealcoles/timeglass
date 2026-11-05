@@ -131,9 +131,27 @@ applied in order by `Migrator`.
 
 Intervals never overlap and `end_utc >= start_utc`. They are contiguous within a tracking run;
 paused time and time in an excluded app are gaps. All times are UTC; converting to local
-days (including DST) is a reporting concern (#25).
+days (including DST) is a reporting concern, below.
 
 To change the schema, add the next numbered `.sql` file. Never edit a script that has shipped.
+
+### Reporting
+
+`Core/Reporting` turns stored intervals into answers; `IntervalRepository` runs the range query
+and hands the rows over.
+
+- **Day summary** (`DaySummaries.Build`, `IntervalRepository.GetDaySummaryAsync`). For a local
+  date and time zone: active and away totals, first and last activity, and per app the active
+  time, its exact share and a whole percentage. A day runs from its local start to the next
+  day's start, so it is 23 or 25 hours long on DST days. Intervals crossing the edges are
+  clipped, and an open interval runs until the `now` the caller passes (Core never reads the
+  clock). Away time is not part of the percentages, and gaps (paused, excluded, not running)
+  are in neither total. Percentages use the largest remainder method, so they add up to
+  exactly 100.
+- **Day start.** A day can start later than midnight (up to 05:59, e.g. 04:00 for late
+  workers) through the `dayStart` parameter. If that time is skipped by a DST change the day
+  starts at the jump; if it happens twice, at the first. There is no setting for it yet; the
+  API and UI will add one when they need it.
 
 ## The host
 

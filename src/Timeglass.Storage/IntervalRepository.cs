@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
+using Timeglass.Core.Reporting;
 
 namespace Timeglass.Storage;
 
@@ -158,6 +159,28 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         return [.. rows.Select(r => r.ToInterval())];
+    }
+
+    /// <summary>
+    /// Where the time went on local day <paramref name="day"/> in <paramref name="zone"/>: active
+    /// and away totals, first and last activity, and time and share per app
+    /// (<see cref="DaySummaries.Build"/>). Intervals crossing the day's edges are clipped.
+    /// </summary>
+    /// <param name="day">The local date.</param>
+    /// <param name="zone">The user's time zone.</param>
+    /// <param name="now">The current time; the open interval counts as running until then.</param>
+    /// <param name="dayStart">Local time the day begins, for people who work past midnight. Midnight by default.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public async Task<DaySummary> GetDaySummaryAsync(
+        DateOnly day,
+        TimeZoneInfo zone,
+        DateTimeOffset now,
+        TimeSpan dayStart = default,
+        CancellationToken cancellationToken = default)
+    {
+        var (from, to) = DaySummaries.Bounds(day, zone, dayStart);
+        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        return DaySummaries.Build(intervals, day, zone, now, dayStart);
     }
 
     /// <summary>Writes everything still queued, then stops the writer.</summary>

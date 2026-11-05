@@ -4,7 +4,7 @@ namespace Timeglass.Core.Reporting;
 
 /// <summary>Sums active time over a range, for quick totals such as the tray tooltip.</summary>
 /// <remarks>
-/// The full day summary with midnight splits and per-app totals is a reporting query (#25);
+/// For a day's totals per app, with midnight splits, see <see cref="DaySummaries"/>;
 /// this only answers "how long was I active between these two instants".
 /// </remarks>
 public static class ActiveTime
@@ -46,13 +46,6 @@ public static class ActiveTime
     {
         ArgumentNullException.ThrowIfNull(zone);
 
-        var start = TimeZoneInfo.ConvertTime(at, zone).Date;
-        while (zone.IsInvalidTime(start))
-        {
-            start = start.AddMinutes(15);
-        }
-
-        var offset = zone.IsAmbiguousTime(start) ? zone.GetAmbiguousTimeOffsets(start).Max() : zone.GetUtcOffset(start);
-        return new DateTimeOffset(start, offset);
+        return DaySummaries.FirstInstantAtOrAfter(TimeZoneInfo.ConvertTime(at, zone).Date, zone);
     }
 }
