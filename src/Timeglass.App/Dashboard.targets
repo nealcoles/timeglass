@@ -37,7 +37,10 @@
     <Exec Command="npm run build" WorkingDirectory="$(TimeglassWebDir)" />
   </Target>
 
-  <!-- Runs before the embedded files manifest is calculated, so the manifest lists these files. -->
+  <!--
+    Runs before the embedded files manifest is calculated, so the manifest lists these files. The
+    manifest task splits Link on the OS's own separator only, so Link is built with Path.Combine.
+  -->
   <Target Name="TimeglassEmbedWeb" BeforeTargets="_CalculateEmbeddedFilesManifestInputs">
     <Error
       Condition="'$(Configuration)' == 'Release' and !Exists('$(TimeglassWebDist)index.html')"
@@ -47,7 +50,7 @@
       <_TimeglassWebFile Include="$(TimeglassWebDist)**" />
       <EmbeddedResource
         Include="@(_TimeglassWebFile)"
-        Link="wwwroot/$([MSBuild]::MakeRelative('$(TimeglassWebDist)', '%(_TimeglassWebFile.FullPath)'))" />
+        Link="$([System.IO.Path]::Combine('wwwroot', $([MSBuild]::MakeRelative('$(TimeglassWebDist)', '%(_TimeglassWebFile.FullPath)'))))" />
     </ItemGroup>
   </Target>
 
