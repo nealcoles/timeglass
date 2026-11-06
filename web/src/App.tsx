@@ -1,25 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useStatus } from './api/queries';
 
 type ApiStatus = 'checking' | 'online' | 'offline';
 
 /**
  * Placeholder shell. The real day view arrives in #32; for now the page proves the
- * build, the dev proxy and the test setup work end to end.
+ * build, the API client and the test setup work end to end.
  */
 export function App() {
-  const [status, setStatus] = useState<ApiStatus>('checking');
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/status', { signal: controller.signal })
-      .then((res) => setStatus(res.ok ? 'online' : 'offline'))
-      .catch((err: unknown) => {
-        if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          setStatus('offline');
-        }
-      });
-    return () => controller.abort();
-  }, []);
+  const { isPending, isError } = useStatus();
+  const status: ApiStatus = isPending ? 'checking' : isError ? 'offline' : 'online';
 
   return (
     <main className="app">

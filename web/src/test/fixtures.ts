@@ -1,0 +1,158 @@
+import type {
+  AppDayDto,
+  AppDto,
+  AppTotalDto,
+  DaySummaryDto,
+  DayTotalDto,
+  RangeSummaryDto,
+  StatusDto,
+  TimelineDto,
+} from '../api/client.ts';
+
+/**
+ * A demo workday shaped like the dev host's demo data (`tools/Timeglass.DevHost/DemoData.cs`):
+ * the same apps and titles, a standup, a lunch break and an open block at the end. Typed from the
+ * generated schema, so a change to the API that breaks them fails the typecheck.
+ */
+export const demoDate = '2026-11-05';
+
+const offset = '+01:00';
+const at = (date: string, time: string) => `${date}T${time}${offset}`;
+const nextDay = (date: string) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+
+export const apps = {
+  code: { key: 'vscode', name: 'Visual Studio Code' },
+  outlook: { key: 'outlook', name: 'Outlook' },
+  edge: { key: 'edge', name: 'Microsoft Edge' },
+  teams: { key: 'teams', name: 'Microsoft Teams' },
+  terminal: { key: 'terminal', name: 'Windows Terminal' },
+} satisfies Record<string, AppDto>;
+
+const minutes = (n: number) => n * 60_000;
+
+const appTotals: AppTotalDto[] = [
+  { app: apps.code, durationMs: minutes(180), share: 180 / 420, percent: 43 },
+  { app: apps.outlook, durationMs: minutes(105), share: 105 / 420, percent: 25 },
+  { app: apps.edge, durationMs: minutes(75), share: 75 / 420, percent: 18 },
+  { app: apps.teams, durationMs: minutes(45), share: 45 / 420, percent: 11 },
+  { app: apps.terminal, durationMs: minutes(15), share: 15 / 420, percent: 3 },
+];
+
+export function status(overrides: Partial<StatusDto> = {}): StatusDto {
+  return {
+    state: 'active',
+    pausedUntil: null,
+    currentApp: apps.code,
+    since: at(demoDate, '15:42:10'),
+    today: demoDate,
+    now: at(demoDate, '16:05:00'),
+    ...overrides,
+  };
+}
+
+export function daySummary(date: string = demoDate): DaySummaryDto {
+  return {
+    date,
+    start: at(date, '00:00:00'),
+    end: at(nextDay(date), '00:00:00'),
+    activeMs: minutes(420),
+    awayMs: minutes(65),
+    firstActivity: at(date, '08:12:31'),
+    lastActivity: at(date, '16:05:00'),
+    apps: appTotals,
+  };
+}
+
+export function timeline(date: string = demoDate): TimelineDto {
+  const block = (
+    app: AppDto | null,
+    start: string,
+    end: string,
+    durationMs: number,
+    isOpen = false,
+  ) => ({
+    kind: app ? ('active' as const) : ('away' as const),
+    app,
+    start: at(date, start),
+    end: at(date, end),
+    durationMs,
+    isOpen,
+  });
+  return {
+    date,
+    start: at(date, '00:00:00'),
+    end: at(nextDay(date), '00:00:00'),
+    blocks: [
+      block(apps.outlook, '08:12:31', '08:40:00', minutes(27) + 29_000),
+      block(apps.code, '08:40:00', '09:30:00', minutes(50)),
+      block(apps.teams, '09:30:00', '09:47:00', minutes(17)),
+      block(apps.edge, '09:47:00', '11:40:00', minutes(113) - 3_000),
+      block(null, '11:40:00', '12:20:00', minutes(40)),
+      block(apps.terminal, '12:20:00', '12:35:00', minutes(15)),
+      block(apps.code, '12:35:00', '16:05:00', minutes(210), true),
+    ],
+  };
+}
+
+export function appDay(date: string = demoDate, appKey: string = apps.code.key): AppDayDto {
+  const app = Object.values(apps).find((a) => a.key === appKey) ?? { key: appKey, name: appKey };
+  const total = app.key === apps.code.key ? minutes(180) : 0;
+  return {
+    date,
+    app,
+    start: at(date, '00:00:00'),
+    end: at(nextDay(date), '00:00:00'),
+    totalMs: total,
+    titles:
+      total === 0
+        ? []
+        : [
+            {
+              title: 'TrackingEngine.cs - timeglass - Visual Studio Code',
+              durationMs: minutes(90),
+              share: 0.5,
+              percent: 50,
+            },
+            {
+              title: 'DaySummaries.cs - timeglass - Visual Studio Code',
+              durationMs: minutes(60),
+              share: 1 / 3,
+              percent: 33,
+            },
+          ],
+    other: total === 0 ? null : { count: 3, durationMs: minutes(30), share: 1 / 6, percent: 17 },
+  };
+}
+
+/** Every weekday from `from` to `to` looks like the demo day; weekends are empty. */
+export function rangeSummary(from: string, to: string): RangeSummaryDto {
+  const days: DayTotalDto[] = [];
+  for (let date = from; date <= to; date = nextDay(date)) {
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const workday = weekday !== 0 && weekday !== 6;
+    days.push({
+      date,
+      start: at(date, '00:00:00'),
+      end: at(nextDay(date), '00:00:00'),
+      activeMs: workday ? minutes(420) : 0,
+      awayMs: workday ? minutes(65) : 0,
+      topApps: workday ? appTotals.slice(0, 3) : [],
+    });
+  }
+  const workdays = days.filter((d) => d.activeMs > 0).length;
+  return {
+    from,
+    to,
+    start: at(from, '00:00:00'),
+    end: at(nextDay(to), '00:00:00'),
+    activeMs: workdays * minutes(420),
+    awayMs: workdays * minutes(65),
+    days,
+    apps:
+      workdays === 0 ? [] : appTotals.map((a) => ({ ...a, durationMs: a.durationMs * workdays })),
+  };
+}

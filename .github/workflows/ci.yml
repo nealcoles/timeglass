@@ -204,6 +204,10 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      # The client's types are generated from the API's openapi.json (#31).
+      - name: Check generated API types
+        run: npm run check:api
+
       - name: Typecheck
         run: npm run typecheck
 
