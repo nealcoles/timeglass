@@ -2,7 +2,9 @@ import { useDaySummary } from '../api/queries.ts';
 import { errorMessage } from '../api/errors.ts';
 import { formatClockTime, formatDuration, formatLongDate } from '../format.ts';
 import { AppShareList } from './AppShareList.tsx';
+import { OTHER_COLOR } from './appColor.ts';
 import { appShares } from './appShares.ts';
+import { DayTimeline } from './DayTimeline.tsx';
 
 interface DayViewProps {
   /** The local date to show, `yyyy-MM-dd`. */
@@ -11,7 +13,10 @@ interface DayViewProps {
   isToday?: boolean;
 }
 
-/** The main screen (#32): how long you were active on a day and which apps the time went to. */
+/**
+ * The main screen (#32, #33): how long you were active on a day, when, and which apps the time
+ * went to.
+ */
 export function DayView({ date, isToday = false }: DayViewProps) {
   const summary = useDaySummary(date);
   const heading = isToday ? `Today, ${formatLongDate(date)}` : formatLongDate(date);
@@ -59,10 +64,25 @@ export function DayView({ date, isToday = false }: DayViewProps) {
             )}
           </dl>
 
-          <h3>Where the time went</h3>
-          <AppShareList rows={appShares(summary.data.apps)} />
+          <DaySections date={date} rows={appShares(summary.data.apps)} />
         </>
       )}
     </section>
+  );
+}
+
+function DaySections({ date, rows }: { date: string; rows: ReturnType<typeof appShares> }) {
+  // The timeline uses the list's colours, so an app folded into "Other" is grey in both.
+  const colors = new Map(rows.flatMap((r) => (r.key === null ? [] : [[r.key, r.color] as const])));
+  const colorFor = (appKey: string) => colors.get(appKey) ?? OTHER_COLOR;
+
+  return (
+    <>
+      <h3>When</h3>
+      <DayTimeline date={date} colorFor={colorFor} />
+
+      <h3>Where the time went</h3>
+      <AppShareList rows={rows} />
+    </>
   );
 }
