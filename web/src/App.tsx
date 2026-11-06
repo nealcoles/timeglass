@@ -4,6 +4,7 @@ import { DayView } from './day/DayView.tsx';
 import { localToday } from './format.ts';
 import { Link } from './Link.tsx';
 import { paths, useRoute, type Route } from './router.ts';
+import { WeekView } from './week/WeekView.tsx';
 
 type ApiStatus = 'checking' | 'online' | 'offline';
 
@@ -38,11 +39,15 @@ export function App() {
 function Screen({ route, today }: { route: Route; today: string }) {
   switch (route.name) {
     case 'today':
-      return <DayView date={today} isToday />;
+      return <DayView date={today} today={today} />;
     case 'day':
-      return <DayView date={route.date} isToday={route.date === today} />;
+      return <DayView date={route.date} today={today} />;
     case 'app':
       return <AppView date={route.date} appKey={route.appKey} isToday={route.date === today} />;
+    case 'thisWeek':
+      return <WeekView date={today} today={today} />;
+    case 'week':
+      return <WeekView date={route.date} today={today} />;
     case 'notFound':
       return (
         <section className="day">

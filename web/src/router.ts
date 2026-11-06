@@ -1,4 +1,5 @@
 import { useSyncExternalStore, type MouseEvent } from 'react';
+import { isValidDate } from './dates.ts';
 
 /**
  * The dashboard's routes. The app serves `index.html` for any path that isn't a file (SPA
@@ -9,17 +10,31 @@ export type Route =
   | { name: 'today' }
   | { name: 'day'; date: string }
   | { name: 'app'; date: string; appKey: string }
+  | { name: 'thisWeek' }
+  | { name: 'week'; date: string }
   | { name: 'notFound' };
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** The route for a path such as `/day/2026-11-05/app/outlook`. */
+/**
+ * The route for a path such as `/day/2026-11-05/app/outlook`. A week is named by any of its dates,
+ * `/week/2026-11-05`; the links the dashboard makes use its Monday.
+ */
 export function parseRoute(pathname: string): Route {
   const parts = pathname.split('/').filter((p) => p !== '');
   if (parts.length === 0) {
     return { name: 'today' };
   }
-  if (parts[0] !== 'day' || parts[1] === undefined || !DATE.test(parts[1])) {
+  if (parts[0] === 'week' && parts.length === 1) {
+    return { name: 'thisWeek' };
+  }
+  if (
+    parts[0] === 'week' &&
+    parts.length === 2 &&
+    parts[1] !== undefined &&
+    isValidDate(parts[1])
+  ) {
+    return { name: 'week', date: parts[1] };
+  }
+  if (parts[0] !== 'day' || parts[1] === undefined || !isValidDate(parts[1])) {
     return { name: 'notFound' };
   }
   const date = parts[1];
@@ -40,6 +55,7 @@ export const paths = {
   today: () => '/',
   day: (date: string) => `/day/${date}`,
   app: (date: string, appKey: string) => `/day/${date}/app/${encodeURIComponent(appKey)}`,
+  week: (date: string) => `/week/${date}`,
 };
 
 const listeners = new Set<() => void>();

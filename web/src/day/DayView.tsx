@@ -1,6 +1,7 @@
 import { useDaySummary } from '../api/queries.ts';
 import { errorMessage } from '../api/errors.ts';
-import { formatClockTime, formatDuration, formatLongDate } from '../format.ts';
+import { formatClockTime, formatDuration, formatLongDate, localToday } from '../format.ts';
+import { DateNav } from '../nav/DateNav.tsx';
 import { AppShareList } from './AppShareList.tsx';
 import { OTHER_COLOR } from './appColor.ts';
 import { appShares } from './appShares.ts';
@@ -9,21 +10,24 @@ import { DayTimeline } from './DayTimeline.tsx';
 interface DayViewProps {
   /** The local date to show, `yyyy-MM-dd`. */
   date: string;
-  /** True when `date` is today, which only changes the wording. */
-  isToday?: boolean;
+  /** Today's date, `yyyy-MM-dd`: the wording says "today", and the way forward stops there. */
+  today?: string;
 }
 
 /**
  * The main screen (#32, #33): how long you were active on a day, when, and which apps the time
- * went to. Each app links to its drill-down by window title (#34).
+ * went to. Each app links to its drill-down by window title (#34); the date bar moves between days
+ * and to the week (#35).
  */
-export function DayView({ date, isToday = false }: DayViewProps) {
+export function DayView({ date, today = localToday() }: DayViewProps) {
+  const isToday = date === today;
   const summary = useDaySummary(date);
   const heading = isToday ? `Today, ${formatLongDate(date)}` : formatLongDate(date);
 
   return (
     <section className="day" aria-labelledby="day-heading" aria-busy={summary.isPending}>
       <h2 id="day-heading">{heading}</h2>
+      <DateNav view="day" date={date} today={today} />
 
       {summary.isPending ? (
         <p role="status" className="day__loading">
