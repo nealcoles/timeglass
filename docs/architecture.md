@@ -152,6 +152,23 @@ and hands the rows over.
   workers) through the `dayStart` parameter. If that time is skipped by a DST change the day
   starts at the jump; if it happens twice, at the first. There is no setting for it yet; the
   API and UI will add one when they need it.
+- **Timeline** (`Timelines.ForDay`, `IntervalRepository.GetTimelineAsync`). The day's active
+  and away time as blocks in time order, clipped to the day. The tracker starts a new interval
+  on every title change, so intervals of the same app (or away time) that touch or are less
+  than 5 seconds apart are merged into one block; a block's `Duration` leaves out the merged
+  gaps.
+- **App drill-down** (`TitleBreakdowns`, `IntervalRepository.GetTitleBreakdownAsync`). One
+  app's time over a day or a range of days, grouped by exact window title: the top N titles
+  (10 by default) and the rest summed as "other", with percentages that add up to 100. Time
+  without a recorded title is its own group with a `null` title.
+- **Range summary** (`RangeSummaries`, `IntervalRepository.GetRangeSummaryAsync`). For the
+  week view: one entry per day (every day, also empty ones) with active and away totals and
+  the day's top apps, plus totals per app over the whole range. Each day is built by the day
+  summary, so the two always agree. A range is at most 366 days.
+- **Range query.** Intervals never overlap, so of the ones starting before a range only the
+  latest can reach into it. `GetRangeAsync` starts its index scan there instead of at the
+  first interval ever stored, which keeps a day query at a few milliseconds with a year of
+  history (about 500,000 intervals; `ReportingPerformanceTests` checks it stays under 100 ms).
 
 ## The host
 
