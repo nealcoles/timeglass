@@ -5,10 +5,11 @@ using Timeglass.Core.Settings;
 
 namespace Timeglass.Api;
 
-/// <summary>
-/// The settings the dashboard can change. The rest of <c>settings.json</c> (the API port, the log
-/// level, timing details) is kept as it is when these are saved.
-/// </summary>
+// The rest of settings.json (the API port, the log level, timing details) is kept as it is when
+// these are saved. The summary stays on one line: it becomes the OpenAPI description, and a line
+// break in it comes out differently on Windows.
+
+/// <summary>The settings the dashboard can change; the rest of <c>settings.json</c> is kept as it is.</summary>
 /// <param name="IdleThresholdSeconds">Seconds without keyboard or mouse input before the user counts as away, 30 to 14400; null turns idle detection off.</param>
 /// <param name="IdleExemptApps">App keys that never go idle while in front, such as video players.</param>
 /// <param name="ExcludedApps">App keys that are not tracked at all.</param>

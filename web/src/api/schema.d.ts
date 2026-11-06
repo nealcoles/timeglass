@@ -408,10 +408,7 @@ export interface components {
       /** @description Active time per app over the whole range, longest first. */
       apps: components['schemas']['AppTotalDto'][];
     };
-    /**
-     * @description The settings the dashboard can change. The rest of `settings.json` (the API port, the log
-     *     level, timing details) is kept as it is when these are saved.
-     */
+    /** @description The settings the dashboard can change; the rest of `settings.json` is kept as it is. */
     SettingsDto: {
       /**
        * Format: int32
