@@ -57,12 +57,18 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         UPDATE intervals SET is_open = 0 WHERE is_open = 1 AND id <> @Id;
         """;
 
+    // Intervals never overlap, so of those starting at or before @From only the latest can reach
+    // into the range. Starting the index scan there keeps a day query fast however much history
+    // there is, instead of scanning every earlier interval.
     private const string SelectRange = """
         SELECT i.id AS Id, i.start_utc AS StartUtc, i.end_utc AS EndUtc, i.kind AS Kind, i.is_open AS IsOpen,
                i.exe_path AS ExePath, i.window_title AS Title, a.key AS AppKey, a.display_name AS AppName
         FROM intervals i
         LEFT JOIN apps a ON a.id = i.app_id
-        WHERE i.start_utc < @To AND (i.end_utc > @From OR i.is_open = 1)
+        WHERE i.start_utc < @To
+          AND i.start_utc >= COALESCE((SELECT MAX(start_utc) FROM intervals WHERE start_utc <= @From), @From)
+          AND (i.end_utc > @From OR i.is_open = 1)
+          AND (@AppKey IS NULL OR a.key = @AppKey OR (@AppKey = @UnknownKey AND i.app_id IS NULL AND i.kind = 0))
         ORDER BY i.start_utc, i.end_utc;
         """;
 
@@ -147,19 +153,11 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
     /// including ones that start before the range. Open intervals are included if they start before
     /// <paramref name="to"/>, since they are still running. Intervals are not clipped to the range.
     /// </summary>
-    public async Task<IReadOnlyList<ActivityInterval>> GetRangeAsync(
+    public Task<IReadOnlyList<ActivityInterval>> GetRangeAsync(
         DateTimeOffset from,
         DateTimeOffset to,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = _database.Connect();
-        var rows = await connection.QueryAsync<IntervalRow>(new CommandDefinition(
-            SelectRange,
-            new { From = from.ToUnixTimeMilliseconds(), To = to.ToUnixTimeMilliseconds() },
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-
-        return [.. rows.Select(r => r.ToInterval())];
-    }
+        CancellationToken cancellationToken = default) =>
+        QueryRangeAsync(from, to, appKey: null, cancellationToken);
 
     /// <summary>
     /// Where the time went on local day <paramref name="day"/> in <paramref name="zone"/>: active
@@ -183,11 +181,105 @@ public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
         return DaySummaries.Build(intervals, day, zone, now, dayStart);
     }
 
+    /// <summary>
+    /// The timeline of local day <paramref name="day"/> in <paramref name="zone"/>: active and away
+    /// blocks in time order, with intervals of the same app a few seconds apart merged
+    /// (<see cref="Timelines.ForDay"/>).
+    /// </summary>
+    /// <param name="day">The local date.</param>
+    /// <param name="zone">The user's time zone.</param>
+    /// <param name="now">The current time; the open interval counts as running until then.</param>
+    /// <param name="dayStart">Local time the day begins. Midnight by default.</param>
+    /// <param name="mergeGap">Merge gaps shorter than this; <see cref="Timelines.DefaultMergeGap"/> if not given.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public async Task<DayTimeline> GetTimelineAsync(
+        DateOnly day,
+        TimeZoneInfo zone,
+        DateTimeOffset now,
+        TimeSpan dayStart = default,
+        TimeSpan? mergeGap = null,
+        CancellationToken cancellationToken = default)
+    {
+        var (from, to) = DaySummaries.Bounds(day, zone, dayStart);
+        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        return Timelines.ForDay(intervals, day, zone, now, dayStart, mergeGap);
+    }
+
+    /// <summary>
+    /// One app's time grouped by window title over local days <paramref name="firstDay"/> to
+    /// <paramref name="lastDay"/> (both included): the <paramref name="top"/> titles with the most
+    /// time and the rest as "other" (<see cref="TitleBreakdowns.Build"/>). For one day, pass the same date twice.
+    /// </summary>
+    /// <param name="appKey">The app's key, e.g. <c>outlook</c>.</param>
+    /// <param name="firstDay">First local date.</param>
+    /// <param name="lastDay">Last local date, included.</param>
+    /// <param name="zone">The user's time zone.</param>
+    /// <param name="now">The current time; the open interval counts as running until then.</param>
+    /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
+    /// <param name="top">How many titles to list by name.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public async Task<TitleBreakdown> GetTitleBreakdownAsync(
+        string appKey,
+        DateOnly firstDay,
+        DateOnly lastDay,
+        TimeZoneInfo zone,
+        DateTimeOffset now,
+        TimeSpan dayStart = default,
+        int top = TitleBreakdowns.DefaultTop,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(appKey);
+        var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
+        var intervals = await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
+        return TitleBreakdowns.Build(intervals, appKey, from, to, now, top);
+    }
+
+    /// <summary>
+    /// Totals per day, the top apps of each day and totals per app over local days
+    /// <paramref name="firstDay"/> to <paramref name="lastDay"/> (both included), for the week
+    /// view (<see cref="RangeSummaries.Build"/>).
+    /// </summary>
+    /// <param name="firstDay">First local date.</param>
+    /// <param name="lastDay">Last local date, included. At most <see cref="RangeSummaries.MaxDays"/> days after the first.</param>
+    /// <param name="zone">The user's time zone.</param>
+    /// <param name="now">The current time; the open interval counts as running until then.</param>
+    /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
+    /// <param name="topApps">How many apps to list per day.</param>
+    /// <param name="cancellationToken">Cancels the query.</param>
+    public async Task<RangeSummary> GetRangeSummaryAsync(
+        DateOnly firstDay,
+        DateOnly lastDay,
+        TimeZoneInfo zone,
+        DateTimeOffset now,
+        TimeSpan dayStart = default,
+        int topApps = RangeSummaries.DefaultTopApps,
+        CancellationToken cancellationToken = default)
+    {
+        var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
+        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, topApps);
+    }
+
     /// <summary>Writes everything still queued, then stops the writer.</summary>
     public async ValueTask DisposeAsync()
     {
         _queue.Writer.TryComplete();
         await _writer.ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<ActivityInterval>> QueryRangeAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        string? appKey,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = _database.Connect();
+        var rows = await connection.QueryAsync<IntervalRow>(new CommandDefinition(
+            SelectRange,
+            new { From = from.ToUnixTimeMilliseconds(), To = to.ToUnixTimeMilliseconds(), AppKey = appKey, UnknownKey = AppIdentity.Unknown.Key },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        return [.. rows.Select(r => r.ToInterval())];
     }
 
     private void Enqueue(WriteItem item)
