@@ -99,6 +99,84 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The settings the dashboard can change */
+    get: operations['GetSettings'];
+    /**
+     * Changes the settings
+     * @description Validated with the same rules as settings.json; nothing is saved if any value is invalid. Settings the dashboard doesn't edit are kept.
+     */
+    put: operations['PutSettings'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/pause': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Pauses tracking
+     * @description Pausing while paused changes when the pause ends.
+     */
+    post: operations['Pause'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/resume': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Resumes tracking */
+    post: operations['Resume'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/intervals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Deletes the recorded time of a range of days
+     * @description Everything recorded on the days from and to (included) is deleted for good. The body must confirm the range as from..to.
+     */
+    delete: operations['DeleteIntervals'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -108,6 +186,17 @@ export interface components {
      * @enum {unknown}
      */
     ActivityKind: 'active' | 'away';
+    /** @description An app rename or alias: which executables (and window titles) make up an app, and its name. */
+    AppAliasDto: {
+      /** @description Lowercase app key. An existing key renames that app; a new one adds an app. */
+      key: string;
+      /** @description Display name. Empty keeps the existing name when renaming. */
+      name: string;
+      /** @description Executable file names, e.g. olk.exe. */
+      exes: string[];
+      /** @description Optional regular expression the window title must match; null for any title. */
+      titlePattern: null | string;
+    };
     /** @description Where the time in one app went on one local day, by window title. */
     AppDayDto: {
       /**
@@ -233,6 +322,11 @@ export interface components {
       /** @description The day's apps with the most time; shares are of the whole day. */
       topApps: components['schemas']['AppTotalDto'][];
     };
+    /** @description Confirms a deletion. */
+    DeleteIntervalsRequest: {
+      /** @description The range being deleted, written as `from..to` (e.g. `2026-11-02..2026-11-04`), so a request can't delete a range it didn't mean to. */
+      confirm: null | string;
+    };
     HttpValidationProblemDetails: {
       type?: null | string;
       title?: null | string;
@@ -266,6 +360,16 @@ export interface components {
        * @description Whole percentage.
        */
       percent: number;
+    };
+    /**
+     * @description How long to pause tracking for; the same choices as the tray menu.
+     * @enum {unknown}
+     */
+    PauseDuration: 'untilResumed' | 'thirtyMinutes' | 'oneHour' | 'untilTomorrow';
+    /** @description A request to pause tracking. */
+    PauseRequest: {
+      /** @description How long to pause for. */
+      duration: components['schemas']['PauseDuration'];
     };
     /** @description Totals per day and per app over a range of local days. */
     RangeSummaryDto: {
@@ -303,6 +407,29 @@ export interface components {
       days: components['schemas']['DayTotalDto'][];
       /** @description Active time per app over the whole range, longest first. */
       apps: components['schemas']['AppTotalDto'][];
+    };
+    /**
+     * @description The settings the dashboard can change. The rest of `settings.json` (the API port, the log
+     *     level, timing details) is kept as it is when these are saved.
+     */
+    SettingsDto: {
+      /**
+       * Format: int32
+       * @description Seconds without keyboard or mouse input before the user counts as away, 30 to 14400; null turns idle detection off.
+       */
+      idleThresholdSeconds: null | number;
+      /** @description App keys that never go idle while in front, such as video players. */
+      idleExemptApps: string[];
+      /** @description App keys that are not tracked at all. */
+      excludedApps: string[];
+      /** @description Whether window titles are stored. */
+      recordWindowTitles: boolean;
+      /** @description App keys whose time is tracked but whose window titles are never stored. */
+      appsWithoutTitles: string[];
+      /** @description The user's app renames and aliases, applied on top of the built-in ones. */
+      appAliases: components['schemas']['AppAliasDto'][];
+      /** @description Whether the app starts when the user signs in; null where the host can't tell (read) or to leave it as it is (write). */
+      startWithWindows: null | boolean;
     };
     /** @description The tracker's current state. */
     StatusDto: {
@@ -555,6 +682,139 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['StatusDto'];
+        };
+      };
+    };
+  };
+  GetSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingsDto'];
+        };
+      };
+    };
+  };
+  PutSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SettingsDto'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SettingsDto'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['HttpValidationProblemDetails'];
+        };
+      };
+    };
+  };
+  Pause: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PauseRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StatusDto'];
+        };
+      };
+    };
+  };
+  Resume: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StatusDto'];
+        };
+      };
+    };
+  };
+  DeleteIntervals: {
+    parameters: {
+      query?: {
+        /** @description First local date, yyyy-MM-dd. Required. */
+        from?: string;
+        /** @description Last local date, yyyy-MM-dd, included. Required. */
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeleteIntervalsRequest'];
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['HttpValidationProblemDetails'];
         };
       };
     };

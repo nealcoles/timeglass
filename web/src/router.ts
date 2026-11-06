@@ -12,6 +12,7 @@ export type Route =
   | { name: 'app'; date: string; appKey: string }
   | { name: 'thisWeek' }
   | { name: 'week'; date: string }
+  | { name: 'settings' }
   | { name: 'notFound' };
 
 /**
@@ -22,6 +23,9 @@ export function parseRoute(pathname: string): Route {
   const parts = pathname.split('/').filter((p) => p !== '');
   if (parts.length === 0) {
     return { name: 'today' };
+  }
+  if (parts[0] === 'settings' && parts.length === 1) {
+    return { name: 'settings' };
   }
   if (parts[0] === 'week' && parts.length === 1) {
     return { name: 'thisWeek' };
@@ -56,6 +60,7 @@ export const paths = {
   day: (date: string) => `/day/${date}`,
   app: (date: string, appKey: string) => `/day/${date}/app/${encodeURIComponent(appKey)}`,
   week: (date: string) => `/week/${date}`,
+  settings: () => '/settings',
 };
 
 const listeners = new Set<() => void>();

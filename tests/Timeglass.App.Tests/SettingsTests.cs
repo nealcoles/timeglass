@@ -131,4 +131,28 @@ public sealed class SettingsTests : IDisposable
 
         host.Services.GetRequiredService<TrackingEngine>().Options.CheckpointInterval.ShouldBe(TimeSpan.FromSeconds(42));
     }
+
+    [Fact]
+    public async Task Settings_saved_from_the_dashboard_are_written_to_the_file_and_applied()
+    {
+        using var host = CreateBuilder().Build();
+        var store = host.Services.GetRequiredService<FileSettingsStore>();
+        var live = host.Services.GetRequiredService<LiveSettings>();
+        var updated = new TimeglassSettings { IdleThreshold = TimeSpan.FromMinutes(2), ExcludedApps = ["keepass"] };
+
+        await store.SaveAsync(updated, TestContext.Current.CancellationToken);
+
+        File.ReadAllText(_folder.SettingsPath).ShouldBe(SettingsFile.Serialize(updated));
+        live.Current.Tracking.IdleThreshold.ShouldBe(TimeSpan.FromMinutes(2));
+        store.Current.ExcludedApps.ShouldBe(["keepass"]);
+    }
+
+    [Fact]
+    public async Task Settings_not_read_from_a_file_cannot_be_saved()
+    {
+        using var host = BuildHostWithMemorySettings();
+        var store = host.Services.GetRequiredService<FileSettingsStore>();
+
+        await Should.ThrowAsync<InvalidOperationException>(() => store.SaveAsync(new TimeglassSettings(), TestContext.Current.CancellationToken));
+    }
 }

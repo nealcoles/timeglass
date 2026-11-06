@@ -108,6 +108,11 @@ internal static partial class TimeglassHost
         services.AddSingleton<DashboardLauncher>();
         services.AddSingleton<LogFolder>();
         services.AddSingleton(_ => new AutostartRegistration(CurrentUserStartupRegistry.Instance, AutostartExecutable));
+
+        // What the dashboard changes through the API (#36).
+        services.AddSingleton<FileSettingsStore>();
+        services.AddSingleton<RegistryAutostart>();
+        services.AddSingleton<TrackerDataDeletion>();
         services.AddSingleton<CrashHandler>();
 
         return services;

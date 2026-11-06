@@ -1,0 +1,229 @@
+import { useState, type FormEvent } from 'react';
+import type { AppDto, SettingsDto } from '../api/client.ts';
+import { ApiError, errorMessage } from '../api/errors.ts';
+import { useRangeSummary, useSaveSettings, useSettings } from '../api/queries.ts';
+import { addDays } from '../dates.ts';
+import { AliasEditor } from './AliasEditor.tsx';
+import { AppKeyList, FieldErrorList } from './AppKeyList.tsx';
+import { DeleteData } from './DeleteData.tsx';
+import {
+  toForm,
+  toSettings,
+  validate,
+  type FieldErrors,
+  type SettingsForm,
+} from './settingsForm.ts';
+
+/** How far back apps are suggested from when adding one to a list. */
+const SUGGESTION_DAYS = 28;
+
+/** The fields the form shows errors next to; anything else is listed above the Save button. */
+const FIELDS = new Set([
+  'idleThresholdSeconds',
+  'idleExemptApps',
+  'excludedApps',
+  'appsWithoutTitles',
+  'appAliases',
+]);
+
+/**
+ * Settings and privacy (#36): what used to need an edit of settings.json, and deleting recorded
+ * time. Saving checks the form first and then lets the API check it with the app's own rules.
+ */
+export function SettingsView({ today }: { today: string }) {
+  const settings = useSettings();
+
+  return (
+    <section className="settings" aria-labelledby="settings-heading" aria-busy={settings.isPending}>
+      <h2 id="settings-heading">Settings</h2>
+      {settings.isPending ? (
+        <p role="status" className="settings__hint">
+          Loading the settings…
+        </p>
+      ) : settings.isError ? (
+        <p role="alert" className="day__error">
+          {errorMessage(settings.error)}
+        </p>
+      ) : (
+        <SettingsEditor initial={settings.data} today={today} />
+      )}
+      <DeleteData today={today} />
+    </section>
+  );
+}
+
+function SettingsEditor({ initial, today }: { initial: SettingsDto; today: string }) {
+  const [form, setForm] = useState<SettingsForm>(() => toForm(initial));
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [saved, setSaved] = useState(false);
+  const save = useSaveSettings();
+  const recent = useRangeSummary(addDays(today, -(SUGGESTION_DAYS - 1)), today);
+  const suggestions: AppDto[] = recent.data?.apps.map((a) => a.app) ?? [];
+
+  const change = (update: Partial<SettingsForm>) => {
+    setForm((current) => ({ ...current, ...update }));
+    setSaved(false);
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const found = validate(form);
+    setErrors(found);
+    setSaved(false);
+    if (Object.keys(found).length > 0) {
+      return;
+    }
+    save.mutate(toSettings(form), {
+      onSuccess: (result) => {
+        setForm(toForm(result));
+        setSaved(true);
+      },
+      onError: (error) => {
+        if (error instanceof ApiError && error.status === 400 && error.problem?.errors) {
+          setErrors(error.problem.errors);
+        }
+      },
+    });
+  };
+
+  const otherErrors = Object.entries(errors)
+    .filter(([field]) => !FIELDS.has(field))
+    .flatMap(([, messages]) => messages);
+  const failed =
+    save.isError && !(save.error instanceof ApiError && save.error.status === 400)
+      ? errorMessage(save.error)
+      : null;
+  const hasErrors = Object.keys(errors).length > 0;
+
+  return (
+    <form className="settings__form" onSubmit={onSubmit} noValidate>
+      <section className="settings__section" aria-labelledby="settings-tracking">
+        <h3 id="settings-tracking">Tracking</h3>
+        <fieldset className="settings__field">
+          <legend>Away detection</legend>
+          <label className="settings__check">
+            <input
+              type="checkbox"
+              checked={form.idleEnabled}
+              onChange={(e) => change({ idleEnabled: e.target.checked })}
+            />
+            Count me as away when I don’t use the keyboard or mouse
+          </label>
+          {form.idleEnabled && (
+            <label className="settings__inline">
+              after
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0.5}
+                max={240}
+                step={0.5}
+                value={form.idleMinutes}
+                aria-invalid={errors.idleThresholdSeconds !== undefined}
+                onChange={(e) => change({ idleMinutes: e.target.value })}
+              />
+              minutes
+            </label>
+          )}
+          <FieldErrorList errors={errors.idleThresholdSeconds} />
+        </fieldset>
+
+        <AppKeyList
+          label="Never away in"
+          description="Apps where you can be watching or listening without typing, such as video players and meeting apps. While one is in front, you never count as away."
+          keys={form.idleExemptApps}
+          onChange={(idleExemptApps) => change({ idleExemptApps })}
+          suggestions={suggestions}
+          errors={errors.idleExemptApps}
+        />
+
+        {form.startWithWindows !== null && (
+          <fieldset className="settings__field">
+            <legend>Startup</legend>
+            <label className="settings__check">
+              <input
+                type="checkbox"
+                checked={form.startWithWindows}
+                onChange={(e) => change({ startWithWindows: e.target.checked })}
+              />
+              Start Timeglass when I sign in to Windows
+            </label>
+          </fieldset>
+        )}
+      </section>
+
+      <section className="settings__section" aria-labelledby="settings-privacy">
+        <h3 id="settings-privacy">Privacy</h3>
+        <fieldset className="settings__field">
+          <legend>Window titles</legend>
+          <label className="settings__check">
+            <input
+              type="checkbox"
+              checked={form.recordWindowTitles}
+              onChange={(e) => change({ recordWindowTitles: e.target.checked })}
+            />
+            Record window titles, such as the document or page you had open
+          </label>
+          <p className="settings__hint">
+            Titles stay on this computer. Turning this off only affects time recorded from now on.
+          </p>
+        </fieldset>
+
+        {form.recordWindowTitles && (
+          <AppKeyList
+            label="Apps without titles"
+            description="Time in these apps is recorded, but never their window titles."
+            keys={form.appsWithoutTitles}
+            onChange={(appsWithoutTitles) => change({ appsWithoutTitles })}
+            suggestions={suggestions}
+            errors={errors.appsWithoutTitles}
+          />
+        )}
+
+        <AppKeyList
+          label="Excluded apps"
+          description="Nothing at all is recorded while one of these apps is in front."
+          keys={form.excludedApps}
+          onChange={(excludedApps) => change({ excludedApps })}
+          suggestions={suggestions}
+          errors={errors.excludedApps}
+        />
+      </section>
+
+      <section className="settings__section" aria-labelledby="settings-apps">
+        <h3 id="settings-apps">Apps</h3>
+        <AliasEditor
+          rows={form.aliases}
+          onChange={(aliases) => change({ aliases })}
+          errors={errors.appAliases}
+        />
+      </section>
+
+      <div className="settings__save">
+        <FieldErrorList errors={otherErrors} />
+        {hasErrors && otherErrors.length === 0 && (
+          <p className="settings__errors" role="alert">
+            Some settings need fixing; see above.
+          </p>
+        )}
+        {failed !== null && (
+          <p className="settings__errors" role="alert">
+            {failed}
+          </p>
+        )}
+        <button
+          type="submit"
+          className="settings__button settings__button--primary"
+          disabled={save.isPending}
+        >
+          {save.isPending ? 'Saving…' : 'Save settings'}
+        </button>
+        {saved && (
+          <p role="status" className="settings__saved">
+            Saved. The new settings apply right away.
+          </p>
+        )}
+      </div>
+    </form>
+  );
+}

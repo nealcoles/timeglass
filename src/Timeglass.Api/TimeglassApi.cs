@@ -17,7 +17,9 @@ namespace Timeglass.Api;
 /// <summary>
 /// The local HTTP API the dashboard reads its data from. A host calls
 /// <see cref="AddTimeglassApi"/> on its services and <see cref="MapTimeglassApi"/> on its app,
-/// and registers an <see cref="IReportingQueries"/> and an <see cref="ITrackingState"/>.
+/// and registers an <see cref="IReportingQueries"/>, an <see cref="ITrackingState"/>, an
+/// <see cref="ISettingsStore"/>, an <see cref="IDataDeletion"/> and, if the host can start with
+/// the user's sign-in, an <see cref="IAutostart"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,7 +32,7 @@ namespace Timeglass.Api;
 /// puts them on 127.0.0.1 behind the checks of <see cref="ApiSecurity"/> (#29).
 /// </para>
 /// </remarks>
-public static class TimeglassApi
+public static partial class TimeglassApi
 {
     /// <summary>The OpenAPI document's name; it is served at <c>/openapi/v1.json</c>.</summary>
     public const string DocumentName = "v1";
@@ -121,6 +123,7 @@ public static class TimeglassApi
             .WithTags("Status")
             .WithSummary("What the tracker is doing right now");
 
+        MapSettingsEndpoints(api);
         return endpoints;
     }
 
@@ -222,7 +225,9 @@ public static class TimeglassApi
         var today = DaySummaries.DayOf(now, zone);
         if (tracking.IsPaused)
         {
-            return TypedResults.Ok(new StatusDto(TrackingStateKind.Paused, tracking.PausedUntil, null, null, today, now));
+            // In the user's zone, like a day's bounds, so the dashboard can show the clock time as it is.
+            var until = tracking.PausedUntil is { } end ? TimeZoneInfo.ConvertTime(end, zone) : (DateTimeOffset?)null;
+            return TypedResults.Ok(new StatusDto(TrackingStateKind.Paused, until, null, null, today, now));
         }
 
         // The open interval is the last block of today's timeline, merged with the ones just

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
-import type { ValidationProblemDetails } from '../api/client.ts';
-import { appDay, daySummary, rangeSummary, status, timeline } from './fixtures.ts';
+import type { PauseDuration, SettingsDto, ValidationProblemDetails } from '../api/client.ts';
+import { appDay, daySummary, rangeSummary, settings, status, timeline } from './fixtures.ts';
 
 const isDate = (value: unknown): value is string =>
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -13,6 +13,19 @@ export function badRequest(name: string, message: string) {
       title: 'One or more validation errors occurred.',
       status: 400,
       errors: { [name]: [message] },
+    },
+    { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+  );
+}
+
+/** A 400 with errors for several fields, as the API answers invalid settings. */
+export function validationProblem(errors: Record<string, string[]>) {
+  return HttpResponse.json<ValidationProblemDetails>(
+    {
+      type: 'https://tools.ietf.org/html/rfc9110#section-15.5.1',
+      title: 'One or more validation errors occurred.',
+      status: 400,
+      errors,
     },
     { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
   );
@@ -59,5 +72,28 @@ export const handlers = [
       return badRequest('from', 'Give from and to as yyyy-MM-dd, from no later than to.');
     }
     return HttpResponse.json(rangeSummary(from, to));
+  }),
+  http.get('/api/settings', () => HttpResponse.json(settings())),
+  http.put('/api/settings', async ({ request }) =>
+    HttpResponse.json((await request.json()) as SettingsDto),
+  ),
+  http.post('/api/pause', async ({ request }) => {
+    const { duration } = (await request.json()) as { duration: PauseDuration };
+    return HttpResponse.json(
+      status({
+        state: 'paused',
+        currentApp: null,
+        since: null,
+        pausedUntil: duration === 'oneHour' ? '2026-11-05T17:05:00+01:00' : null,
+      }),
+    );
+  }),
+  http.post('/api/resume', () => HttpResponse.json(status())),
+  http.delete('/api/intervals', async ({ request }) => {
+    const url = new URL(request.url);
+    const { confirm } = (await request.json()) as { confirm?: string };
+    return confirm === `${url.searchParams.get('from')}..${url.searchParams.get('to')}`
+      ? new HttpResponse(null, { status: 204 })
+      : badRequest('confirm', 'Confirm the range.');
   }),
 ];

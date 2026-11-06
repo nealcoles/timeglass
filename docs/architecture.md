@@ -175,16 +175,31 @@ and hands the rows over.
 
 `Timeglass.Api` is a library: a host calls `services.AddTimeglassApi()` and
 `app.MapTimeglassApi()`, and registers an `IReportingQueries` (Core port, implemented by
-`IntervalRepository`) and an `ITrackingState` (whether tracking is paused). It only knows Core,
-so the tray app and the dev host (below) host the same endpoints.
+`IntervalRepository`), an `ITrackingState` (whether tracking is paused, and pausing it), an
+`ISettingsStore` (the user's settings), an `IDataDeletion` (deleting recorded time) and,
+optionally, an `IAutostart` (_Start with Windows_). It only knows Core, so the tray app and the
+dev host (below) host the same endpoints.
 
-| Endpoint                             | Returns                                                                    |
-| ------------------------------------ | -------------------------------------------------------------------------- |
-| `GET /api/days/{date}/summary`       | Day summary: active and away totals, first and last activity, per app.     |
-| `GET /api/days/{date}/timeline`      | Day timeline: merged active and away blocks.                               |
-| `GET /api/days/{date}/apps/{appKey}` | One app's time on that day by window title: top 10 and the rest.           |
-| `GET /api/range/summary?from=&to=`   | Range summary for the week view, at most 366 days.                         |
-| `GET /api/status`                    | `active`, `away`, `untracked` or `paused`, the current app and since when. |
+| Endpoint                             | Returns                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| `GET /api/days/{date}/summary`       | Day summary: active and away totals, first and last activity, per app.              |
+| `GET /api/days/{date}/timeline`      | Day timeline: merged active and away blocks.                                        |
+| `GET /api/days/{date}/apps/{appKey}` | One app's time on that day by window title: top 10 and the rest.                    |
+| `GET /api/range/summary?from=&to=`   | Range summary for the week view, at most 366 days.                                  |
+| `GET /api/status`                    | `active`, `away`, `untracked` or `paused`, the current app and since when.          |
+| `GET /api/settings`                  | The settings the dashboard edits (#36), and whether the app starts with Windows.    |
+| `PUT /api/settings`                  | Validates and saves them; 400 with the errors per field, nothing saved.             |
+| `POST /api/pause`, `/api/resume`     | Pauses (`{"duration": "oneHour"}`, as in the tray menu) or resumes; the new status. |
+| `DELETE /api/intervals?from=&to=`    | Deletes the recorded time of those days. Body `{"confirm": "from..to"}`.            |
+
+The settings endpoints validate with the settings model's own rules (its data annotations and
+`TimeglassSettings.Validate`, as when `settings.json` loads), and keep the settings the dashboard
+doesn't show (port, log level, timing). In the tray app, `FileSettingsStore` writes
+`settings.json` atomically and reloads the configuration at once, so the new settings are in
+effect when the request returns; `RegistryAutostart` is the tray menu's _Start with Windows_ value.
+Deleting goes through `TrackingService.DeleteRangeAsync`, which cuts the open interval too, so
+it isn't written back at its next checkpoint. The confirmation in the body must repeat the range,
+so a request with the wrong query string deletes nothing.
 
 - Days are local days in the `TimeProvider`'s local zone, starting at midnight.
 - Dates are ISO dates (`yyyy-MM-dd`). A missing or invalid date, a range that ends before it
@@ -280,6 +295,15 @@ route a deep link.
 | `/`                        | Today (`DayView`): totals, the timeline and the app share list |
 | `/day/{date}`              | The same for another day                                       |
 | `/day/{date}/app/{appKey}` | App drill-down (`AppView`): the app's time by window title     |
+| `/week`, `/week/{date}`    | Week overview (`WeekView`): this week, or the week of a date   |
+| `/settings`                | Settings and privacy (`SettingsView`), and deleting a range    |
+
+The header shows the tracker's state, a _Pause_ menu with the tray's choices (or _Resume_ while
+paused) and the link to the settings. The settings page edits what used to need `settings.json`:
+away detection, apps that never go idle, window titles, excluded apps, apps without titles, app
+renames and _Start with Windows_. It checks the form before saving and then shows the API's
+errors next to their fields. Deleting a range asks first, in a dialog that says how much active
+time the range holds; focus starts on _Cancel_.
 
 The drill-down lists the API's top 10 titles with time and share of the app's time, and the
 rest as one "other" row. Its search box filters those titles in the browser; the titles folded
@@ -303,7 +327,8 @@ end-to-end tests. It is never shipped.
   apart (merged by the timeline) and a Tuesday evening that runs past midnight. It is
   deterministic: each date gets its own random sequence from the seed and the date, so a day
   looks the same whichever day is today.
-- Tracking is never paused, unless `--paused true`.
+- Tracking is never paused, unless `--paused true`. Pausing and resuming through the API only
+  change the state it reports; settings and _Start with Windows_ are kept in memory.
 - `Timeglass.Api.Tests` checks the demo data's shape (`DemoDataTests`) and starts the host
   through `WebApplicationFactory` with a fake clock (`DevHostTests`).
 

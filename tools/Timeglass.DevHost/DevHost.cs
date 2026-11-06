@@ -52,7 +52,10 @@ public static class DevHost
         builder.Services.AddSingleton(sp => sp.GetRequiredService<DevDatabase>().Database);
         builder.Services.AddSingleton<IntervalRepository>();
         builder.Services.AddSingleton<IReportingQueries>(sp => sp.GetRequiredService<IntervalRepository>());
-        builder.Services.AddSingleton<ITrackingState>(new FixedTrackingState(options.Paused));
+        builder.Services.AddSingleton<ITrackingState>(new DevTrackingState(options.Paused));
+        builder.Services.AddSingleton<ISettingsStore, InMemorySettingsStore>();
+        builder.Services.AddSingleton<IAutostart, InMemoryAutostart>();
+        builder.Services.AddSingleton<IDataDeletion>(sp => new RepositoryDeletion(sp.GetRequiredService<IntervalRepository>()));
         builder.Services.AddHostedService<DemoSeeder>();
         builder.Services.AddTimeglassApi();
 
@@ -62,12 +65,88 @@ public static class DevHost
     }
 }
 
-/// <summary>Tracking that never changes state: the dev host has no tracker.</summary>
-internal sealed class FixedTrackingState(bool paused) : ITrackingState
+/// <summary>
+/// Pausing without a tracker: the dev host only remembers the state, so the dashboard's paused
+/// state can be worked on. A pause with an end stays paused after it, until resumed.
+/// </summary>
+internal sealed class DevTrackingState(bool paused) : ITrackingState
 {
-    public bool IsPaused => paused;
+    private readonly Lock _gate = new();
+    private bool _paused = paused;
+    private DateTimeOffset? _until;
 
-    public DateTimeOffset? PausedUntil => null;
+    public bool IsPaused
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _paused;
+            }
+        }
+    }
+
+    public DateTimeOffset? PausedUntil
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _until;
+            }
+        }
+    }
+
+    public Task PauseAsync(DateTimeOffset? until)
+    {
+        lock (_gate)
+        {
+            (_paused, _until) = (true, until);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task ResumeAsync()
+    {
+        lock (_gate)
+        {
+            (_paused, _until) = (false, null);
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>Settings kept in memory for the dev host's lifetime, starting from the defaults.</summary>
+internal sealed class InMemorySettingsStore : ISettingsStore
+{
+    private TimeglassSettings _current = new();
+
+    public TimeglassSettings Current => Volatile.Read(ref _current);
+
+    public Task SaveAsync(TimeglassSettings settings, CancellationToken cancellationToken)
+    {
+        Volatile.Write(ref _current, settings);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>A start-with-Windows switch that only remembers its state.</summary>
+internal sealed class InMemoryAutostart : IAutostart
+{
+    private volatile bool _enabled;
+
+    public bool IsEnabled => _enabled;
+
+    public void SetEnabled(bool enabled) => _enabled = enabled;
+}
+
+/// <summary>Deletes straight from the database: the dev host has no tracker with an open interval.</summary>
+internal sealed class RepositoryDeletion(IntervalRepository repository) : IDataDeletion
+{
+    public Task DeleteRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
+        repository.DeleteRangeAsync(from, to, cancellationToken).AsTask();
 }
 
 /// <summary>The dev host's database file: a temp file deleted on dispose, unless one was given.</summary>

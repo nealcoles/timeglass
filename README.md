@@ -163,6 +163,9 @@ in the settings to also log tracking state changes. Window titles are never writ
 
 ## Settings
 
+Most settings can be changed on the dashboard's _Settings_ page, which also deletes the recorded
+time of a range of days. They are stored in `settings.json`, which you can also edit by hand.
+
 `settings.json` is created with the defaults on first start. Edits apply while the app runs;
 an edit with invalid values is logged and ignored (the previous settings stay), while invalid
 settings at startup stop the app with a message that names the problem.

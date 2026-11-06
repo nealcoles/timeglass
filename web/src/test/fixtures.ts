@@ -5,6 +5,7 @@ import type {
   DaySummaryDto,
   DayTotalDto,
   RangeSummaryDto,
+  SettingsDto,
   StatusDto,
   TimelineDto,
 } from '../api/client.ts';
@@ -154,5 +155,19 @@ export function rangeSummary(from: string, to: string): RangeSummaryDto {
     days,
     apps:
       workdays === 0 ? [] : appTotals.map((a) => ({ ...a, durationMs: a.durationMs * workdays })),
+  };
+}
+
+/** The default settings, with Windows autostart available and off. */
+export function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
+  return {
+    idleThresholdSeconds: 300,
+    idleExemptApps: [],
+    excludedApps: [],
+    recordWindowTitles: true,
+    appsWithoutTitles: [],
+    appAliases: [],
+    startWithWindows: false,
+    ...overrides,
   };
 }

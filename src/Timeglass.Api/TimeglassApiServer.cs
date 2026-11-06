@@ -16,8 +16,9 @@ public static class TimeglassApiServer
 {
     /// <summary>
     /// Builds the server. The caller starts and stops it, and registers the API's data in
-    /// <paramref name="addServices"/>: an <c>IReportingQueries</c>, an <see cref="ITrackingState"/>
-    /// and, if it has one, its <see cref="TimeProvider"/>.
+    /// <paramref name="addServices"/>: an <c>IReportingQueries</c>, an <see cref="ITrackingState"/>,
+    /// an <see cref="ISettingsStore"/>, an <see cref="IDataDeletion"/>, an <see cref="IAutostart"/>
+    /// if it has one and, if it has one, its <see cref="TimeProvider"/>.
     /// </summary>
     /// <param name="security">The port to listen on (see <see cref="LoopbackPort.Choose"/>) and the token.</param>
     /// <param name="loggerFactory">The host's logging, so the server logs where the app does.</param>

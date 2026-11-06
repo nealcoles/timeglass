@@ -219,6 +219,175 @@
           }
         }
       }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "The settings the dashboard can change",
+        "operationId": "GetSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Changes the settings",
+        "description": "Validated with the same rules as settings.json; nothing is saved if any value is invalid. Settings the dashboard doesn't edit are kept.",
+        "operationId": "PutSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pause": {
+      "post": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Pauses tracking",
+        "description": "Pausing while paused changes when the pause ends.",
+        "operationId": "Pause",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resume": {
+      "post": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Resumes tracking",
+        "operationId": "Resume",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intervals": {
+      "delete": {
+        "tags": [
+          "Data"
+        ],
+        "summary": "Deletes the recorded time of a range of days",
+        "description": "Everything recorded on the days from and to (included) is deleted for good. The body must confirm the range as from..to.",
+        "operationId": "DeleteIntervals",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local date, yyyy-MM-dd. Required.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local date, yyyy-MM-dd, included. Required.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteIntervalsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -229,6 +398,40 @@
           "away"
         ],
         "description": "Active or away."
+      },
+      "AppAliasDto": {
+        "required": [
+          "key",
+          "name",
+          "exes",
+          "titlePattern"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Lowercase app key. An existing key renames that app; a new one adds an app."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name. Empty keeps the existing name when renaming."
+          },
+          "exes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Executable file names, e.g. olk.exe."
+          },
+          "titlePattern": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Optional regular expression the window title must match; null for any title."
+          }
+        },
+        "description": "An app rename or alias: which executables (and window titles) make up an app, and its name."
       },
       "AppDayDto": {
         "required": [
@@ -446,6 +649,22 @@
         },
         "description": "One day in a range."
       },
+      "DeleteIntervalsRequest": {
+        "required": [
+          "confirm"
+        ],
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The range being deleted, written as `from..to` (e.g. `2026-11-02..2026-11-04`), so a request can't delete a range it didn't mean to."
+          }
+        },
+        "description": "Confirms a deletion."
+      },
       "HttpValidationProblemDetails": {
         "type": "object",
         "properties": {
@@ -523,6 +742,28 @@
         },
         "description": "The titles left out of the list, together."
       },
+      "PauseDuration": {
+        "enum": [
+          "untilResumed",
+          "thirtyMinutes",
+          "oneHour",
+          "untilTomorrow"
+        ],
+        "description": "How long to pause tracking for; the same choices as the tray menu."
+      },
+      "PauseRequest": {
+        "required": [
+          "duration"
+        ],
+        "type": "object",
+        "properties": {
+          "duration": {
+            "description": "How long to pause for.",
+            "$ref": "#/components/schemas/PauseDuration"
+          }
+        },
+        "description": "A request to pause tracking."
+      },
       "RangeSummaryDto": {
         "required": [
           "from",
@@ -582,6 +823,68 @@
           }
         },
         "description": "Totals per day and per app over a range of local days."
+      },
+      "SettingsDto": {
+        "required": [
+          "idleThresholdSeconds",
+          "idleExemptApps",
+          "excludedApps",
+          "recordWindowTitles",
+          "appsWithoutTitles",
+          "appAliases",
+          "startWithWindows"
+        ],
+        "type": "object",
+        "properties": {
+          "idleThresholdSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "Seconds without keyboard or mouse input before the user counts as away, 30 to 14400; null turns idle detection off.",
+            "format": "int32"
+          },
+          "idleExemptApps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "App keys that never go idle while in front, such as video players."
+          },
+          "excludedApps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "App keys that are not tracked at all."
+          },
+          "recordWindowTitles": {
+            "type": "boolean",
+            "description": "Whether window titles are stored."
+          },
+          "appsWithoutTitles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "App keys whose time is tracked but whose window titles are never stored."
+          },
+          "appAliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppAliasDto"
+            },
+            "description": "The user's app renames and aliases, applied on top of the built-in ones."
+          },
+          "startWithWindows": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Whether the app starts when the user signs in; null where the host can't tell (read) or to leave it as it is (write)."
+          }
+        },
+        "description": "The settings the dashboard can change. The rest of `settings.json` (the API port, the log\nlevel, timing details) is kept as it is when these are saved."
       },
       "StatusDto": {
         "required": [
@@ -774,6 +1077,12 @@
     },
     {
       "name": "Status"
+    },
+    {
+      "name": "Settings"
+    },
+    {
+      "name": "Data"
     }
   ]
 }

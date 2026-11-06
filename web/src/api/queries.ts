@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { PauseDuration, SettingsDto } from './client.ts';
 import { useApiClient } from './context.ts';
 import { unwrap } from './errors.ts';
 
@@ -10,6 +11,7 @@ export const queryKeys = {
   timeline: (date: string) => ['days', date, 'timeline'] as const,
   appDay: (date: string, appKey: string) => ['days', date, 'apps', appKey] as const,
   range: (from: string, to: string) => ['range', from, to] as const,
+  settings: ['settings'] as const,
 };
 
 /** What the tracker is doing right now. */
@@ -54,11 +56,70 @@ export function useAppDay(date: string, appKey: string) {
 }
 
 /** Totals per day and per app from `from` to `to`, both included. */
-export function useRangeSummary(from: string, to: string) {
+export function useRangeSummary(from: string, to: string, { enabled = true } = {}) {
   const api = useApiClient();
   return useQuery({
     queryKey: queryKeys.range(from, to),
+    enabled,
     queryFn: ({ signal }) =>
       unwrap(api.GET('/api/range/summary', { params: { query: { from, to } }, signal })),
+  });
+}
+
+/** The settings the dashboard can change (#36). */
+export function useSettings() {
+  const api = useApiClient();
+  return useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: ({ signal }) => unwrap(api.GET('/api/settings', { signal })),
+  });
+}
+
+/**
+ * Saves the settings. The API answers with the settings now in effect, which replace the cached
+ * ones; a 400 carries the errors per field (see `ApiError.problem.errors`).
+ */
+export function useSaveSettings() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: SettingsDto) => unwrap(api.PUT('/api/settings', { body: settings })),
+    onSuccess: (saved) => queryClient.setQueryData(queryKeys.settings, saved),
+  });
+}
+
+/** Pauses or resumes tracking; the answer is the new status. */
+export function usePauseTracking() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (duration: PauseDuration | null) =>
+      unwrap(
+        duration === null
+          ? api.POST('/api/resume')
+          : api.POST('/api/pause', { body: { duration } }),
+      ),
+    onSuccess: async (status) => {
+      queryClient.setQueryData(queryKeys.status, status);
+      // Pausing closes the open interval, so today's numbers stop growing.
+      await queryClient.invalidateQueries({ queryKey: ['days', status.today] });
+    },
+  });
+}
+
+/** Deletes everything recorded from `from` to `to` (both included), then refetches every report. */
+export function useDeleteRange() {
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ from, to }: { from: string; to: string }) =>
+      unwrap(
+        api.DELETE('/api/intervals', {
+          params: { query: { from, to } },
+          body: { confirm: `${from}..${to}` },
+        }),
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'settings' }),
   });
 }

@@ -69,6 +69,9 @@ internal sealed partial class ApiServer : IHostedService, IAsyncDisposable
                     services.AddSingleton(_services.GetRequiredService<TimeProvider>());
                     services.AddSingleton<IReportingQueries>(_services.GetRequiredService<IntervalRepository>());
                     services.AddSingleton<ITrackingState>(_services.GetRequiredService<TrackingController>());
+                    services.AddSingleton<ISettingsStore>(_services.GetRequiredService<FileSettingsStore>());
+                    services.AddSingleton<IAutostart>(_services.GetRequiredService<RegistryAutostart>());
+                    services.AddSingleton<IDataDeletion>(_services.GetRequiredService<TrackerDataDeletion>());
                 },
                 dashboard);
             await app.StartAsync(cancellationToken).ConfigureAwait(false);
