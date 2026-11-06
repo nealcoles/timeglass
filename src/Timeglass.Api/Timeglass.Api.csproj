@@ -10,6 +10,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The OpenAPI document; the committed copy is openapi.json next to this file. -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Timeglass.Core\Timeglass.Core.csproj" />
   </ItemGroup>
 

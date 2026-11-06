@@ -31,7 +31,7 @@ Parts marked _(planned)_ don't exist yet; the issue number says where they are b
 | ------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
 | `Timeglass.Core`    | `net10.0`         | Domain records, ports (interfaces), the tracking engine and service, app identity resolution. |
 | `Timeglass.Storage` | `net10.0`         | SQLite database, migrations, `IntervalRepository` (implements `IIntervalSink`).               |
-| `Timeglass.Api`     | `net10.0`         | Local HTTP API for the UI _(planned, #27)_.                                                   |
+| `Timeglass.Api`     | `net10.0`         | Local HTTP API for the UI: `MapTimeglassApi()` endpoints and the OpenAPI document.            |
 | `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events.        |
 | `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: generic host, composition root, tray icon, single instance.                  |
 | `web/`              | Node / browser    | React + TypeScript UI, built with Vite and served by the app _(planned, #30)_.                |
@@ -112,9 +112,9 @@ SystemEvents ───┘                                                       
    the API): it runs in order with the tracking events, closes the open interval first if the
    range reaches it, and the repository cuts intervals at the range edges with `secure_delete`
    on.
-4. **API** _(planned, #27, #29)_. ASP.NET Core minimal API on `127.0.0.1`, reading intervals by
-   time range and aggregating them (day summary, timeline, week). Loopback only, with Host
-   header validation and an access token.
+4. **API.** An ASP.NET Core minimal API that serves the reporting queries as JSON (below).
+   Hosting it on `127.0.0.1` in the tray app, with Host header validation and an access token,
+   is _planned (#29)_.
 5. **UI** _(planned, #31 onward)_. React app served by the same process (#30). In development,
    Vite proxies `/api` to the backend.
 
@@ -170,6 +170,34 @@ and hands the rows over.
   first interval ever stored, which keeps a day query at a few milliseconds with a year of
   history (about 500,000 intervals; `ReportingPerformanceTests` checks it stays under 100 ms).
 
+### API
+
+`Timeglass.Api` is a library: a host calls `services.AddTimeglassApi()` and
+`app.MapTimeglassApi()`, and registers an `IReportingQueries` (Core port, implemented by
+`IntervalRepository`) and an `ITrackingState` (whether tracking is paused). It only knows Core,
+so the tray app and the dev host (#28) host the same endpoints.
+
+| Endpoint                             | Returns                                                                    |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| `GET /api/days/{date}/summary`       | Day summary: active and away totals, first and last activity, per app.     |
+| `GET /api/days/{date}/timeline`      | Day timeline: merged active and away blocks.                               |
+| `GET /api/days/{date}/apps/{appKey}` | One app's time on that day by window title: top 10 and the rest.           |
+| `GET /api/range/summary?from=&to=`   | Range summary for the week view, at most 366 days.                         |
+| `GET /api/status`                    | `active`, `away`, `untracked` or `paused`, the current app and since when. |
+
+- Days are local days in the `TimeProvider`'s local zone, starting at midnight.
+- Dates are ISO dates (`yyyy-MM-dd`). A missing or invalid date, a range that ends before it
+  starts or one longer than 366 days gets a 400 Problem Details response
+  (`application/problem+json`, with the field under `errors`).
+- Responses are API records (`ApiModels.cs`), not the Core ones: camelCase, durations as whole
+  milliseconds (`activeMs`), kinds as lowercase strings, numbers never as strings.
+- The OpenAPI document is served at `/openapi/v1.json` and committed as
+  `src/Timeglass.Api/openapi.json` for the frontend's typed client (#31).
+  `OpenApiDocumentTests` fails when the two differ; run the API tests with
+  `TIMEGLASS_UPDATE_OPENAPI=1` to regenerate the file, and commit it.
+- `Timeglass.Api.Tests` hosts the endpoints on `TestServer` over a real temp database. The API
+  has no entry point of its own, so there is no `WebApplicationFactory`.
+
 ## The host
 
 `Timeglass.App` builds a generic host (`Microsoft.Extensions.Hosting`) for dependency injection,
@@ -204,7 +232,7 @@ Pausing ends the current tracking run the same way (close and flush); resuming s
 so paused time is not stored. `TrackingController` resumes a timed pause by itself, checking the
 wall clock at least every 30 s so the pause ends on time after sleep. A pause does not survive
 a restart.
-The embedded API (#27) will be another hosted service.
+The embedded API will be hosted here once it is locked down (#29).
 
 ### Logging and crashes
 
