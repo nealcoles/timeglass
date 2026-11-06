@@ -8,9 +8,14 @@ const originalFetch = globalThis.fetch;
 globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) =>
   originalFetch(typeof input === 'string' && input.startsWith('/') ? baseUrl + input : input, init);
 
+// jsdom doesn't scroll; navigating scrolls to the top.
+globalThis.scrollTo = () => {};
+
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 afterEach(() => {
   cleanup();
   server.resetHandlers();
+  // Each test starts on the dashboard's home page.
+  globalThis.history.replaceState(null, '', '/');
 });
 afterAll(() => server.close());

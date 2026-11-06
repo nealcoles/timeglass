@@ -1,0 +1,197 @@
+import { useId, useState } from 'react';
+import type { AppDayDto } from '../api/client.ts';
+import { errorMessage } from '../api/errors.ts';
+import { useAppDay } from '../api/queries.ts';
+import { appColor } from '../day/appColor.ts';
+import { formatDuration, formatLongDate } from '../format.ts';
+import { Link } from '../Link.tsx';
+import { paths } from '../router.ts';
+import { filterTitles, hasNoTitles } from './titleRows.ts';
+
+interface AppViewProps {
+  /** The local date, `yyyy-MM-dd`. */
+  date: string;
+  /** The app's key, as in the API, e.g. `outlook`. */
+  appKey: string;
+  /** True when `date` is today, which only changes the wording and the way back. */
+  isToday?: boolean;
+}
+
+/**
+ * The app drill-down (#34): which window titles (mails, documents, projects) an app's time on a
+ * day went to, with a search box to find one.
+ */
+export function AppView({ date, appKey, isToday = false }: AppViewProps) {
+  const appDay = useAppDay(date, appKey);
+  const name = appDay.data?.app.name ?? appKey;
+  const longDate = formatLongDate(date);
+
+  return (
+    <section className="app-day" aria-labelledby="app-day-heading" aria-busy={appDay.isPending}>
+      <p className="app-day__back">
+        <Link href={isToday ? paths.today() : paths.day(date)}>
+          ← Back to {isToday ? 'today' : 'the day'}
+        </Link>
+      </p>
+      <h2 id="app-day-heading">
+        <span
+          className="app-day__swatch"
+          style={{ backgroundColor: appColor(appKey) }}
+          aria-hidden="true"
+        />
+        {name}
+      </h2>
+      <p className="app-day__date">{isToday ? `Today, ${longDate}` : longDate}</p>
+
+      {appDay.isPending ? (
+        <p role="status" className="app-day__loading">
+          Loading the titles…
+        </p>
+      ) : appDay.isError ? (
+        <p role="alert" className="app-day__error">
+          {errorMessage(appDay.error)}
+        </p>
+      ) : appDay.data.totalMs === 0 ? (
+        <p className="app-day__empty">
+          No time in {name} {isToday ? 'yet today' : 'on this day'}.
+        </p>
+      ) : (
+        <>
+          <dl className="day__totals">
+            <div>
+              <dt>Active</dt>
+              <dd>{formatDuration(appDay.data.totalMs)}</dd>
+            </div>
+          </dl>
+          {hasNoTitles(appDay.data) ? (
+            <p className="app-day__empty">
+              No window titles were recorded for {name}, so its time can&apos;t be split by mail,
+              document or project. Titles aren&apos;t recorded while title recording is off, or for
+              apps excluded from it.
+            </p>
+          ) : (
+            <TitleList day={appDay.data} />
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function TitleList({ day }: { day: AppDayDto }) {
+  const [query, setQuery] = useState('');
+  const searchId = useId();
+  const rows = filterTitles(day.titles, query);
+  const searching = query.trim() !== '';
+  const longest = Math.max(...day.titles.map((t) => t.durationMs), day.other?.durationMs ?? 0, 1);
+  const color = appColor(day.app.key);
+
+  return (
+    <>
+      <div className="app-day__search">
+        <label htmlFor={searchId}>Filter titles</label>
+        <input
+          id={searchId}
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </div>
+
+      {rows.length === 0 ? (
+        <p role="status" className="app-day__empty">
+          No titles match “{query.trim()}”.
+        </p>
+      ) : (
+        <table className="app-shares app-titles">
+          <caption className="visually-hidden">
+            Time in {day.app.name} per window title, longest first
+          </caption>
+          <thead className="visually-hidden">
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Time</th>
+              <th scope="col">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <TitleRowView
+                key={row.title ?? '\0none'}
+                label={row.title ?? 'No title recorded'}
+                muted={row.title === null}
+                title={row.title ?? undefined}
+                durationMs={row.durationMs}
+                percent={row.percent}
+                width={row.durationMs / longest}
+                color={color}
+              />
+            ))}
+            {!searching && day.other && (
+              <TitleRowView
+                label={`${day.other.count} other ${day.other.count === 1 ? 'title' : 'titles'}`}
+                muted
+                durationMs={day.other.durationMs}
+                percent={day.other.percent}
+                width={day.other.durationMs / longest}
+                color={color}
+              />
+            )}
+          </tbody>
+        </table>
+      )}
+
+      {searching && day.other && (
+        <p className="app-day__note">
+          The search covers the {day.titles.filter((t) => t.title !== null).length} titles with the
+          most time; the {day.other.count} shorter ones ({formatDuration(day.other.durationMs)})
+          aren&apos;t listed.
+        </p>
+      )}
+    </>
+  );
+}
+
+interface TitleRowViewProps {
+  label: string;
+  /** The full title as a tooltip, since a long one is cut off. */
+  title?: string | undefined;
+  muted: boolean;
+  durationMs: number;
+  percent: number;
+  width: number;
+  color: string;
+}
+
+function TitleRowView({
+  label,
+  title,
+  muted,
+  durationMs,
+  percent,
+  width,
+  color,
+}: TitleRowViewProps) {
+  return (
+    <tr>
+      <th scope="row" className="app-shares__name">
+        <span
+          className={muted ? 'app-titles__title app-titles__title--muted' : 'app-titles__title'}
+          title={title}
+        >
+          {label}
+        </span>
+        <span className="app-shares__track" aria-hidden="true">
+          <span
+            className="app-shares__bar"
+            style={{ width: `${width * 100}%`, backgroundColor: color }}
+          />
+        </span>
+      </th>
+      <td className="app-shares__duration">{formatDuration(durationMs)}</td>
+      <td className="app-shares__percent">{percent}%</td>
+    </tr>
+  );
+}

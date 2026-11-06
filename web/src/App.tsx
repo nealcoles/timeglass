@@ -1,14 +1,19 @@
 import { useStatus } from './api/queries';
+import { AppView } from './app/AppView.tsx';
 import { DayView } from './day/DayView.tsx';
 import { localToday } from './format.ts';
+import { Link } from './Link.tsx';
+import { paths, useRoute, type Route } from './router.ts';
 
 type ApiStatus = 'checking' | 'online' | 'offline';
 
 /**
- * The dashboard shell: the tracker's state and today's day view. Today is the tracker's own date
- * (from `/api/status`), falling back to the browser's date when the tracker can't be reached.
+ * The dashboard shell: the tracker's state and the screen the URL names. Today is the tracker's
+ * own date (from `/api/status`), falling back to the browser's date when the tracker can't be
+ * reached.
  */
 export function App() {
+  const route = useRoute();
   const { data, isPending, isError } = useStatus();
   const status: ApiStatus = isPending ? 'checking' : isError ? 'offline' : 'online';
   const today = data?.today ?? localToday();
@@ -16,12 +21,36 @@ export function App() {
   return (
     <main className="app">
       <header className="app__header">
-        <h1>Timeglass</h1>
+        <h1>
+          <Link href={paths.today()} className="app__home">
+            Timeglass
+          </Link>
+        </h1>
         <p role="status" className="app__tracker">
           Tracker: {status}
         </p>
       </header>
-      {!isPending && <DayView date={today} isToday />}
+      {!isPending && <Screen route={route} today={today} />}
     </main>
   );
+}
+
+function Screen({ route, today }: { route: Route; today: string }) {
+  switch (route.name) {
+    case 'today':
+      return <DayView date={today} isToday />;
+    case 'day':
+      return <DayView date={route.date} isToday={route.date === today} />;
+    case 'app':
+      return <AppView date={route.date} appKey={route.appKey} isToday={route.date === today} />;
+    case 'notFound':
+      return (
+        <section className="day">
+          <h2>Page not found</h2>
+          <p>
+            <Link href={paths.today()}>Go to today</Link>
+          </p>
+        </section>
+      );
+  }
 }
