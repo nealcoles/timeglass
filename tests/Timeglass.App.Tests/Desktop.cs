@@ -47,6 +47,8 @@ public sealed class TempFolder : IDisposable
 
     public string SettingsPath => System.IO.Path.Combine(Path, "settings.json");
 
+    public string ApiRuntimeFilePath => System.IO.Path.Combine(Path, "api.json");
+
     public void Dispose()
     {
         try

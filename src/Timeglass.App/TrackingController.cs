@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Timeglass.Api;
 using Timeglass.Core.Tracking;
 
 namespace Timeglass.App;
@@ -21,7 +22,7 @@ namespace Timeglass.App;
 /// restart of the app.
 /// </para>
 /// </remarks>
-internal sealed partial class TrackingController : IHostedService, IDisposable
+internal sealed partial class TrackingController : IHostedService, ITrackingState, IDisposable
 {
     /// <summary>How often a pause with an end checks whether it is over.</summary>
     public static readonly TimeSpan ResumeCheckInterval = TimeSpan.FromSeconds(30);

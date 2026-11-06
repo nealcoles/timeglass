@@ -1,5 +1,8 @@
+using System.Net;
+using System.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Timeglass.Api;
 using Timeglass.App.Tray;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
@@ -18,6 +21,7 @@ public sealed class CompositionTests : IDisposable
         var builder = TimeglassHost.CreateBuilder([]);
         builder.Configuration[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.DatabasePath)}"] = _folder.DatabasePath;
         builder.Configuration[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.SettingsPath)}"] = _folder.SettingsPath;
+        builder.Configuration[$"{TimeglassOptions.Section}:{nameof(TimeglassOptions.ApiRuntimeFilePath)}"] = _folder.ApiRuntimeFilePath;
         return builder;
     }
 
@@ -50,6 +54,7 @@ public sealed class CompositionTests : IDisposable
                 host.Services.GetRequiredService<ISessionEventSource>();
                 host.Start();
                 host.Services.GetRequiredService<TrackingController>().IsPaused.ShouldBeFalse();
+                CheckTheApiIsUp(host.Services.GetRequiredService<ApiServer>());
 
                 using var tray = ActivatorUtilities.CreateInstance<TrayApplicationContext>(host.Services);
             }
@@ -62,6 +67,31 @@ public sealed class CompositionTests : IDisposable
         var intervals = await ReadIntervalsAsync();
         intervals.ShouldNotBeEmpty();
         intervals.ShouldAllBe(i => !i.IsOpen);
+        File.Exists(_folder.ApiRuntimeFilePath).ShouldBeFalse();
+    }
+
+    private void CheckTheApiIsUp(ApiServer api)
+    {
+        var signIn = api.SignInUrl.ShouldNotBeNull();
+        signIn.Host.ShouldBe("127.0.0.1");
+
+        var runtime = ApiRuntimeFile.TryRead(_folder.ApiRuntimeFilePath).ShouldNotBeNull();
+        runtime.Port.ShouldBe(signIn.Port);
+        runtime.ProcessId.ShouldBe(Environment.ProcessId);
+
+        // Off the STA thread: nothing pumps its synchronization context while this waits.
+        Task.Run(async () =>
+        {
+            using var client = new HttpClient { BaseAddress = runtime.BaseAddress };
+            using (var anonymous = await client.GetAsync(new Uri("/api/status", UriKind.Relative)))
+            {
+                anonymous.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+            }
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", runtime.Token);
+            using var status = await client.GetAsync(new Uri("/api/status", UriKind.Relative));
+            status.StatusCode.ShouldBe(HttpStatusCode.OK);
+        }).GetAwaiter().GetResult();
     }
 
     private async Task<IReadOnlyList<ActivityInterval>> ReadIntervalsAsync()

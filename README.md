@@ -111,8 +111,18 @@ from the registry each time, so turning Timeglass off in Task Manager's _Startup
 here too, and turning it back on here clears that. To keep test data out of your real database, pass another file:
 `dotnet run --project src/Timeglass.App -- --Timeglass:DatabasePath=C:\temp\test.db`.
 
-The dashboard isn't served by the app yet (#30). For frontend work, on any OS, start the dev
-host, which serves the API with a week of realistic demo data and needs no tracker:
+The app serves its API on `127.0.0.1` only, behind a token that changes on every start; the
+tray menu's _Open dashboard_ signs the browser in. Scripts find the port and token in
+`api.json` (below) and send `Authorization: Bearer <token>`:
+
+```powershell
+$api = Get-Content "$env:LOCALAPPDATA\Timeglass\api.json" | ConvertFrom-Json
+Invoke-RestMethod "http://127.0.0.1:$($api.port)/api/status" -Headers @{ Authorization = "Bearer $($api.token)" }
+```
+
+The dashboard itself isn't served by the app yet (#30). For frontend work, on any OS, start the dev
+host, which serves the API with a week of realistic demo data and needs no tracker (nor a token: it
+only has demo data, and still listens on `127.0.0.1` only):
 
 ```sh
 dotnet run --project tools/Timeglass.DevHost
@@ -138,6 +148,7 @@ file, deleted on exit).
 | Database  | `%LOCALAPPDATA%\Timeglass\timeglass.db` (SQLite)       |
 | Log files | `%LOCALAPPDATA%\Timeglass\logs\timeglass-YYYYMMDD.log` |
 | Settings  | `%LOCALAPPDATA%\Timeglass\settings.json`              |
+| API info  | `%LOCALAPPDATA%\Timeglass\api.json` (while running)   |
 
 The database uses WAL mode, so you will also see `timeglass.db-wal` and `timeglass.db-shm`
 next to it while the app runs. Timestamps are stored as UTC Unix milliseconds. To start over,
@@ -163,7 +174,7 @@ settings at startup stop the app with a message that names the problem.
 | `excludedApps`       | `[]`            | App keys that are not tracked at all: while one is in front, nothing is stored. |
 | `appsWithoutTitles`  | `[]`            | App keys whose time is tracked but whose window titles are never stored.        |
 | `appAliases`         | `[]`            | Renames and extra apps on top of the built-in aliases, see below.               |
-| `apiPort`            | `5381`          | Port of the local API (#27), 1024 to 65535.                                     |
+| `apiPort`            | `5381`          | Port of the API on 127.0.0.1 (1024 to 65535); another if taken. Needs a restart |
 | `logLevel`           | `"Information"` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` or `None`.      |
 
 An app can be in `excludedApps` or `appsWithoutTitles`, not both. Privacy settings apply to the

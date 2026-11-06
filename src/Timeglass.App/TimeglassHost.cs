@@ -99,9 +99,11 @@ internal static partial class TimeglassHost
         services.AddSingleton<Win32SessionEventSource>();
         services.AddSingleton<ISessionEventSource>(sp => sp.GetRequiredService<Win32SessionEventSource>());
 
-        // Host services. The embedded API (#27) registers here as another hosted service.
+        // Host services, started in this order and stopped in reverse: the API stops before tracking.
         services.AddSingleton<TrackingController>();
         services.AddHostedService(sp => sp.GetRequiredService<TrackingController>());
+        services.AddSingleton<ApiServer>();
+        services.AddHostedService(sp => sp.GetRequiredService<ApiServer>());
         services.AddSingleton<TodayActiveTime>();
         services.AddSingleton<DashboardLauncher>();
         services.AddSingleton<LogFolder>();

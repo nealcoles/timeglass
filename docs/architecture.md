@@ -113,9 +113,9 @@ SystemEvents ───┘                                                       
    the API): it runs in order with the tracking events, closes the open interval first if the
    range reaches it, and the repository cuts intervals at the range edges with `secure_delete`
    on.
-4. **API.** An ASP.NET Core minimal API that serves the reporting queries as JSON (below).
-   Hosting it on `127.0.0.1` in the tray app, with Host header validation and an access token,
-   is _planned (#29)_.
+4. **API.** An ASP.NET Core minimal API that serves the reporting queries as JSON (below),
+   hosted in the tray app on `127.0.0.1` behind Host and Origin checks and a per-run access
+   token (see _API security_).
 5. **UI** _(planned, #31 onward)_. React app served by the same process (#30). In development,
    Vite proxies `/api` to the backend.
 
@@ -200,6 +200,34 @@ so the tray app and the dev host (below) host the same endpoints.
   has no entry point of its own, so there is no `WebApplicationFactory` for it (the dev host
   has one, below).
 
+### API security
+
+Window titles are sensitive: no other machine and no website may read them (#29).
+`TimeglassApiServer.Build` is what the tray app hosts, and `ApiSecurity` does the checks:
+
+- **Loopback only.** Kestrel listens on `127.0.0.1` and nothing else, set in code so no
+  argument, environment variable or `appsettings.json` can change it. No `Server` header.
+- **Port.** The `ApiPort` setting (default 5381), or a free port from the OS if something
+  else has it (`LoopbackPort.Choose`). A changed setting applies on the next start.
+- **Host header.** Must be `127.0.0.1:<port>` or `localhost:<port>`, else 400. A website that
+  points its own name at 127.0.0.1 (DNS rebinding) sends its own name and is turned away.
+- **No CORS.** A browser never lets another page read an answer. On top of that, a request
+  with an `Origin` other than the API's own, or with `Sec-Fetch-Site` other than
+  `same-origin` or `none`, gets 403, so other pages can't trigger requests either (this also
+  covers other ports on localhost, which count as the same site for cookies).
+- **Access token.** A random 256-bit token per run (`ApiAccessToken`). _Open dashboard_ opens
+  `/auth?token=…`, which sets it as the `timeglass_token` cookie (`HttpOnly`,
+  `SameSite=Strict`) and redirects to `/`, so page scripts never see it. Every other request
+  needs that cookie or an `Authorization: Bearer` header, else 401. After a restart the old
+  cookie no longer works; the dashboard is opened from the tray again.
+- **Runtime file.** `%LOCALAPPDATA%\Timeglass\api.json` holds the port, the token and the
+  process id while the app runs (`ApiRuntimeFile`), so scripts can call the API with the
+  bearer header. It is in the user's profile, readable by the same people who can read the
+  database, and deleted on exit.
+- If the server can't start, the error is logged and the app keeps tracking; only the
+  dashboard is unavailable.
+- `SecurityTests` covers each check on `TestServer`, `ApiServerTests` the real Kestrel binding.
+
 ### Dev host
 
 `tools/Timeglass.DevHost` runs the API on any OS without the tracker, for frontend work and
@@ -254,7 +282,9 @@ Pausing ends the current tracking run the same way (close and flush); resuming s
 so paused time is not stored. `TrackingController` resumes a timed pause by itself, checking the
 wall clock at least every 30 s so the pause ends on time after sleep. A pause does not survive
 a restart.
-The embedded API will be hosted here once it is locked down (#29).
+`ApiServer`, a hosted service started after tracking and stopped before it, runs the API
+(see _API security_) with the app's `IntervalRepository`, `TrackingController` (as
+`ITrackingState`) and clock, and writes the runtime file.
 
 ### Logging and crashes
 
