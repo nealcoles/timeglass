@@ -26,8 +26,8 @@ namespace Timeglass.Api;
 /// (<c>yyyy-MM-dd</c>); anything else is answered with a 400 Problem Details response.
 /// </para>
 /// <para>
-/// The API itself does not restrict who may call it. Binding to loopback, Host header checks and
-/// the access token are the host's job (#29).
+/// The endpoints themselves do not restrict who may call them. <see cref="TimeglassApiServer"/>
+/// puts them on 127.0.0.1 behind the checks of <see cref="ApiSecurity"/> (#29).
 /// </para>
 /// </remarks>
 public static class TimeglassApi

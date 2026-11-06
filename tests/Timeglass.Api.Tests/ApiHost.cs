@@ -30,8 +30,9 @@ public sealed class ApiHost : IAsyncDisposable
     private IntervalRepository? _repository;
     private WebApplication? _app;
 
-    private ApiHost(DateTimeOffset now)
+    private ApiHost(DateTimeOffset now, ApiSecurityOptions? security)
     {
+        Security = security;
         Time = new FakeTimeProvider(now);
         Time.SetLocalTimeZone(Oslo);
     }
@@ -42,10 +43,20 @@ public sealed class ApiHost : IAsyncDisposable
 
     public HttpClient Client { get; private set; } = null!;
 
+    /// <summary>The checks the API runs behind, or <see langword="null"/> to test the endpoints alone.</summary>
+    public ApiSecurityOptions? Security { get; }
+
     /// <summary>Starts the API over a database holding <paramref name="seed"/>, with the clock at <paramref name="now"/>.</summary>
-    public static async Task<ApiHost> StartAsync(DateTimeOffset now, IEnumerable<ActivityInterval> seed, CancellationToken cancellationToken)
+    public static Task<ApiHost> StartAsync(DateTimeOffset now, IEnumerable<ActivityInterval> seed, CancellationToken cancellationToken) =>
+        StartAsync(now, seed, security: null, cancellationToken);
+
+    /// <summary>
+    /// As above, behind <see cref="ApiSecurity"/> when <paramref name="security"/> is set; the
+    /// client then talks to <c>http://127.0.0.1:port/</c> and sends no token by itself.
+    /// </summary>
+    public static async Task<ApiHost> StartAsync(DateTimeOffset now, IEnumerable<ActivityInterval> seed, ApiSecurityOptions? security, CancellationToken cancellationToken)
     {
-        var host = new ApiHost(now);
+        var host = new ApiHost(now, security);
         try
         {
             await host.InitializeAsync(seed, cancellationToken);
@@ -104,11 +115,25 @@ public sealed class ApiHost : IAsyncDisposable
         builder.Services.AddSingleton<IReportingQueries>(_repository);
         builder.Services.AddSingleton<ITrackingState>(Tracking);
         builder.Services.AddTimeglassApi();
+        if (Security is not null)
+        {
+            builder.Services.AddTimeglassApiSecurity(Security);
+        }
 
         _app = builder.Build();
+        if (Security is not null)
+        {
+            _app.UseTimeglassApiSecurity();
+            _app.MapTimeglassSignIn();
+        }
+
         _app.MapTimeglassApi();
         await _app.StartAsync(cancellationToken);
         Client = _app.GetTestClient();
+        if (Security is not null)
+        {
+            Client.BaseAddress = new Uri($"http://127.0.0.1:{Security.Port}/");
+        }
     }
 
     public static DateTimeOffset Utc(string at) => DateTimeOffset.Parse(at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);

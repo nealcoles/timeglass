@@ -18,10 +18,16 @@ internal sealed class TimeglassOptions
     public string? DatabasePath { get; set; }
 
     /// <summary>
-    /// Where <i>Open dashboard</i> goes. Empty until the app serves the UI itself (#27, #30);
-    /// set it to a dev server URL to try the menu item before then.
+    /// Where <i>Open dashboard</i> goes instead of the app's own API (for example a Vite dev
+    /// server). Empty by default: the menu signs the browser in to the embedded API (#29).
     /// </summary>
     public Uri? DashboardUrl { get; set; }
+
+    /// <summary>
+    /// The file with the API's port and token for other tools. Defaults to
+    /// <see cref="Api.ApiRuntimeFile.DefaultPath"/>.
+    /// </summary>
+    public string? ApiRuntimeFilePath { get; set; }
 
     /// <summary>How often the tray tooltip refreshes today's active time.</summary>
     public TimeSpan TooltipRefreshInterval { get; set; } = TimeSpan.FromSeconds(30);
