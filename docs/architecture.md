@@ -268,6 +268,25 @@ The tray app is the only thing to install and run (#30), so it serves the dashbo
   (`web/src/test/fixtures.ts`, `handlers.ts`) to every test, typed from the schema so they
   break the typecheck when the API changes.
 
+### Dashboard screens
+
+The dashboard has a few screens, so `web/src/router.ts` is a small router on the history API
+rather than a routing library. `<Link>` follows a plain click in place and leaves a modified
+click (new tab) to the browser; the back button works, and the SPA fallback above makes every
+route a deep link.
+
+| Path                       | Screen                                                         |
+| -------------------------- | -------------------------------------------------------------- |
+| `/`                        | Today (`DayView`): totals, the timeline and the app share list |
+| `/day/{date}`              | The same for another day                                       |
+| `/day/{date}/app/{appKey}` | App drill-down (`AppView`): the app's time by window title     |
+
+The drill-down lists the API's top 10 titles with time and share of the app's time, and the
+rest as one "other" row. Its search box filters those titles in the browser; the titles folded
+into "other" aren't sent, so it says how many it can't search. Time without a title shows as
+"No title recorded", and when an app has no titles at all (title recording off, or the app
+excluded) it says so instead of showing a one-row list.
+
 ### Dev host
 
 `tools/Timeglass.DevHost` runs the API on any OS without the tracker, for frontend work and

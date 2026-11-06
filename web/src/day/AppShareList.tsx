@@ -1,8 +1,12 @@
 import { formatDuration } from '../format.ts';
+import { Link } from '../Link.tsx';
+import { paths } from '../router.ts';
 import type { AppShare } from './appShares.ts';
 
 interface AppShareListProps {
   rows: readonly AppShare[];
+  /** The day the rows are for; each named app links to its titles on that day (#34). */
+  date: string;
 }
 
 /**
@@ -10,7 +14,7 @@ interface AppShareListProps {
  * are the same element: a screen reader reads app, time and share per row, and the bars are only
  * decoration for sighted users. The longest app fills the bar track, so short apps stay visible.
  */
-export function AppShareList({ rows }: AppShareListProps) {
+export function AppShareList({ rows, date }: AppShareListProps) {
   const longest = Math.max(...rows.map((r) => r.durationMs), 1);
 
   return (
@@ -32,7 +36,13 @@ export function AppShareList({ rows }: AppShareListProps) {
                 style={{ backgroundColor: row.color }}
                 aria-hidden="true"
               />
-              {row.name}
+              {row.key === null ? (
+                row.name
+              ) : (
+                <Link href={paths.app(date, row.key)} className="app-shares__link">
+                  {row.name}
+                </Link>
+              )}
               {row.key === null && (
                 <span className="app-shares__count">
                   {' '}

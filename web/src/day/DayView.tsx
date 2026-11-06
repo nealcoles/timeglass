@@ -15,7 +15,7 @@ interface DayViewProps {
 
 /**
  * The main screen (#32, #33): how long you were active on a day, when, and which apps the time
- * went to.
+ * went to. Each app links to its drill-down by window title (#34).
  */
 export function DayView({ date, isToday = false }: DayViewProps) {
   const summary = useDaySummary(date);
@@ -82,7 +82,7 @@ function DaySections({ date, rows }: { date: string; rows: ReturnType<typeof app
       <DayTimeline date={date} colorFor={colorFor} />
 
       <h3>Where the time went</h3>
-      <AppShareList rows={rows} />
+      <AppShareList rows={rows} date={date} />
     </>
   );
 }

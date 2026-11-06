@@ -1,6 +1,8 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { App } from './App.tsx';
+import { demoDate } from './test/fixtures.ts';
 import { unauthorized } from './test/handlers.ts';
 import { renderWithApi } from './test/render.tsx';
 import { server } from './test/server.ts';
@@ -37,5 +39,56 @@ describe('App', () => {
       'Open the dashboard from the Timeglass tray icon to sign in.',
     );
     expect(screen.queryByText(/Tracker:/)).not.toBeInTheDocument();
+  });
+});
+
+describe('App routes', () => {
+  it('opens an app from the day view and goes back', async () => {
+    const user = userEvent.setup();
+    renderWithApi(<App />);
+
+    const table = await screen.findByRole('table');
+    await user.click(within(table).getByRole('link', { name: 'Visual Studio Code' }));
+
+    expect(globalThis.location.pathname).toBe(`/day/${demoDate}/app/vscode`);
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(
+      'Visual Studio Code',
+    );
+    expect(await screen.findByText(/TrackingEngine\.cs/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('link', { name: /Back to today/ }));
+    expect(globalThis.location.pathname).toBe('/');
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^Today, /);
+  });
+
+  it('opens a deep link to an app on another day', async () => {
+    globalThis.history.replaceState(null, '', '/day/2026-11-04/app/vscode');
+
+    renderWithApi(<App />);
+
+    expect(await screen.findByRole('link', { name: /Back to the day/ })).toHaveAttribute(
+      'href',
+      '/day/2026-11-04',
+    );
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+  });
+
+  it('opens a deep link to another day', async () => {
+    globalThis.history.replaceState(null, '', '/day/2026-11-04');
+
+    renderWithApi(<App />);
+
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(
+      /^Wednesday, .*2026/,
+    );
+  });
+
+  it('shows a way home for an unknown page', async () => {
+    globalThis.history.replaceState(null, '', '/nowhere');
+
+    renderWithApi(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to today' })).toHaveAttribute('href', '/');
   });
 });
