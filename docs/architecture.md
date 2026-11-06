@@ -35,7 +35,7 @@ Parts marked _(planned)_ don't exist yet; the issue number says where they are b
 | `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events.        |
 | `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: generic host, composition root, tray icon, single instance.                  |
 | `Timeglass.DevHost` | `net10.0`         | `tools/`: the API over demo data, for frontend work and end-to-end tests. Not shipped.        |
-| `web/`              | Node / browser    | React + TypeScript UI, built with Vite and served by the app _(planned, #30)_.                |
+| `web/`              | Node / browser    | React + TypeScript UI, built with Vite and embedded in `Timeglass.exe`, which serves it.      |
 
 The rule:
 
@@ -116,8 +116,8 @@ SystemEvents ───┘                                                       
 4. **API.** An ASP.NET Core minimal API that serves the reporting queries as JSON (below),
    hosted in the tray app on `127.0.0.1` behind Host and Origin checks and a per-run access
    token (see _API security_).
-5. **UI** _(planned, #31 onward)_. React app served by the same process (#30). In development,
-   Vite proxies `/api` to the backend.
+5. **UI** _(views planned, #31 onward)_. React app served by the same process and port as the
+   API (see _Serving the dashboard_). In development, Vite proxies `/api` to the backend.
 
 ### Storage model
 
@@ -227,6 +227,27 @@ Window titles are sensitive: no other machine and no website may read them (#29)
 - If the server can't start, the error is logged and the app keeps tracking; only the
   dashboard is unavailable.
 - `SecurityTests` covers each check on `TestServer`, `ApiServerTests` the real Kestrel binding.
+
+### Serving the dashboard
+
+The tray app is the only thing to install and run (#30), so it serves the dashboard itself:
+
+- **Embedded.** `src/Timeglass.App/Dashboard.targets` embeds `web/dist` in `Timeglass.exe`
+  under `wwwroot/`, with the manifest `ManifestEmbeddedFileProvider` reads (`DashboardFiles`).
+  Release builds run `npm ci` and `npm run build` in `web/` first, when its sources changed,
+  and fail if there is still no `web/dist/index.html`. `-p:TimeglassBuildWeb=false` skips npm
+  and embeds the `web/dist` that is there: CI's Windows job puts the `web-dist` artifact there
+  instead of building the frontend twice. Debug builds embed `web/dist` only if it exists;
+  without it the app logs that it has no dashboard and serves the API alone.
+- **Routes.** `TimeglassDashboard.MapTimeglassDashboard` serves the files after the security
+  checks, so the dashboard needs the token like the API. Any other `GET` without a file
+  extension gets `index.html` (SPA fallback), except under `/api` and `/openapi`, where an
+  unknown path is a 404 Problem Details answer. A missing file (`/assets/old.js`) is a 404.
+- **Caching.** Files under `/assets/` have a content hash in their name and are sent with
+  `Cache-Control: public, max-age=31536000, immutable`; `index.html` and the rest with
+  `no-cache`, so a new version shows on the next load.
+- `DashboardTests` covers these on `TestServer`; the App tests check that a Release build has
+  the dashboard embedded and that the running app serves `/`.
 
 ### Dev host
 

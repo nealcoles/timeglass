@@ -91,6 +91,13 @@ public sealed class CompositionTests : IDisposable
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", runtime.Token);
             using var status = await client.GetAsync(new Uri("/api/status", UriKind.Relative));
             status.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+#if !DEBUG
+            // Release builds always embed the dashboard (#30).
+            using var dashboard = await client.GetAsync(new Uri("/", UriKind.Relative));
+            dashboard.StatusCode.ShouldBe(HttpStatusCode.OK);
+            dashboard.Content.Headers.ContentType?.MediaType.ShouldBe("text/html");
+#endif
         }).GetAwaiter().GetResult();
     }
 

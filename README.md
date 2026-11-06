@@ -37,8 +37,8 @@ There are two solutions:
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download) (the exact feature band is pinned in
   `global.json`, with `rollForward: latestFeature`).
-- [Node.js 22+](https://nodejs.org/) with npm, for the frontend (`web/.nvmrc` has the
-  version CI uses).
+- [Node.js 22+](https://nodejs.org/) with npm, for the frontend and for Release builds of the
+  app, which embed it (`web/.nvmrc` has the version CI uses).
 - Windows 10 1809 or later to build and run the full app. Linux and macOS can build and test
   the portable projects and the frontend.
 
@@ -120,9 +120,12 @@ $api = Get-Content "$env:LOCALAPPDATA\Timeglass\api.json" | ConvertFrom-Json
 Invoke-RestMethod "http://127.0.0.1:$($api.port)/api/status" -Headers @{ Authorization = "Bearer $($api.token)" }
 ```
 
-The dashboard itself isn't served by the app yet (#30). For frontend work, on any OS, start the dev
-host, which serves the API with a week of realistic demo data and needs no tracker (nor a token: it
-only has demo data, and still listens on `127.0.0.1` only):
+The dashboard is built into the app: a Release build (`dotnet build -c Release`, which needs
+Node.js) runs `npm ci` and `npm run build` in `web/` and embeds the result, and the app serves it
+on the same port as the API. A Debug build embeds `web/dist` only if you built it before. For
+frontend work, on any OS, start the dev host, which serves the API with a week of realistic demo
+data and needs no tracker (nor a token: it only has demo data, and still listens on `127.0.0.1`
+only):
 
 ```sh
 dotnet run --project tools/Timeglass.DevHost

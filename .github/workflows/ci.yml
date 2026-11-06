@@ -119,6 +119,9 @@ jobs:
   dotnet-windows:
     name: .NET (Windows, full solution)
     runs-on: windows-latest
+    # The tray app embeds the dashboard (#30); it reuses the web job's build instead of
+    # running npm again.
+    needs: web
     # Backstop for a hung desktop test; each test also has its own timeout (#19).
     timeout-minutes: 20
     steps:
@@ -128,12 +131,18 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Download web build
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist
+
       - name: Restore
         run: dotnet restore Timeglass.slnx
 
       - name: Build
         id: build
-        run: dotnet build Timeglass.slnx -c Release --no-restore
+        run: dotnet build Timeglass.slnx -c Release --no-restore -p:TimeglassBuildWeb=false
 
       - name: Test
         id: test

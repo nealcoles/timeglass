@@ -74,6 +74,14 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
+      # The Release build of the tray app builds and embeds the dashboard (#30).
+      - uses: actions/setup-node@v7
+        if: ${{ matrix.build-mode == 'manual' }}
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
       - name: Build
         if: ${{ matrix.build-mode == 'manual' }}
         run: dotnet build Timeglass.slnx -c Release

@@ -11,8 +11,8 @@ using Timeglass.Storage;
 namespace Timeglass.App;
 
 /// <summary>
-/// Runs the local HTTP API (#27) on 127.0.0.1 behind its access token (#29) for the lifetime of
-/// the host, and writes the runtime file other tools find it by.
+/// Runs the local HTTP API (#27) and the dashboard (#30) on 127.0.0.1 behind its access token
+/// (#29) for the lifetime of the host, and writes the runtime file other tools find it by.
 /// </summary>
 /// <remarks>
 /// The port is the user's <c>ApiPort</c> setting, or a free one if something else has it; a
@@ -55,12 +55,22 @@ internal sealed partial class ApiServer : IHostedService, IAsyncDisposable
         try
         {
             var security = new ApiSecurityOptions(LoopbackPort.Choose(preferred), ApiAccessToken.Create());
-            app = TimeglassApiServer.Build(security, _loggerFactory, services =>
+            var dashboard = DashboardFiles.Load();
+            if (dashboard is null)
             {
-                services.AddSingleton(_services.GetRequiredService<TimeProvider>());
-                services.AddSingleton<IReportingQueries>(_services.GetRequiredService<IntervalRepository>());
-                services.AddSingleton<ITrackingState>(_services.GetRequiredService<TrackingController>());
-            });
+                LogNoDashboard(_logger);
+            }
+
+            app = TimeglassApiServer.Build(
+                security,
+                _loggerFactory,
+                services =>
+                {
+                    services.AddSingleton(_services.GetRequiredService<TimeProvider>());
+                    services.AddSingleton<IReportingQueries>(_services.GetRequiredService<IntervalRepository>());
+                    services.AddSingleton<ITrackingState>(_services.GetRequiredService<TrackingController>());
+                },
+                dashboard);
             await app.StartAsync(cancellationToken).ConfigureAwait(false);
             ApiRuntimeFile.Write(RuntimeFilePath, new ApiRuntimeInfo(security.Port, security.Token.Value, Environment.ProcessId));
 
@@ -120,6 +130,9 @@ internal sealed partial class ApiServer : IHostedService, IAsyncDisposable
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not start the API (port setting {Preferred}); the dashboard is unavailable, tracking goes on")]
     private static partial void LogStartFailed(ILogger logger, Exception exception, int preferred);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "This build has no dashboard embedded (build web/ first); serving the API only")]
+    private static partial void LogNoDashboard(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not delete the API runtime file {Path}")]
     private static partial void LogDeleteFailed(ILogger logger, Exception exception, string path);
