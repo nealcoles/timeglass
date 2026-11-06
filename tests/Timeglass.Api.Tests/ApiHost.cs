@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Timeglass.Core.Domain;
@@ -29,10 +30,12 @@ public sealed class ApiHost : IAsyncDisposable
     private TimeglassDatabase? _database;
     private IntervalRepository? _repository;
     private WebApplication? _app;
+    private PhysicalFileProvider? _files;
 
-    private ApiHost(DateTimeOffset now, ApiSecurityOptions? security)
+    private ApiHost(DateTimeOffset now, ApiSecurityOptions? security, IReadOnlyDictionary<string, string>? dashboard)
     {
         Security = security;
+        Dashboard = dashboard;
         Time = new FakeTimeProvider(now);
         Time.SetLocalTimeZone(Oslo);
     }
@@ -46,6 +49,9 @@ public sealed class ApiHost : IAsyncDisposable
     /// <summary>The checks the API runs behind, or <see langword="null"/> to test the endpoints alone.</summary>
     public ApiSecurityOptions? Security { get; }
 
+    /// <summary>The dashboard's files by path, served by <see cref="TimeglassDashboard"/>; <see langword="null"/> for none.</summary>
+    public IReadOnlyDictionary<string, string>? Dashboard { get; }
+
     /// <summary>Starts the API over a database holding <paramref name="seed"/>, with the clock at <paramref name="now"/>.</summary>
     public static Task<ApiHost> StartAsync(DateTimeOffset now, IEnumerable<ActivityInterval> seed, CancellationToken cancellationToken) =>
         StartAsync(now, seed, security: null, cancellationToken);
@@ -54,9 +60,21 @@ public sealed class ApiHost : IAsyncDisposable
     /// As above, behind <see cref="ApiSecurity"/> when <paramref name="security"/> is set; the
     /// client then talks to <c>http://127.0.0.1:port/</c> and sends no token by itself.
     /// </summary>
-    public static async Task<ApiHost> StartAsync(DateTimeOffset now, IEnumerable<ActivityInterval> seed, ApiSecurityOptions? security, CancellationToken cancellationToken)
+    public static Task<ApiHost> StartAsync(DateTimeOffset now, IEnumerable<ActivityInterval> seed, ApiSecurityOptions? security, CancellationToken cancellationToken) =>
+        StartAsync(now, seed, security, dashboard: null, cancellationToken);
+
+    /// <summary>
+    /// As above, also serving <paramref name="dashboard"/> (paths relative to <c>web/dist</c> and
+    /// their contents) from a folder on disk, as the app serves its embedded copy.
+    /// </summary>
+    public static async Task<ApiHost> StartAsync(
+        DateTimeOffset now,
+        IEnumerable<ActivityInterval> seed,
+        ApiSecurityOptions? security,
+        IReadOnlyDictionary<string, string>? dashboard,
+        CancellationToken cancellationToken)
     {
-        var host = new ApiHost(now, security);
+        var host = new ApiHost(now, security, dashboard);
         try
         {
             await host.InitializeAsync(seed, cancellationToken);
@@ -84,6 +102,7 @@ public sealed class ApiHost : IAsyncDisposable
             await _app.DisposeAsync();
         }
 
+        _files?.Dispose();
         if (_repository is not null)
         {
             await _repository.DisposeAsync();
@@ -128,12 +147,32 @@ public sealed class ApiHost : IAsyncDisposable
         }
 
         _app.MapTimeglassApi();
+        if (Dashboard is not null)
+        {
+            _files = new PhysicalFileProvider(WriteDashboard(Dashboard));
+            _app.MapTimeglassDashboard(_files);
+        }
+
         await _app.StartAsync(cancellationToken);
         Client = _app.GetTestClient();
         if (Security is not null)
         {
             Client.BaseAddress = new Uri($"http://127.0.0.1:{Security.Port}/");
         }
+    }
+
+    private string WriteDashboard(IReadOnlyDictionary<string, string> files)
+    {
+        var root = Path.Combine(_folder, "dist");
+        foreach (var (path, content) in files)
+        {
+            var file = Path.Combine(root, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, content);
+        }
+
+        Directory.CreateDirectory(root);
+        return root;
     }
 
     public static DateTimeOffset Utc(string at) => DateTimeOffset.Parse(at, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);

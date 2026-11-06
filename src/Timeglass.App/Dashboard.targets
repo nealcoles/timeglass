@@ -1,0 +1,57 @@
+<Project>
+
+  <!--
+    The dashboard ships inside Timeglass.exe (#30): web/dist is embedded under wwwroot/ with a
+    manifest, and DashboardFiles serves it through ManifestEmbeddedFileProvider.
+
+    Release builds run `npm ci` and `npm run build` in web/ first, when its sources changed.
+    Pass -p:TimeglassBuildWeb=false to embed a web/dist that is already there instead, as CI
+    does with the web-dist artifact. Debug builds embed web/dist only if it exists; without it
+    the app runs without a dashboard.
+  -->
+
+  <PropertyGroup>
+    <TimeglassWebDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', 'web'))</TimeglassWebDir>
+    <TimeglassWebDist>$(TimeglassWebDir)dist\</TimeglassWebDist>
+    <TimeglassBuildWeb Condition="'$(TimeglassBuildWeb)' == '' and '$(Configuration)' == 'Release'">true</TimeglassBuildWeb>
+    <!--
+      Set here rather than in a target: MSBuild checks the manifest target's condition before the
+      targets that run ahead of it. Without dashboard files the package would warn (an error here).
+    -->
+    <GenerateEmbeddedFilesManifest Condition="'$(TimeglassBuildWeb)' == 'true' or Exists('$(TimeglassWebDist)index.html')">true</GenerateEmbeddedFilesManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <_TimeglassWebInput Include="$(TimeglassWebDir)src\**;$(TimeglassWebDir)public\**" />
+    <_TimeglassWebInput Include="$(TimeglassWebDir)index.html;$(TimeglassWebDir)package.json;$(TimeglassWebDir)package-lock.json;$(TimeglassWebDir)vite.config.ts;$(TimeglassWebDir)tsconfig*.json" />
+  </ItemGroup>
+
+  <Target
+    Name="TimeglassBuildWeb"
+    Condition="'$(TimeglassBuildWeb)' == 'true'"
+    BeforeTargets="TimeglassEmbedWeb"
+    Inputs="@(_TimeglassWebInput)"
+    Outputs="$(TimeglassWebDist)index.html">
+    <Message Importance="high" Text="Building the dashboard in $(TimeglassWebDir)" />
+    <Exec Command="npm ci --no-audit --no-fund" WorkingDirectory="$(TimeglassWebDir)" />
+    <Exec Command="npm run build" WorkingDirectory="$(TimeglassWebDir)" />
+  </Target>
+
+  <!--
+    Runs before the embedded files manifest is calculated, so the manifest lists these files. The
+    manifest task splits Link on the OS's own separator only, so Link is built with Path.Combine.
+  -->
+  <Target Name="TimeglassEmbedWeb" BeforeTargets="_CalculateEmbeddedFilesManifestInputs">
+    <Error
+      Condition="'$(Configuration)' == 'Release' and !Exists('$(TimeglassWebDist)index.html')"
+      Text="The dashboard is not built: $(TimeglassWebDist)index.html is missing. Build web/ (npm ci; npm run build) or leave TimeglassBuildWeb on." />
+
+    <ItemGroup Condition="Exists('$(TimeglassWebDist)index.html')">
+      <_TimeglassWebFile Include="$(TimeglassWebDist)**" />
+      <EmbeddedResource
+        Include="@(_TimeglassWebFile)"
+        Link="$([System.IO.Path]::Combine('wwwroot', $([MSBuild]::MakeRelative('$(TimeglassWebDist)', '%(_TimeglassWebFile.FullPath)'))))" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -55,6 +55,10 @@ dotnet build Timeglass.slnx -c Release --no-restore
 dotnet test Timeglass.slnx -c Release --no-build
 ```
 
+The Release build of `Timeglass.App` runs `npm ci` and `npm run build` in `web/` and embeds
+the dashboard, so it needs Node.js. If `web/dist` is already built, add
+`-p:TimeglassBuildWeb=false` to skip npm, as CI does with the `web` job's artifact.
+
 The Windows integration tests bring their own windows to the front. Leave the keyboard and
 mouse alone while they run, or they may fail. CI runs them as a separate step; to do the same:
 

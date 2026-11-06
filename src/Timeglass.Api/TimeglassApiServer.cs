@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 
 namespace Timeglass.Api;
@@ -21,7 +22,8 @@ public static class TimeglassApiServer
     /// <param name="security">The port to listen on (see <see cref="LoopbackPort.Choose"/>) and the token.</param>
     /// <param name="loggerFactory">The host's logging, so the server logs where the app does.</param>
     /// <param name="addServices">Registers the API's data.</param>
-    public static WebApplication Build(ApiSecurityOptions security, ILoggerFactory loggerFactory, Action<IServiceCollection> addServices)
+    /// <param name="dashboard">The built frontend to serve at <c>/</c>, or <see langword="null"/> for the API alone.</param>
+    public static WebApplication Build(ApiSecurityOptions security, ILoggerFactory loggerFactory, Action<IServiceCollection> addServices, IFileProvider? dashboard = null)
     {
         ArgumentNullException.ThrowIfNull(security);
         ArgumentNullException.ThrowIfNull(loggerFactory);
@@ -52,6 +54,11 @@ public static class TimeglassApiServer
         app.UseTimeglassApiSecurity();
         app.MapTimeglassSignIn();
         app.MapTimeglassApi();
+        if (dashboard is not null)
+        {
+            app.MapTimeglassDashboard(dashboard);
+        }
+
         return app;
     }
 }

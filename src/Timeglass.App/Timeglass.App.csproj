@@ -26,12 +26,17 @@
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <!-- Serves the embedded dashboard (#30). -->
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Tray icons: normal and paused. -->
-    <EmbeddedResource Include="Assets/*.ico" LogicalName="Timeglass.App.Assets.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets/*.ico" LogicalName="Timeglass.App.Assets.%(Filename)%(Extension)" ExcludeFromManifest="true" />
   </ItemGroup>
+
+  <!-- Builds web/ and embeds web/dist (#30). -->
+  <Import Project="Dashboard.targets" />
 
   <ItemGroup>
     <InternalsVisibleTo Include="Timeglass.App.Tests" />
