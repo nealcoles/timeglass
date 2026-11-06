@@ -108,6 +108,7 @@ cd web
 npm ci
 npm run lint
 npm run format:check
+npm run check:api       # generated API types match openapi.json
 npm run typecheck
 npm run test:coverage   # fails below the line threshold in vite.config.ts
 npm run build
@@ -127,6 +128,14 @@ TIMEGLASS_UPDATE_OPENAPI=1 dotnet test tests/Timeglass.Api.Tests
 
 (PowerShell: `$env:TIMEGLASS_UPDATE_OPENAPI=1; dotnet test tests/Timeglass.Api.Tests`.)
 
+The dashboard's API types in `web/src/api/schema.d.ts` are generated from that file. Regenerate
+them too and commit both; CI fails if they are out of date:
+
+```sh
+cd web
+npm run generate:api
+```
+
 ## Tests
 
 - Logic goes in Core and gets unit tests in `Timeglass.Core.Tests`. Use the fakes in
@@ -137,5 +146,7 @@ TIMEGLASS_UPDATE_OPENAPI=1 dotnet test tests/Timeglass.Api.Tests
 - The tray host and its wiring get tests in `Timeglass.App.Tests` (Windows only). A new service
   registered in `TimeglassHost` is covered by the composition test there.
 - Frontend components get Vitest + Testing Library tests next to the component, with MSW for
-  API calls.
+  API calls. Every test starts with handlers that serve demo data (`web/src/test/handlers.ts`);
+  override one with `server.use(...)`. Render with `renderWithApi` or `renderApiHook` from
+  `web/src/test/render.tsx` so components get the API client and a fresh query cache.
 - Never skip or disable a failing test to get CI green. Fix the code or the test.

@@ -249,6 +249,25 @@ The tray app is the only thing to install and run (#30), so it serves the dashbo
 - `DashboardTests` covers these on `TestServer`; the App tests check that a Release build has
   the dashboard embedded and that the running app serves `/`.
 
+### Dashboard data layer
+
+`web/src/api` is how the dashboard talks to the API (#31):
+
+- **Types.** `schema.d.ts` is generated from `src/Timeglass.Api/openapi.json` by
+  `openapi-typescript` (`npm run generate:api`), and `openapi-fetch` checks paths, parameters
+  and responses against it. CI's `npm run check:api` fails when the file is out of date.
+- **Fetching.** TanStack Query caches answers by `queryKeys` (`queries.ts`). Data is fresh for
+  15 seconds and refetched when the window regains focus, so today's numbers keep up.
+  Network errors and 5xx are retried twice; 4xx are not.
+- **Errors.** Every non-success answer becomes an `ApiError` with the status and the Problem
+  Details body; `errorMessage` turns any error into a sentence for the user.
+- **401.** `ApiProvider` watches the query cache. When any query gets a 401 (the cookie is
+  missing or from an earlier run), it replaces the dashboard with a note to open it from the
+  tray icon, which signs the browser in again.
+- **Tests.** MSW serves demo fixtures shaped like the dev host's `DemoData`
+  (`web/src/test/fixtures.ts`, `handlers.ts`) to every test, typed from the schema so they
+  break the typecheck when the API changes.
+
 ### Dev host
 
 `tools/Timeglass.DevHost` runs the API on any OS without the tracker, for frontend work and
