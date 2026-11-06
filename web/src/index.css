@@ -23,3 +23,118 @@ body {
   margin: 0 auto;
   padding: 2rem 1rem;
 }
+
+:root {
+  --muted: #5f6170;
+  --track: #ececf1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --muted: #a1a1aa;
+    --track: #2a2a31;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.app__tracker,
+.day__loading,
+.day__empty {
+  color: var(--muted);
+}
+
+.day__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.5rem;
+  margin: 0 0 2rem;
+}
+
+.day__totals dt {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.day__totals dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shares {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.app-shares th,
+.app-shares td {
+  padding: 0.5rem 0;
+  vertical-align: top;
+}
+
+.app-shares__name {
+  text-align: left;
+  font-weight: 500;
+  width: 100%;
+}
+
+.app-shares__swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.5rem;
+  border-radius: 2px;
+}
+
+.app-shares__count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.app-shares__track {
+  display: block;
+  height: 0.5rem;
+  margin-top: 0.375rem;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.app-shares__bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.app-shares__duration,
+.app-shares__percent {
+  padding-left: 1rem !important;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shares__percent {
+  color: var(--muted);
+  min-width: 3ch;
+}
