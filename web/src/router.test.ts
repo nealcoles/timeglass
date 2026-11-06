@@ -12,7 +12,11 @@ describe('parseRoute', () => {
     ['/day/5-11-2026', { name: 'notFound' }],
     ['/day/2026-11-05/app', { name: 'notFound' }],
     ['/day/2026-11-05/app/%E0%A4%A', { name: 'notFound' }],
-    ['/week', { name: 'notFound' }],
+    ['/day/2026-02-30', { name: 'notFound' }],
+    ['/week', { name: 'thisWeek' }],
+    ['/week/2026-11-02', { name: 'week', date: '2026-11-02' }],
+    ['/week/2026-13-01', { name: 'notFound' }],
+    ['/week/2026-11-02/extra', { name: 'notFound' }],
   ])('reads %s', (path, route) => {
     expect(parseRoute(path)).toEqual(route);
   });
@@ -25,6 +29,7 @@ describe('parseRoute', () => {
     });
     expect(parseRoute(paths.day('2026-11-05'))).toEqual({ name: 'day', date: '2026-11-05' });
     expect(parseRoute(paths.today())).toEqual({ name: 'today' });
+    expect(parseRoute(paths.week('2026-11-02'))).toEqual({ name: 'week', date: '2026-11-02' });
   });
 });
 

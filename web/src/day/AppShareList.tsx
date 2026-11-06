@@ -5,8 +5,11 @@ import type { AppShare } from './appShares.ts';
 
 interface AppShareListProps {
   rows: readonly AppShare[];
-  /** The day the rows are for; each named app links to its titles on that day (#34). */
-  date: string;
+  /**
+   * The day the rows are for; each named app links to its titles on that day (#34). Without one
+   * (the week view), the apps aren't links.
+   */
+  date?: string;
 }
 
 /**
@@ -36,7 +39,7 @@ export function AppShareList({ rows, date }: AppShareListProps) {
                 style={{ backgroundColor: row.color }}
                 aria-hidden="true"
               />
-              {row.key === null ? (
+              {row.key === null || date === undefined ? (
                 row.name
               ) : (
                 <Link href={paths.app(date, row.key)} className="app-shares__link">

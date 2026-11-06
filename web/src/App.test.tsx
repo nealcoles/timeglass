@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { App } from './App.tsx';
@@ -90,5 +90,56 @@ describe('App routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Go to today' })).toHaveAttribute('href', '/');
+  });
+
+  it('steps back a day with the arrow key and returns with the back button', async () => {
+    const user = userEvent.setup();
+    renderWithApi(<App />);
+
+    await screen.findByRole('table');
+    await user.keyboard('{ArrowLeft}');
+    expect(globalThis.location.pathname).toBe('/day/2026-11-04');
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^Wednesday, /);
+
+    act(() => {
+      globalThis.history.back();
+    });
+    await waitFor(() => expect(globalThis.location.pathname).toBe('/'));
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^Today, /);
+  });
+
+  it('opens the week and a day from it', async () => {
+    const user = userEvent.setup();
+    renderWithApi(<App />);
+
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('link', { name: 'Week' }));
+    expect(globalThis.location.pathname).toBe('/week/2026-11-02');
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^This week, /);
+
+    const days = await screen.findByRole('table', { name: /Active time per day/ });
+    await user.click(within(days).getByRole('link', { name: /Tue/ }));
+    expect(globalThis.location.pathname).toBe('/day/2026-11-03');
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^Tuesday, /);
+  });
+
+  it('opens this week at /week', async () => {
+    globalThis.history.replaceState(null, '', '/week');
+
+    renderWithApi(<App />);
+
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^This week, /);
+  });
+
+  it('opens a deep link to another week', async () => {
+    globalThis.history.replaceState(null, '', '/week/2026-10-28');
+
+    renderWithApi(<App />);
+
+    expect(await screen.findByRole('heading', { level: 2 })).toHaveTextContent(/^Week of /);
+    expect(screen.getByRole('link', { name: 'Next week' })).toHaveAttribute(
+      'href',
+      '/week/2026-11-02',
+    );
   });
 });

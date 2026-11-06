@@ -40,7 +40,7 @@ describe('DayView', () => {
   });
 
   it('heads the view with the date, and "Today" for today', async () => {
-    renderWithApi(<DayView date={demoDate} isToday />);
+    renderWithApi(<DayView date={demoDate} today={demoDate} />);
 
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/^Today, .*2026/);
     await screen.findByRole('table');
@@ -145,7 +145,7 @@ describe('DayView', () => {
   it('words the empty state for today', async () => {
     useSummary({ ...daySummary(), activeMs: 0, firstActivity: null, lastActivity: null, apps: [] });
 
-    renderWithApi(<DayView date={demoDate} isToday />);
+    renderWithApi(<DayView date={demoDate} today={demoDate} />);
 
     expect(await screen.findByText(/Nothing tracked yet today/)).toBeInTheDocument();
   });
