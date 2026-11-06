@@ -34,6 +34,7 @@ Parts marked _(planned)_ don't exist yet; the issue number says where they are b
 | `Timeglass.Api`     | `net10.0`         | Local HTTP API for the UI: `MapTimeglassApi()` endpoints and the OpenAPI document.            |
 | `Timeglass.Windows` | `net10.0-windows` | Win32 implementations of the ports: foreground watcher, idle detector, session events.        |
 | `Timeglass.App`     | `net10.0-windows` | `Timeglass.exe`: generic host, composition root, tray icon, single instance.                  |
+| `Timeglass.DevHost` | `net10.0`         | `tools/`: the API over demo data, for frontend work and end-to-end tests. Not shipped.        |
 | `web/`              | Node / browser    | React + TypeScript UI, built with Vite and served by the app _(planned, #30)_.                |
 
 The rule:
@@ -175,7 +176,7 @@ and hands the rows over.
 `Timeglass.Api` is a library: a host calls `services.AddTimeglassApi()` and
 `app.MapTimeglassApi()`, and registers an `IReportingQueries` (Core port, implemented by
 `IntervalRepository`) and an `ITrackingState` (whether tracking is paused). It only knows Core,
-so the tray app and the dev host (#28) host the same endpoints.
+so the tray app and the dev host (below) host the same endpoints.
 
 | Endpoint                             | Returns                                                                    |
 | ------------------------------------ | -------------------------------------------------------------------------- |
@@ -196,7 +197,28 @@ so the tray app and the dev host (#28) host the same endpoints.
   `OpenApiDocumentTests` fails when the two differ; run the API tests with
   `TIMEGLASS_UPDATE_OPENAPI=1` to regenerate the file, and commit it.
 - `Timeglass.Api.Tests` hosts the endpoints on `TestServer` over a real temp database. The API
-  has no entry point of its own, so there is no `WebApplicationFactory`.
+  has no entry point of its own, so there is no `WebApplicationFactory` for it (the dev host
+  has one, below).
+
+### Dev host
+
+`tools/Timeglass.DevHost` runs the API on any OS without the tracker, for frontend work and
+end-to-end tests. It is never shipped.
+
+- It listens on `127.0.0.1` only, on `TIMEGLASS_API_PORT` (the variable the Vite proxy reads)
+  or 5381, so `npm run dev` in `web/` finds it with no setup.
+- It opens a new database in a temp folder, fills it with `DemoData` before taking requests,
+  and deletes it on exit. `--database <file>` keeps the file instead; an existing file is used
+  as it is.
+- `DemoData.Generate(now, zone, workdays, seed)` writes today up to `now` (the last interval
+  still open) and the five workdays before it: Outlook, Teams, VS Code, Edge and Windows
+  Terminal, a 09:30 standup, a lunch break, short idle breaks, title changes a few seconds
+  apart (merged by the timeline) and a Tuesday evening that runs past midnight. It is
+  deterministic: each date gets its own random sequence from the seed and the date, so a day
+  looks the same whichever day is today.
+- Tracking is never paused, unless `--paused true`.
+- `Timeglass.Api.Tests` checks the demo data's shape (`DemoDataTests`) and starts the host
+  through `WebApplicationFactory` with a fake clock (`DevHostTests`).
 
 ## The host
 
@@ -285,7 +307,7 @@ last entry survives the crash.
 | ---------------- | --------------------------------------------------- | -------------- |
 | Engine and rules | `Timeglass.Core.Tests` (incl. property tests)       | Linux, Windows |
 | SQLite           | `Timeglass.Storage.Tests` (real temp files)         | Linux, Windows |
-| API              | `Timeglass.Api.Tests`                               | Linux, Windows |
+| API, dev host    | `Timeglass.Api.Tests` (in-memory server, demo data) | Linux, Windows |
 | Win32 adapters   | `Timeglass.Windows.IntegrationTests` (real windows) | Windows only   |
 | Host and wiring  | `Timeglass.App.Tests` (DI graph, single instance)   | Windows only   |
 | Frontend         | `web/src/**/*.test.tsx` (Vitest, MSW)               | Linux          |

@@ -8,6 +8,9 @@
     <Project Path="src/Timeglass.Storage/Timeglass.Storage.csproj" />
     <Project Path="src/Timeglass.Api/Timeglass.Api.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Timeglass.DevHost/Timeglass.DevHost.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Timeglass.Testing/Timeglass.Testing.csproj" />
     <Project Path="tests/Timeglass.Core.Tests/Timeglass.Core.Tests.csproj" />
