@@ -78,6 +78,18 @@ describe('DayView', () => {
     ]);
   });
 
+  it('shows when the time went, in the app list colours', async () => {
+    renderWithApi(<DayView date={demoDate} />);
+
+    expect(await screen.findByRole('heading', { name: 'When' })).toBeInTheDocument();
+    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
+    const table = screen.getByRole('table');
+    const swatch = table.querySelector<HTMLElement>('tr[data-app="vscode"] .app-shares__swatch');
+    const block = lane.querySelector<HTMLElement>('[data-app="vscode"]');
+    expect(block?.style.backgroundColor).toBeTruthy();
+    expect(block?.style.backgroundColor).toBe(swatch?.style.backgroundColor);
+  });
+
   it('folds apps beyond the top six into Other', async () => {
     const base = daySummary();
     const extra = ['a', 'b', 'c'].map((key) => ({
