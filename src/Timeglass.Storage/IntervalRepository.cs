@@ -32,7 +32,7 @@ namespace Timeglass.Storage;
 /// overwritten in the file rather than left in free pages.
 /// </para>
 /// </remarks>
-public sealed class IntervalRepository : IIntervalSink, IAsyncDisposable
+public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyncDisposable
 {
     private const string UpsertApp = """
         INSERT INTO apps (key, display_name) VALUES (@Key, @DisplayName)

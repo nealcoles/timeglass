@@ -5,7 +5,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Hosts MapTimeglassApi in memory. -->
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Timeglass.Testing\Timeglass.Testing.csproj" />
     <ProjectReference Include="..\..\src\Timeglass.Api\Timeglass.Api.csproj" />
+    <!-- The endpoints run against a real, seeded database. -->
+    <ProjectReference Include="..\..\src\Timeglass.Storage\Timeglass.Storage.csproj" />
   </ItemGroup>
 
 </Project>

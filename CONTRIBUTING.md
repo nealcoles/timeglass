@@ -111,6 +111,18 @@ npm run build
 
 `npm run format` fixes formatting; `npm run test:watch` reruns tests as you edit.
 
+
+### Changing the API
+
+`src/Timeglass.Api/openapi.json` is generated from the endpoints and checked by a test. After
+changing an endpoint or a response record, regenerate it and commit the result:
+
+```sh
+TIMEGLASS_UPDATE_OPENAPI=1 dotnet test tests/Timeglass.Api.Tests
+```
+
+(PowerShell: `$env:TIMEGLASS_UPDATE_OPENAPI=1; dotnet test tests/Timeglass.Api.Tests`.)
+
 ## Tests
 
 - Logic goes in Core and gets unit tests in `Timeglass.Core.Tests`. Use the fakes in

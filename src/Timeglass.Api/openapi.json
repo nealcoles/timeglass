@@ -1,0 +1,779 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Timeglass",
+    "description": "Local API of the Timeglass activity tracker. All durations are in milliseconds.",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/days/{date}/summary": {
+      "get": {
+        "tags": [
+          "Days"
+        ],
+        "summary": "Where the time went on one day",
+        "description": "Active and away totals, first and last activity, and active time per app.",
+        "operationId": "GetDaySummary",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "description": "Local date, yyyy-MM-dd.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaySummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/days/{date}/timeline": {
+      "get": {
+        "tags": [
+          "Days"
+        ],
+        "summary": "What happened when on one day",
+        "description": "Active and away blocks in time order. Intervals of one app less than 5 seconds apart are merged.",
+        "operationId": "GetTimeline",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "description": "Local date, yyyy-MM-dd.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/days/{date}/apps/{appKey}": {
+      "get": {
+        "tags": [
+          "Days"
+        ],
+        "summary": "One app's time on one day, by window title",
+        "description": "The 10 titles with the most time, and the rest together as other.",
+        "operationId": "GetAppDay",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "description": "Local date, yyyy-MM-dd.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "appKey",
+            "in": "path",
+            "description": "The app's key, e.g. outlook.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDayDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/range/summary": {
+      "get": {
+        "tags": [
+          "Ranges"
+        ],
+        "summary": "Totals per day and per app over a range of days",
+        "description": "For the week view. A range is at most 366 days.",
+        "operationId": "GetRangeSummary",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local date, yyyy-MM-dd. Required.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local date, yyyy-MM-dd, included. Required.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeSummaryDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "What the tracker is doing right now",
+        "operationId": "GetStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActivityKind": {
+        "enum": [
+          "active",
+          "away"
+        ],
+        "description": "Active or away."
+      },
+      "AppDayDto": {
+        "required": [
+          "date",
+          "app",
+          "start",
+          "end",
+          "totalMs",
+          "titles",
+          "other"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The local date.",
+            "format": "date"
+          },
+          "app": {
+            "description": "The app. If it had no time that day, its name is its key.",
+            "$ref": "#/components/schemas/AppDto"
+          },
+          "start": {
+            "type": "string",
+            "description": "First instant of the day (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "First instant of the next day (exclusive).",
+            "format": "date-time"
+          },
+          "totalMs": {
+            "type": "integer",
+            "description": "Active time in the app, in milliseconds.",
+            "format": "int64"
+          },
+          "titles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TitleTotalDto"
+            },
+            "description": "The titles with the most time, longest first."
+          },
+          "other": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The remaining titles together, or null if every title is listed.",
+                "$ref": "#/components/schemas/OtherTitlesDto"
+              }
+            ]
+          }
+        },
+        "description": "Where the time in one app went on one local day, by window title."
+      },
+      "AppDto": {
+        "required": [
+          "key",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable key, used in URLs, e.g. `outlook`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name, e.g. `Outlook`."
+          }
+        },
+        "description": "An app as shown to the user."
+      },
+      "AppTotalDto": {
+        "required": [
+          "app",
+          "durationMs",
+          "share",
+          "percent"
+        ],
+        "type": "object",
+        "properties": {
+          "app": {
+            "description": "The app.",
+            "$ref": "#/components/schemas/AppDto"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Active time in the app, in milliseconds.",
+            "format": "int64"
+          },
+          "share": {
+            "type": "number",
+            "description": "Exact fraction of the active time, between 0 and 1.",
+            "format": "double"
+          },
+          "percent": {
+            "type": "integer",
+            "description": "Whole percentage; the percentages of one list add up to 100.",
+            "format": "int32"
+          }
+        },
+        "description": "One app's share of the active time."
+      },
+      "DaySummaryDto": {
+        "required": [
+          "date",
+          "start",
+          "end",
+          "activeMs",
+          "awayMs",
+          "firstActivity",
+          "lastActivity",
+          "apps"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The local date.",
+            "format": "date"
+          },
+          "start": {
+            "type": "string",
+            "description": "First instant of the day (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "First instant of the next day (exclusive); 23 or 25 hours after the start on DST days.",
+            "format": "date-time"
+          },
+          "activeMs": {
+            "type": "integer",
+            "description": "Total active time, in milliseconds.",
+            "format": "int64"
+          },
+          "awayMs": {
+            "type": "integer",
+            "description": "Total away time (idle, locked or asleep), in milliseconds.",
+            "format": "int64"
+          },
+          "firstActivity": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Start of the first active time, or null if there was none.",
+            "format": "date-time"
+          },
+          "lastActivity": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "End of the last active time, or null if there was none.",
+            "format": "date-time"
+          },
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppTotalDto"
+            },
+            "description": "Active time per app, longest first."
+          }
+        },
+        "description": "Where the time went on one local day."
+      },
+      "DayTotalDto": {
+        "required": [
+          "date",
+          "start",
+          "end",
+          "activeMs",
+          "awayMs",
+          "topApps"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The local date.",
+            "format": "date"
+          },
+          "start": {
+            "type": "string",
+            "description": "First instant of the day (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "First instant of the next day (exclusive).",
+            "format": "date-time"
+          },
+          "activeMs": {
+            "type": "integer",
+            "description": "Active time, in milliseconds.",
+            "format": "int64"
+          },
+          "awayMs": {
+            "type": "integer",
+            "description": "Away time, in milliseconds.",
+            "format": "int64"
+          },
+          "topApps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppTotalDto"
+            },
+            "description": "The day's apps with the most time; shares are of the whole day."
+          }
+        },
+        "description": "One day in a range."
+      },
+      "HttpValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "OtherTitlesDto": {
+        "required": [
+          "count",
+          "durationMs",
+          "share",
+          "percent"
+        ],
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "How many distinct titles.",
+            "format": "int32"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Their active time together, in milliseconds.",
+            "format": "int64"
+          },
+          "share": {
+            "type": "number",
+            "description": "Exact fraction of the app's time, between 0 and 1.",
+            "format": "double"
+          },
+          "percent": {
+            "type": "integer",
+            "description": "Whole percentage.",
+            "format": "int32"
+          }
+        },
+        "description": "The titles left out of the list, together."
+      },
+      "RangeSummaryDto": {
+        "required": [
+          "from",
+          "to",
+          "start",
+          "end",
+          "activeMs",
+          "awayMs",
+          "days",
+          "apps"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "First local date.",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "description": "Last local date (included).",
+            "format": "date"
+          },
+          "start": {
+            "type": "string",
+            "description": "First instant of the first day (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "First instant of the day after the last (exclusive).",
+            "format": "date-time"
+          },
+          "activeMs": {
+            "type": "integer",
+            "description": "Total active time, in milliseconds.",
+            "format": "int64"
+          },
+          "awayMs": {
+            "type": "integer",
+            "description": "Total away time, in milliseconds.",
+            "format": "int64"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayTotalDto"
+            },
+            "description": "One entry per day in date order, including days without any time."
+          },
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppTotalDto"
+            },
+            "description": "Active time per app over the whole range, longest first."
+          }
+        },
+        "description": "Totals per day and per app over a range of local days."
+      },
+      "StatusDto": {
+        "required": [
+          "state",
+          "pausedUntil",
+          "currentApp",
+          "since",
+          "today",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "description": "What the tracker is doing.",
+            "$ref": "#/components/schemas/TrackingStateKind"
+          },
+          "pausedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "When a pause ends by itself; null if it doesn't, or if not paused.",
+            "format": "date-time"
+          },
+          "currentApp": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The app being tracked while active; null otherwise.",
+                "$ref": "#/components/schemas/AppDto"
+              }
+            ]
+          },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Start of the current active or away stretch today; null when nothing is being recorded.",
+            "format": "date-time"
+          },
+          "today": {
+            "type": "string",
+            "description": "Today's local date.",
+            "format": "date"
+          },
+          "now": {
+            "type": "string",
+            "description": "The server's current time, to count the running stretch from.",
+            "format": "date-time"
+          }
+        },
+        "description": "The tracker's current state."
+      },
+      "TimelineBlockDto": {
+        "required": [
+          "kind",
+          "app",
+          "start",
+          "end",
+          "durationMs",
+          "isOpen"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Active or away.",
+            "$ref": "#/components/schemas/ActivityKind"
+          },
+          "app": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The app of an active block; null for an away block.",
+                "$ref": "#/components/schemas/AppDto"
+              }
+            ]
+          },
+          "start": {
+            "type": "string",
+            "description": "Start (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "End (exclusive).",
+            "format": "date-time"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Time tracked in the block, in milliseconds: end minus start, less the short gaps merged over.",
+            "format": "int64"
+          },
+          "isOpen": {
+            "type": "boolean",
+            "description": "True if the block is still running."
+          }
+        },
+        "description": "A stretch of time in one app, or away; intervals a few seconds apart are merged."
+      },
+      "TimelineDto": {
+        "required": [
+          "date",
+          "start",
+          "end",
+          "blocks"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The local date.",
+            "format": "date"
+          },
+          "start": {
+            "type": "string",
+            "description": "First instant of the day (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "First instant of the next day (exclusive).",
+            "format": "date-time"
+          },
+          "blocks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineBlockDto"
+            },
+            "description": "Active and away blocks in time order. Gaps between blocks are untracked time."
+          }
+        },
+        "description": "What happened when on one local day."
+      },
+      "TitleTotalDto": {
+        "required": [
+          "title",
+          "durationMs",
+          "share",
+          "percent"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The title, or null for time where no title was recorded."
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Active time with this title, in milliseconds.",
+            "format": "int64"
+          },
+          "share": {
+            "type": "number",
+            "description": "Exact fraction of the app's time, between 0 and 1.",
+            "format": "double"
+          },
+          "percent": {
+            "type": "integer",
+            "description": "Whole percentage; titles and other add up to 100.",
+            "format": "int32"
+          }
+        },
+        "description": "Time with one window title."
+      },
+      "TrackingStateKind": {
+        "enum": [
+          "active",
+          "away",
+          "untracked",
+          "paused"
+        ],
+        "description": "What the tracker is doing right now."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Days"
+    },
+    {
+      "name": "Ranges"
+    },
+    {
+      "name": "Status"
+    }
+  ]
+}
