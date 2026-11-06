@@ -14,16 +14,17 @@ small HTTP API that only listens on `127.0.0.1`.
 
 ## Repository layout
 
-| Path                    | What it is                                                           |
-| ----------------------- | -------------------------------------------------------------------- |
-| `src/Timeglass.Core`    | Domain model, ports (interfaces) and the tracking engine. No I/O.    |
-| `src/Timeglass.Storage` | SQLite schema, migrations and the interval repository.               |
-| `src/Timeglass.Api`     | Local HTTP API (ASP.NET Core).                                       |
-| `src/Timeglass.Windows` | Win32 adapters: foreground watcher, idle and session sources.        |
-| `src/Timeglass.App`     | The tray app (`Timeglass.exe`): wires everything together.           |
-| `tests/`                | Unit, storage, API and Windows integration tests, plus shared fakes. |
-| `web/`                  | React + TypeScript frontend (Vite).                                  |
-| `docs/`                 | [Architecture overview](docs/architecture.md) and [ADRs](docs/adr/). |
+| Path                      | What it is                                                           |
+| ------------------------- | -------------------------------------------------------------------- |
+| `src/Timeglass.Core`      | Domain model, ports (interfaces) and the tracking engine. No I/O.    |
+| `src/Timeglass.Storage`   | SQLite schema, migrations and the interval repository.               |
+| `src/Timeglass.Api`       | Local HTTP API (ASP.NET Core).                                       |
+| `src/Timeglass.Windows`   | Win32 adapters: foreground watcher, idle and session sources.        |
+| `src/Timeglass.App`       | The tray app (`Timeglass.exe`): wires everything together.           |
+| `tools/Timeglass.DevHost` | The API over demo data, for frontend work on any OS.                 |
+| `tests/`                  | Unit, storage, API and Windows integration tests, plus shared fakes. |
+| `web/`                    | React + TypeScript frontend (Vite).                                  |
+| `docs/`                   | [Architecture overview](docs/architecture.md) and [ADRs](docs/adr/). |
 
 There are two solutions:
 
@@ -110,15 +111,25 @@ from the registry each time, so turning Timeglass off in Task Manager's _Startup
 here too, and turning it back on here clears that. To keep test data out of your real database, pass another file:
 `dotnet run --project src/Timeglass.App -- --Timeglass:DatabasePath=C:\temp\test.db`.
 
-The dashboard isn't served yet (#27, #30). For frontend work, start the Vite dev server:
+The dashboard isn't served by the app yet (#30). For frontend work, on any OS, start the dev
+host, which serves the API with a week of realistic demo data and needs no tracker:
+
+```sh
+dotnet run --project tools/Timeglass.DevHost
+```
+
+and in another terminal the Vite dev server:
 
 ```sh
 cd web
 npm run dev
 ```
 
-It proxies `/api` to the backend on `http://127.0.0.1:5381`. Set `TIMEGLASS_API_PORT` to use
-another port. Until the API exists, the page shows the tracker as offline.
+Vite proxies `/api` to `http://127.0.0.1:5381`, where the dev host listens. Set
+`TIMEGLASS_API_PORT` for both to use another port. The dev host takes a few options after
+`--`: `--seed 7` for other demo days, `--workdays 10` for more of them, `--paused true` to show
+tracking as paused, and `--database demo.db` to keep the database (by default it is a temp
+file, deleted on exit).
 
 ## Where data is stored
 

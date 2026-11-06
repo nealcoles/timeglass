@@ -7,6 +7,8 @@
   <ItemGroup>
     <!-- Hosts MapTimeglassApi in memory. -->
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <!-- Starts the dev host (#28) as dotnet run would. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,6 +16,8 @@
     <ProjectReference Include="..\..\src\Timeglass.Api\Timeglass.Api.csproj" />
     <!-- The endpoints run against a real, seeded database. -->
     <ProjectReference Include="..\..\src\Timeglass.Storage\Timeglass.Storage.csproj" />
+    <!-- The demo data generator and the dev host. -->
+    <ProjectReference Include="..\..\tools\Timeglass.DevHost\Timeglass.DevHost.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Runs the local API on any OS without the tracker, over a temp database filled with demo data,
+    for frontend development and end-to-end tests. Never shipped.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Timeglass.DevHost</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Timeglass.Api.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Timeglass.Core\Timeglass.Core.csproj" />
+    <ProjectReference Include="..\..\src\Timeglass.Storage\Timeglass.Storage.csproj" />
+    <ProjectReference Include="..\..\src\Timeglass.Api\Timeglass.Api.csproj" />
+  </ItemGroup>
+
+</Project>
