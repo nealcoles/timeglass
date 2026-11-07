@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -36,6 +37,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _startWithWindows = new("Start with &Windows");
     private readonly ToolStripMenuItem _settings = new("&Settings (coming soon)") { Enabled = false };
     private readonly ToolStripMenuItem _openLogFolder = new("Open &log folder");
+    private readonly ToolStripMenuItem _about = new("&About Timeglass");
     private readonly ToolStripMenuItem _quit = new("&Quit");
     private readonly NotifyIcon _icon;
     private readonly System.Windows.Forms.Timer _refresh = new();
@@ -72,8 +74,9 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         _resume.Click += OnResumeClicked;
         _startWithWindows.Click += (_, _) => ToggleAutostart();
         _openLogFolder.Click += (_, _) => OpenLogFolder();
+        _about.Click += (_, _) => ShowAbout();
         _quit.Click += (_, _) => ExitThread();
-        _menu.Items.AddRange([_openDashboard, _pause, _resume, _startWithWindows, _settings, _openLogFolder, new ToolStripSeparator(), _quit]);
+        _menu.Items.AddRange([_openDashboard, _pause, _resume, _startWithWindows, _settings, _openLogFolder, _about, new ToolStripSeparator(), _quit]);
         _menu.Opening += (_, _) =>
         {
             RefreshAutostart();
@@ -171,6 +174,14 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         {
             _icon.ShowBalloonTip(5000, "Timeglass", "Could not open the log folder.", ToolTipIcon.Warning);
         }
+    }
+
+    /// <summary>Shows the version, which comes from the git tag the build was made from (#38).</summary>
+    private static void ShowAbout()
+    {
+        var version = typeof(TrayApplicationContext).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        MessageBox.Show(TrayText.About(version), "About Timeglass", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     /// <summary>Shows the registry's state, so a change made in Task Manager is not overwritten.</summary>

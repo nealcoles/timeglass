@@ -10,6 +10,18 @@
     <ApplicationIcon>Assets\timeglass.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!--
+    The release build (#38) is a self-contained, single-file win-x64 publish (the package job in ci.yml).
+    Native libraries (SQLite) go inside the exe and are extracted on first run, so the zip holds
+    Timeglass.exe alone.
+  -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Timeglass.Core\Timeglass.Core.csproj" />
     <ProjectReference Include="..\Timeglass.Storage\Timeglass.Storage.csproj" />

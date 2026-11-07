@@ -168,3 +168,31 @@ npm run generate:api
   override one with `server.use(...)`. Render with `renderWithApi` or `renderApiHook` from
   `web/src/test/render.tsx` so components get the API client and a fresh query cache.
 - Never skip or disable a failing test to get CI green. Fix the code or the test.
+
+## Releases
+
+Versions come from git tags through [MinVer](https://github.com/adamralph/minver): on the
+commit tagged `v0.1.0` every assembly is `0.1.0`, and later commits are `0.1.1-alpha.0.N`
+(N commits after the tag). Without any tag, builds are `0.0.0-alpha.0.N`. The tray menu's
+_About Timeglass_ shows the version and commit.
+
+To release, tag `main` and push the tag:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` runs the whole CI suite, then creates a GitHub Release with
+`timeglass-0.1.0-win-x64.zip` (a single self-contained `Timeglass.exe`), its `.sha256` and notes
+generated from the merged PRs. A tag like `v0.2.0-beta.1` makes a pre-release. Every CI run
+also builds the zip (the _Package_ job); on `main` it is kept as the `timeglass-win-x64`
+artifact for 30 days, as a nightly build.
+
+To build the same exe locally (on Windows, or anywhere with `-p:EnableWindowsTargeting=true`):
+
+```sh
+dotnet publish src/Timeglass.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+```
+
+Builds aren't code-signed yet, so SmartScreen warns on first run.

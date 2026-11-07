@@ -1,3 +1,4 @@
+using System.Reflection;
 using Timeglass.App.Tray;
 
 namespace Timeglass.App.Tests;
@@ -45,4 +46,30 @@ public class TrayTextTests
     [Fact]
     public void Tooltip_fits_the_notification_area_limit() =>
         TrayText.Tooltip(TimeSpan.MaxValue, paused: true, DateTime.MaxValue).Length.ShouldBeLessThanOrEqualTo(TrayText.MaxTooltipLength);
+
+    [Theory]
+    [InlineData("0.1.0", "0.1.0")]
+    [InlineData("0.1.0+3f2a1b9c0d4e5f60718293a4b5c6d7e8f9012345", "0.1.0 (3f2a1b9)")]
+    [InlineData("0.1.1-alpha.0.4+abc", "0.1.1-alpha.0.4 (abc)")]
+    [InlineData("1.0.0+", "1.0.0")]
+    [InlineData(null, "unknown version")]
+    [InlineData("", "unknown version")]
+    public void Version_drops_the_full_commit_hash(string? informational, string expected) =>
+        TrayText.Version(informational).ShouldBe(expected);
+
+    [Fact]
+    public void About_starts_with_the_name_and_version() =>
+        TrayText.About("0.1.0+3f2a1b9c").ShouldStartWith("Timeglass 0.1.0 (3f2a1b9)\n");
+
+    [Fact]
+    public void The_app_is_versioned_from_git_tags()
+    {
+        var version = typeof(TrayText).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+        // MinVer stamps a SemVer version; without it the SDK default is 1.0.0.
+        version.ShouldNotBeNull();
+        version.ShouldMatch(@"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9a-f]+)?$");
+        version.ShouldNotStartWith("1.0.0+");
+    }
 }
