@@ -1,0 +1,73 @@
+name: Release
+
+# Pushing a v* tag (#38) runs the full CI suite, then creates a GitHub Release with the zipped
+# single-file build and its SHA-256, with notes generated from the merged PRs.
+#
+#   git tag v0.1.0
+#   git push origin v0.1.0
+#
+# A tag with a pre-release part, such as v0.2.0-beta.1, makes a pre-release.
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    # What ci.yml's jobs need: test reports are check runs.
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    needs: ci
+    permissions:
+      contents: write
+    steps:
+      - name: Download package
+        uses: actions/download-artifact@v7
+        with:
+          name: timeglass-win-x64
+          path: package
+
+      - name: Check the package
+        id: check
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          zip="package/timeglass-${version}-win-x64.zip"
+          # The exe's version comes from the tag (MinVer), so the name says whether they agree.
+          if [[ ! -f "$zip" ]]; then
+            echo "::error::Expected $zip for tag $GITHUB_REF_NAME, found: $(ls package)"
+            exit 1
+          fi
+          (cd package && sha256sum -c "$(basename "$zip").sha256")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          prerelease=()
+          if [[ "$VERSION" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" package/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Timeglass $VERSION" \
+            --generate-notes \
+            "${prerelease[@]}" \
+            --notes "Download \`timeglass-$VERSION-win-x64.zip\`, unzip it and run \`Timeglass.exe\`. It needs no install and no .NET runtime.
+
+          The build isn't code-signed yet, so Windows SmartScreen warns the first time you run it: choose **More info**, then **Run anyway**. To check the download, compare \`Get-FileHash timeglass-$VERSION-win-x64.zip\` with the \`.sha256\` file."

@@ -49,4 +49,32 @@ internal static class TrayText
             ? string.Create(CultureInfo.InvariantCulture, $"{minutes} min")
             : string.Create(CultureInfo.InvariantCulture, $"{minutes / 60} h {minutes % 60:00} min");
     }
+
+    /// <summary>
+    /// The version to show, from the informational version the build stamps in: <c>0.1.0</c>, or
+    /// <c>0.1.0 (3f2a1b9)</c> when it ends in the commit (<c>0.1.0+3f2a1b9c…</c>).
+    /// </summary>
+    public static string Version(string? informationalVersion)
+    {
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            return "unknown version";
+        }
+
+        var plus = informationalVersion.IndexOf('+', StringComparison.Ordinal);
+        if (plus < 0)
+        {
+            return informationalVersion;
+        }
+
+        var version = informationalVersion[..plus];
+        var commit = informationalVersion[(plus + 1)..];
+        return commit.Length == 0
+            ? version
+            : $"{version} ({commit[..Math.Min(7, commit.Length)]})";
+    }
+
+    /// <summary>The <i>About</i> box: <c>Timeglass 0.1.0 (3f2a1b9)</c> and a line on what it does.</summary>
+    public static string About(string? informationalVersion) =>
+        $"Timeglass {Version(informationalVersion)}\n\nTracks which apps you use. Everything stays on this computer.";
 }

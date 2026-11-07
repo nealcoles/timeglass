@@ -16,6 +16,8 @@
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.13" />
   </ItemGroup>
   <ItemGroup Label="Build tools">
+    <!-- Versions every assembly from the latest v* git tag (#38). -->
+    <GlobalPackageReference Include="MinVer" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.367" />
   </ItemGroup>
   <ItemGroup Label="Analyzers">

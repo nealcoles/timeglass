@@ -13,5 +13,14 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <Company>sevenam</Company>
     <Product>Timeglass</Product>
+    <!--
+      Versions come from git tags (#38): v0.1.0 gives 0.1.0, and commits after it 0.1.1-alpha.0.N.
+      Needs the tags and history, so release jobs check out with fetch-depth: 0.
+    -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <!-- The release exe (#38) carries its symbols, so stack traces in the log keep line numbers. -->
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 </Project>

@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # The release workflow (#38) runs the whole suite first, then publishes this run's package.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -283,3 +285,66 @@ jobs:
             web/test-results
             web/playwright-report
           retention-days: 14
+
+  # The release build (#38): Timeglass.exe as one self-contained file with the dashboard embedded,
+  # zipped with its SHA-256. It is built on every run so a change that breaks publishing fails here;
+  # the release workflow attaches this artifact to the GitHub Release, and each main build keeps it
+  # as a nightly-style download.
+  package:
+    name: Package (win-x64)
+    runs-on: windows-latest
+    needs: web
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # MinVer versions the build from the latest v* tag and the commits since.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Download web build
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist
+
+      - name: Publish
+        run: >
+          dotnet publish src/Timeglass.App/Timeglass.App.csproj -c Release
+          -r win-x64 --self-contained -p:PublishSingleFile=true
+          -p:TimeglassBuildWeb=false -o publish
+
+      - name: Zip
+        id: zip
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem publish)
+          if ($files.Count -ne 1 -or $files[0].Name -ne 'Timeglass.exe') {
+            throw "Expected publish/ to hold Timeglass.exe only, found: $($files.Name -join ', ')"
+          }
+
+          # The version stamped into the exe, as the About box shows it, without the commit.
+          $version = (Get-Item publish/Timeglass.exe).VersionInfo.ProductVersion -replace '\+.*$', ''
+          $name = "timeglass-$version-win-x64.zip"
+          New-Item -ItemType Directory -Force package | Out-Null
+          Compress-Archive -Path publish/Timeglass.exe -DestinationPath "package/$name"
+
+          # sha256sum format, so `sha256sum -c` works on it.
+          $hash = (Get-FileHash "package/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -Path "package/$name.sha256" -Value "$hash  $name" -NoNewline -Encoding ascii
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "### Package`n`n``$name`` ($version)`n`nSHA-256 ``$hash``" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: timeglass-win-x64
+          path: package
+          if-no-files-found: error
+          # The zip is already compressed.
+          compression-level: 0
+          retention-days: ${{ github.event_name == 'pull_request' && 7 || 30 }}

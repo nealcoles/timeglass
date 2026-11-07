@@ -33,6 +33,14 @@ There are two solutions:
 - `Timeglass.Portable.slnx` is Core, Storage, Api and their tests. It builds and tests on any
   OS, and is what the Linux CI job runs.
 
+## Download
+
+Each [release](https://github.com/sevenam/timeglass/releases) has a zip with a single
+`Timeglass.exe` for 64-bit Windows 10 or 11: unzip it anywhere and run it, no install or .NET
+runtime needed. It isn't code-signed yet, so SmartScreen warns the first time (choose
+**More info**, then **Run anyway**). The tray menu's **About Timeglass** shows which version you
+have. How releases are made is in [CONTRIBUTING.md](CONTRIBUTING.md#releases).
+
 ## Prerequisites
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download) (the exact feature band is pinned in
