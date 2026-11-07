@@ -141,8 +141,10 @@ npm run dev
 Vite proxies `/api` to `http://127.0.0.1:5381`, where the dev host listens. Set
 `TIMEGLASS_API_PORT` for both to use another port. The dev host takes a few options after
 `--`: `--seed 7` for other demo days, `--workdays 10` for more of them, `--paused true` to show
-tracking as paused, and `--database demo.db` to keep the database (by default it is a temp
-file, deleted on exit).
+tracking as paused, `--database demo.db` to keep the database (by default it is a temp
+file, deleted on exit), `--now 2026-11-05T13:00:00Z --timeZone Europe/Oslo` to stop the clock,
+and `--web ../../web/dist` to serve a built dashboard too, as the end-to-end tests do (`dotnet run`
+starts it in its project folder, so relative paths start there).
 
 ## Where data is stored
 

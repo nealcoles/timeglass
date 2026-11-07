@@ -229,3 +229,57 @@ jobs:
           name: web-dist
           path: web/dist
           if-no-files-found: error
+
+  # End-to-end tests (#37): the built dashboard against the dev host, with the clock stopped so
+  # the demo data is the same on every run. Runs once the units are green.
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: [web, dotnet-portable]
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Download web build
+        uses: actions/download-artifact@v7
+        with:
+          name: web-dist
+          path: web/dist
+
+      # Built up front so the test run's start-up timeout only covers starting it.
+      - name: Build dev host
+        run: dotnet build ../tools/Timeglass.DevHost -c Release
+
+      - name: Test
+        id: test
+        run: npm run e2e
+
+      # Traces open with `npx playwright show-trace <trace.zip>` or at trace.playwright.dev.
+      - name: Upload traces and report
+        if: ${{ failure() && steps.test.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            web/test-results
+            web/playwright-report
+          retention-days: 14

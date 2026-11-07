@@ -47,14 +47,14 @@ public sealed record DaySummaryDto(
     DateTimeOffset? LastActivity,
     IReadOnlyList<AppTotalDto> Apps)
 {
-    internal static DaySummaryDto Create(DaySummary summary) => new(
+    internal static DaySummaryDto Create(DaySummary summary, TimeZoneInfo zone) => new(
         summary.Day,
         summary.Start,
         summary.End,
         summary.Active.ToMs(),
         summary.Away.ToMs(),
-        summary.FirstActivity,
-        summary.LastActivity,
+        summary.FirstActivity?.In(zone),
+        summary.LastActivity?.In(zone),
         [.. summary.Apps.Select(AppTotalDto.Create)]);
 }
 
@@ -78,8 +78,8 @@ public enum ActivityKind
 /// <param name="Blocks">Active and away blocks in time order. Gaps between blocks are untracked time.</param>
 public sealed record TimelineDto(DateOnly Date, DateTimeOffset Start, DateTimeOffset End, IReadOnlyList<TimelineBlockDto> Blocks)
 {
-    internal static TimelineDto Create(DayTimeline timeline) =>
-        new(timeline.Day, timeline.Start, timeline.End, [.. timeline.Blocks.Select(TimelineBlockDto.Create)]);
+    internal static TimelineDto Create(DayTimeline timeline, TimeZoneInfo zone) =>
+        new(timeline.Day, timeline.Start, timeline.End, [.. timeline.Blocks.Select(b => TimelineBlockDto.Create(b, zone))]);
 }
 
 /// <summary>A stretch of time in one app, or away; intervals a few seconds apart are merged.</summary>
@@ -97,11 +97,11 @@ public sealed record TimelineBlockDto(
     long DurationMs,
     bool IsOpen)
 {
-    internal static TimelineBlockDto Create(TimelineBlock block) => new(
+    internal static TimelineBlockDto Create(TimelineBlock block, TimeZoneInfo zone) => new(
         block.Kind.ToDto(),
         block.App is null ? null : AppDto.Create(block.App),
-        block.Start,
-        block.End,
+        block.Start.In(zone),
+        block.End.In(zone),
         block.Duration.ToMs(),
         block.IsOpen);
 }
@@ -231,6 +231,12 @@ public sealed record StatusDto(
 internal static class DtoConversions
 {
     public static long ToMs(this TimeSpan duration) => duration.Ticks / TimeSpan.TicksPerMillisecond;
+
+    /// <summary>
+    /// The same instant with the offset of <paramref name="zone"/>, as every time in a response has,
+    /// so the dashboard can show the clock time from the string as it is.
+    /// </summary>
+    public static DateTimeOffset In(this DateTimeOffset instant, TimeZoneInfo zone) => TimeZoneInfo.ConvertTime(instant, zone);
 
     public static ActivityKind ToDto(this IntervalKind kind) => kind == IntervalKind.Away ? ActivityKind.Away : ActivityKind.Active;
 }
