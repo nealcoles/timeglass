@@ -143,3 +143,17 @@ describe('App routes', () => {
     );
   });
 });
+
+describe('App settings', () => {
+  it('opens the settings from the header', async () => {
+    const user = userEvent.setup();
+    renderWithApi(<App />);
+
+    await user.click(await screen.findByRole('link', { name: 'Settings' }));
+
+    expect(globalThis.location.pathname).toBe('/settings');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+    expect(await screen.findByRole('button', { name: 'Save settings' })).toBeInTheDocument();
+  });
+});

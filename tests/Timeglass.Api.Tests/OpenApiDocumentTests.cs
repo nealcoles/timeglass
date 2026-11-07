@@ -69,12 +69,21 @@ public sealed class OpenApiDocumentTests
             "/api/days/{date}/apps/{appKey}",
             "/api/days/{date}/summary",
             "/api/days/{date}/timeline",
+            "/api/intervals",
+            "/api/pause",
             "/api/range/summary",
+            "/api/resume",
+            "/api/settings",
             "/api/status",
         ]);
         document["paths"]!["/api/days/{date}/summary"]!["get"]!["operationId"]!.GetValue<string>().ShouldBe("GetDaySummary");
         document["paths"]!["/api/days/{date}/summary"]!["get"]!["responses"]!["400"].ShouldNotBeNull();
         document["paths"]!["/api/range/summary"]!["get"]!["parameters"]!.AsArray()
+            .Select(p => (p!["name"]!.GetValue<string>(), p["schema"]!["format"]!.GetValue<string>()))
+            .ShouldBe([("from", "date"), ("to", "date")]);
+        document["paths"]!["/api/settings"]!.AsObject().Select(o => o.Key).ShouldBe(["get", "put"], ignoreOrder: true);
+        document["paths"]!["/api/intervals"]!["delete"]!["requestBody"]!["required"]!.GetValue<bool>().ShouldBeTrue();
+        document["paths"]!["/api/intervals"]!["delete"]!["parameters"]!.AsArray()
             .Select(p => (p!["name"]!.GetValue<string>(), p["schema"]!["format"]!.GetValue<string>()))
             .ShouldBe([("from", "date"), ("to", "date")]);
         document["components"]!["schemas"]!["DaySummaryDto"]!["properties"]!["activeMs"]!["type"]!.GetValue<string>().ShouldBe("integer");

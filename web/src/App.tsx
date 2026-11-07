@@ -4,6 +4,8 @@ import { DayView } from './day/DayView.tsx';
 import { localToday } from './format.ts';
 import { Link } from './Link.tsx';
 import { paths, useRoute, type Route } from './router.ts';
+import { SettingsView } from './settings/SettingsView.tsx';
+import { TrackerControl } from './status/TrackerControl.tsx';
 import { WeekView } from './week/WeekView.tsx';
 
 type ApiStatus = 'checking' | 'online' | 'offline';
@@ -27,9 +29,19 @@ export function App() {
             Timeglass
           </Link>
         </h1>
-        <p role="status" className="app__tracker">
-          Tracker: {status}
-        </p>
+        <div className="app__status">
+          <p role="status" className="app__tracker">
+            Tracker: {status}
+          </p>
+          {data && <TrackerControl status={data} />}
+          <Link
+            href={paths.settings()}
+            className="app__settings"
+            aria-current={route.name === 'settings' ? 'page' : undefined}
+          >
+            Settings
+          </Link>
+        </div>
       </header>
       {!isPending && <Screen route={route} today={today} />}
     </main>
@@ -48,6 +60,8 @@ function Screen({ route, today }: { route: Route; today: string }) {
       return <WeekView date={today} today={today} />;
     case 'week':
       return <WeekView date={route.date} today={today} />;
+    case 'settings':
+      return <SettingsView today={today} />;
     case 'notFound':
       return (
         <section className="day">

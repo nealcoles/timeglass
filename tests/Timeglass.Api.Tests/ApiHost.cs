@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
+using Timeglass.Core.Settings;
 using Timeglass.Storage;
 
 namespace Timeglass.Api.Tests;
@@ -43,6 +44,13 @@ public sealed class ApiHost : IAsyncDisposable
     public FakeTimeProvider Time { get; }
 
     public FakeTrackingState Tracking { get; } = new();
+
+    public FakeSettingsStore Settings { get; } = new();
+
+    public FakeAutostart Autostart { get; } = new();
+
+    /// <summary>The ranges deleted through the API, in order (they are also deleted from the database).</summary>
+    public List<(DateTimeOffset From, DateTimeOffset To)> Deletions { get; } = [];
 
     public HttpClient Client { get; private set; } = null!;
 
@@ -133,6 +141,9 @@ public sealed class ApiHost : IAsyncDisposable
         builder.Services.AddSingleton<TimeProvider>(Time);
         builder.Services.AddSingleton<IReportingQueries>(_repository);
         builder.Services.AddSingleton<ITrackingState>(Tracking);
+        builder.Services.AddSingleton<ISettingsStore>(Settings);
+        builder.Services.AddSingleton<IAutostart>(Autostart);
+        builder.Services.AddSingleton<IDataDeletion>(new RecordingDeletion(_repository, Deletions));
         builder.Services.AddTimeglassApi();
         if (Security is not null)
         {
@@ -189,4 +200,47 @@ public sealed class FakeTrackingState : ITrackingState
     public bool IsPaused { get; set; }
 
     public DateTimeOffset? PausedUntil { get; set; }
+
+    public Task PauseAsync(DateTimeOffset? until)
+    {
+        (IsPaused, PausedUntil) = (true, until);
+        return Task.CompletedTask;
+    }
+
+    public Task ResumeAsync()
+    {
+        (IsPaused, PausedUntil) = (false, null);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeSettingsStore : ISettingsStore
+{
+    public TimeglassSettings Current { get; set; } = new();
+
+    /// <summary>How many times settings were saved.</summary>
+    public int Saves { get; private set; }
+
+    public Task SaveAsync(TimeglassSettings settings, CancellationToken cancellationToken)
+    {
+        Current = settings;
+        Saves++;
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeAutostart : IAutostart
+{
+    public bool IsEnabled { get; set; }
+
+    public void SetEnabled(bool enabled) => IsEnabled = enabled;
+}
+
+internal sealed class RecordingDeletion(IntervalRepository repository, List<(DateTimeOffset From, DateTimeOffset To)> deletions) : IDataDeletion
+{
+    public async Task DeleteRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
+    {
+        deletions.Add((from, to));
+        await repository.DeleteRangeAsync(from, to, cancellationToken);
+    }
 }

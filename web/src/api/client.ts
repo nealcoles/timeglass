@@ -15,6 +15,9 @@ export type TitleTotalDto = Schemas['TitleTotalDto'];
 export type OtherTitlesDto = Schemas['OtherTitlesDto'];
 export type RangeSummaryDto = Schemas['RangeSummaryDto'];
 export type DayTotalDto = Schemas['DayTotalDto'];
+export type SettingsDto = Schemas['SettingsDto'];
+export type AppAliasDto = Schemas['AppAliasDto'];
+export type PauseDuration = Schemas['PauseDuration'];
 export type ValidationProblemDetails = Schemas['HttpValidationProblemDetails'];
 
 /**

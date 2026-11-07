@@ -10,12 +10,16 @@ namespace Timeglass.App.Settings;
 /// </summary>
 internal sealed class SettingsConfiguration : IDisposable
 {
-    public SettingsConfiguration(IConfiguration configuration)
+    public SettingsConfiguration(IConfiguration configuration, string? path = null)
     {
         Configuration = configuration;
+        Path = path;
     }
 
     public IConfiguration Configuration { get; }
+
+    /// <summary>The settings file, or <see langword="null"/> when the settings don't come from one (tests).</summary>
+    public string? Path { get; }
 
     /// <summary>
     /// Opens <paramref name="path"/> (writing the defaults first if it doesn't exist, so there is
@@ -23,13 +27,13 @@ internal sealed class SettingsConfiguration : IDisposable
     /// </summary>
     public static SettingsConfiguration Open(string path)
     {
-        var fullPath = Path.GetFullPath(path);
+        var fullPath = System.IO.Path.GetFullPath(path);
         SettingsFile.EnsureExists(fullPath);
 
         var configuration = new ConfigurationBuilder()
             .AddJsonFile(fullPath, optional: true, reloadOnChange: true)
             .Build();
-        return new SettingsConfiguration(configuration);
+        return new SettingsConfiguration(configuration, fullPath);
     }
 
     /// <summary>Stops watching the file.</summary>
