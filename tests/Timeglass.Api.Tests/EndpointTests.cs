@@ -198,6 +198,24 @@ public sealed class EndpointTests : IAsyncLifetime
         status!["state"]!.GetValue<string>().ShouldBe("active");
     }
 
+    [Fact]
+    public async Task Times_are_in_the_users_zone_so_the_clock_time_can_be_read_off_the_string()
+    {
+        // The dashboard shows "08:00" from "2026-11-05T08:00:00+01:00" without converting (#37).
+        var day = await _host.Client.GetFromJsonAsync<JsonObject>("/api/days/2026-11-05/summary", Ct);
+        day!["firstActivity"]!.GetValue<string>().ShouldBe("2026-11-05T00:00:00+01:00");
+        day["lastActivity"]!.GetValue<string>().ShouldBe("2026-11-05T10:00:00+01:00");
+
+        var timeline = await _host.Client.GetFromJsonAsync<JsonObject>("/api/days/2026-11-05/timeline", Ct);
+        var open = timeline!["blocks"]!.AsArray()[^1]!;
+        open["start"]!.GetValue<string>().ShouldBe("2026-11-05T09:30:00+01:00");
+        open["end"]!.GetValue<string>().ShouldBe("2026-11-05T10:00:00+01:00");
+
+        var status = await _host.Client.GetFromJsonAsync<JsonObject>("/api/status", Ct);
+        status!["since"]!.GetValue<string>().ShouldBe("2026-11-05T09:30:00+01:00");
+        status["now"]!.GetValue<string>().ShouldBe("2026-11-05T10:00:00+01:00");
+    }
+
     [Theory]
     [InlineData("/api/days/2026-13-01/summary", "date")]
     [InlineData("/api/days/yesterday/timeline", "date")]

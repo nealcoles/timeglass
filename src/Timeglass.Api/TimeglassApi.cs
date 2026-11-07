@@ -25,7 +25,8 @@ namespace Timeglass.Api;
 /// <para>
 /// Days are local days in <see cref="TimeProvider.LocalTimeZone"/> of the registered
 /// <see cref="TimeProvider"/>, starting at midnight. Dates in routes and queries are ISO dates
-/// (<c>yyyy-MM-dd</c>); anything else is answered with a 400 Problem Details response.
+/// (<c>yyyy-MM-dd</c>); anything else is answered with a 400 Problem Details response. Every
+/// time in a response carries that zone's offset, so the clock time can be read off the string.
 /// </para>
 /// <para>
 /// The endpoints themselves do not restrict who may call them. <see cref="TimeglassApiServer"/>
@@ -139,7 +140,7 @@ public static partial class TimeglassApi
         }
 
         var summary = await reports.GetDaySummaryAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(DaySummaryDto.Create(summary));
+        return TypedResults.Ok(DaySummaryDto.Create(summary, time.LocalTimeZone));
     }
 
     private static async Task<Results<Ok<TimelineDto>, ValidationProblem>> GetTimelineAsync(
@@ -154,7 +155,7 @@ public static partial class TimeglassApi
         }
 
         var timeline = await reports.GetTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(TimelineDto.Create(timeline));
+        return TypedResults.Ok(TimelineDto.Create(timeline, time.LocalTimeZone));
     }
 
     private static async Task<Results<Ok<AppDayDto>, ValidationProblem>> GetAppDayAsync(
@@ -225,9 +226,7 @@ public static partial class TimeglassApi
         var today = DaySummaries.DayOf(now, zone);
         if (tracking.IsPaused)
         {
-            // In the user's zone, like a day's bounds, so the dashboard can show the clock time as it is.
-            var until = tracking.PausedUntil is { } end ? TimeZoneInfo.ConvertTime(end, zone) : (DateTimeOffset?)null;
-            return TypedResults.Ok(new StatusDto(TrackingStateKind.Paused, until, null, null, today, now));
+            return TypedResults.Ok(new StatusDto(TrackingStateKind.Paused, tracking.PausedUntil?.In(zone), null, null, today, now.In(zone)));
         }
 
         // The open interval is the last block of today's timeline, merged with the ones just
@@ -238,10 +237,10 @@ public static partial class TimeglassApi
                 current.Kind.ToDto() == ActivityKind.Away ? TrackingStateKind.Away : TrackingStateKind.Active,
                 null,
                 current.App is null ? null : AppDto.Create(current.App),
-                current.Start,
+                current.Start.In(zone),
                 today,
-                now)
-            : new StatusDto(TrackingStateKind.Untracked, null, null, null, today, now);
+                now.In(zone))
+            : new StatusDto(TrackingStateKind.Untracked, null, null, null, today, now.In(zone));
         return TypedResults.Ok(status);
     }
 

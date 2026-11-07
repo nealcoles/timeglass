@@ -201,7 +201,9 @@ Deleting goes through `TrackingService.DeleteRangeAsync`, which cuts the open in
 it isn't written back at its next checkpoint. The confirmation in the body must repeat the range,
 so a request with the wrong query string deletes nothing.
 
-- Days are local days in the `TimeProvider`'s local zone, starting at midnight.
+- Days are local days in the `TimeProvider`'s local zone, starting at midnight. Every time in
+  a response carries that zone's offset (`2026-11-05T08:12:31+01:00`), so the dashboard reads
+  the clock time off the string.
 - Dates are ISO dates (`yyyy-MM-dd`). A missing or invalid date, a range that ends before it
   starts or one longer than 366 days gets a 400 Problem Details response
   (`application/problem+json`, with the field under `errors`).
@@ -327,6 +329,9 @@ end-to-end tests. It is never shipped.
   apart (merged by the timeline) and a Tuesday evening that runs past midnight. It is
   deterministic: each date gets its own random sequence from the seed and the date, so a day
   looks the same whichever day is today.
+- `--now 2026-11-05T13:00:00Z` stops the clock there and `--timeZone Europe/Oslo` sets the
+  zone days are counted in, so every run sees the same data and the same today. `--web <dir>`
+  also serves a built dashboard at `/`, as the tray app does. The end-to-end tests use all three.
 - Tracking is never paused, unless `--paused true`. Pausing and resuming through the API only
   change the state it reports; settings and _Start with Windows_ are kept in memory.
 - `Timeglass.Api.Tests` checks the demo data's shape (`DemoDataTests`) and starts the host
@@ -425,6 +430,13 @@ last entry survives the crash.
 | Win32 adapters   | `Timeglass.Windows.IntegrationTests` (real windows) | Windows only   |
 | Host and wiring  | `Timeglass.App.Tests` (DI graph, single instance)   | Windows only   |
 | Frontend         | `web/src/**/*.test.tsx` (Vitest, MSW)               | Linux          |
+| End to end       | `web/e2e/*.spec.ts` (Playwright, Chromium)          | Linux          |
+
+The end-to-end tests (#37) run the built dashboard against the dev host, with the clock stopped
+at Thursday 5 November 2026, 14:00 in Oslo, so the demo data is the same on every run. They
+check what only the whole stack shows: the day's percentages match the API, the date bar, the
+app drill-down, saving a setting and pausing. Each test that changes the dev host's state
+(settings, pause) puts it back, since all tests share one host and run one at a time.
 
 Shared fakes for the ports live in `tests/Timeglass.Testing`. Coverage thresholds:
 Core 90 %, Storage 80 %, Api 80 % (lines), web 70 % (lines).

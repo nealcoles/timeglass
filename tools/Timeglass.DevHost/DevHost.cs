@@ -1,3 +1,4 @@
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Timeglass.Api;
 using Timeglass.Core.Domain;
@@ -30,6 +31,25 @@ public sealed class DevHostOptions
 
     /// <summary>Report tracking as paused, to work on the paused state of the dashboard.</summary>
     public bool Paused { get; set; }
+
+    /// <summary>
+    /// Stops the clock at this moment, e.g. <c>2026-11-05T13:00:00Z</c>, so the demo data and
+    /// "today" are the same on every run. By default the clock runs.
+    /// </summary>
+    public DateTimeOffset? Now { get; set; }
+
+    /// <summary>
+    /// The time zone days are counted in, as an IANA or Windows id, e.g. <c>Europe/Oslo</c>. By
+    /// default the machine's.
+    /// </summary>
+    public string? TimeZone { get; set; }
+
+    /// <summary>
+    /// A built dashboard (<c>web/dist</c>) to serve at <c>/</c>, as the tray app does. A relative
+    /// path is from the working directory, which <c>dotnet run</c> sets to this project's folder
+    /// (so <c>../../web/dist</c>). By default only the API is served.
+    /// </summary>
+    public string? Web { get; set; }
 }
 
 /// <summary>Builds the dev host: the API over a demo database on 127.0.0.1.</summary>
@@ -48,6 +68,12 @@ public static class DevHost
         builder.WebHost.UseUrls($"http://127.0.0.1:{options.Port}");
 
         builder.Services.AddSingleton(Options.Create(options));
+        if (options.Now is not null || options.TimeZone is not null)
+        {
+            var zone = options.TimeZone is null ? TimeZoneInfo.Local : TimeZoneInfo.FindSystemTimeZoneById(options.TimeZone);
+            builder.Services.AddSingleton<TimeProvider>(new DevTimeProvider(options.Now, zone));
+        }
+
         builder.Services.AddSingleton<DevDatabase>();
         builder.Services.AddSingleton(sp => sp.GetRequiredService<DevDatabase>().Database);
         builder.Services.AddSingleton<IntervalRepository>();
@@ -61,8 +87,30 @@ public static class DevHost
 
         var app = builder.Build();
         app.MapTimeglassApi();
+        if (options.Web is not null)
+        {
+            var root = Path.GetFullPath(options.Web);
+            if (!File.Exists(Path.Combine(root, TimeglassDashboard.IndexFile)))
+            {
+                throw new DirectoryNotFoundException($"No {TimeglassDashboard.IndexFile} in {root}. Run `npm run build` in web/ first.");
+            }
+
+            app.MapTimeglassDashboard(new PhysicalFileProvider(root));
+        }
+
         return app;
     }
+}
+
+/// <summary>
+/// The system clock, or one stopped at <c>--now</c>, in the zone of <c>--timeZone</c>. A stopped
+/// clock makes end-to-end runs repeatable: the demo data, today and "paused until" never move.
+/// </summary>
+internal sealed class DevTimeProvider(DateTimeOffset? now, TimeZoneInfo zone) : TimeProvider
+{
+    public override TimeZoneInfo LocalTimeZone => zone;
+
+    public override DateTimeOffset GetUtcNow() => now?.ToUniversalTime() ?? base.GetUtcNow();
 }
 
 /// <summary>

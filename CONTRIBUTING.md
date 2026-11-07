@@ -116,6 +116,24 @@ npm run build
 
 `npm run format` fixes formatting; `npm run test:watch` reruns tests as you edit.
 
+### End-to-end tests
+
+The Playwright tests in `web/e2e` run the built dashboard against the dev host, so they need
+the .NET SDK as well as Node.js. Playwright starts the dev host itself (with the clock stopped
+and the time zone set, so the demo data never changes), or reuses one already on port 5410:
+
+```sh
+cd web
+npx playwright install chromium   # once
+npm run build
+npm run e2e
+```
+
+A failed test keeps a trace in `web/test-results/`; open it with
+`npx playwright show-trace web/test-results/<test>/trace.zip`. In CI the `e2e` job uploads
+`test-results` and the HTML report as the `playwright-report` artifact when a test fails. Set
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE` to use a Chromium you already have.
+
 
 ### Changing the API
 
