@@ -63,7 +63,7 @@ jobs:
             echo "::warning title=Code scanning is off::Code scanning is not enabled for this repository, so results are uploaded as the codeql-sarif-${{ matrix.language }} artifact only. Enable it under Settings → Code security."
           fi
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         if: ${{ matrix.language == 'csharp' }}
         with:
           global-json-file: global.json
