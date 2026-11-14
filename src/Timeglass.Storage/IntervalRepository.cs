@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -258,6 +259,27 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
         var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
         return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, topApps);
+    }
+
+    /// <summary>
+    /// The intervals <see cref="GetRangeAsync"/> returns, read from the database one at a time as
+    /// the caller asks for them, so an export of years never holds them all. The query sees the
+    /// database as it was when the first interval was read.
+    /// </summary>
+    public async IAsyncEnumerable<ActivityInterval> StreamRangeAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await using var connection = _database.Connect();
+        var rows = connection.QueryUnbufferedAsync<IntervalRow>(
+            SelectRange,
+            new { From = from.ToUnixTimeMilliseconds(), To = to.ToUnixTimeMilliseconds(), AppKey = (string?)null, UnknownKey = AppIdentity.Unknown.Key });
+
+        await foreach (var row in rows.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            yield return row.ToInterval();
+        }
     }
 
     /// <summary>Writes everything still queued, then stops the writer.</summary>

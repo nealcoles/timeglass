@@ -128,6 +128,23 @@ $api = Get-Content "$env:LOCALAPPDATA\Timeglass\api.json" | ConvertFrom-Json
 Invoke-RestMethod "http://127.0.0.1:$($api.port)/api/status" -Headers @{ Authorization = "Bearer $($api.token)" }
 ```
 
+### Exporting your data
+
+The _Settings_ page has an _Export recorded time_ section: pick the days, the rows (every
+interval with its window title, or one total per day and app) and CSV or JSON. The same from a
+script, with `$api` as above:
+
+```powershell
+Invoke-WebRequest "http://127.0.0.1:$($api.port)/api/export?from=2026-11-01&to=2026-11-30&format=csv&granularity=daily-apps" `
+  -Headers @{ Authorization = "Bearer $($api.token)" } -OutFile november.csv
+```
+
+An export follows the privacy settings as they are now: apps under `excludedApps` are left out,
+also time recorded before they were excluded, and so are the titles `recordWindowTitles` and
+`appsWithoutTitles` turn off. The CSV is UTF-8 and opens in Excel; text that would run as a
+formula there (a title starting with `=`, `+`, `-` or `@`) gets a leading apostrophe, while the
+JSON has every value as it was recorded.
+
 The dashboard is built into the app: a Release build (`dotnet build -c Release`, which needs
 Node.js) runs `npm ci` and `npm run build` in `web/` and embeds the result, and the app serves it
 on the same port as the API. A Debug build embeds `web/dist` only if you built it before. For
@@ -173,8 +190,9 @@ in the settings to also log tracking state changes. Window titles are never writ
 
 ## Settings
 
-Most settings can be changed on the dashboard's _Settings_ page, which also deletes the recorded
-time of a range of days. They are stored in `settings.json`, which you can also edit by hand.
+Most settings can be changed on the dashboard's _Settings_ page, which also exports and deletes
+the recorded time of a range of days. They are stored in `settings.json`, which you can also edit
+by hand.
 
 `settings.json` is created with the defaults on first start. Edits apply while the app runs;
 an edit with invalid values is logged and ignored (the previous settings stay), while invalid

@@ -6,6 +6,7 @@ import { addDays } from '../dates.ts';
 import { AliasEditor } from './AliasEditor.tsx';
 import { AppKeyList, FieldErrorList } from './AppKeyList.tsx';
 import { DeleteData } from './DeleteData.tsx';
+import { ExportData } from './ExportData.tsx';
 import {
   toForm,
   toSettings,
@@ -47,6 +48,7 @@ export function SettingsView({ today }: { today: string }) {
       ) : (
         <SettingsEditor initial={settings.data} today={today} />
       )}
+      <ExportData today={today} />
       <DeleteData today={today} />
     </section>
   );

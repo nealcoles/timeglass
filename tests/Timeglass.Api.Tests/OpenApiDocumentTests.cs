@@ -69,6 +69,7 @@ public sealed class OpenApiDocumentTests
             "/api/days/{date}/apps/{appKey}",
             "/api/days/{date}/summary",
             "/api/days/{date}/timeline",
+            "/api/export",
             "/api/intervals",
             "/api/pause",
             "/api/range/summary",

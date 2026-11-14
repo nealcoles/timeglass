@@ -607,6 +607,10 @@ body {
   cursor: pointer;
 }
 
+a.settings__button {
+  text-decoration: none;
+}
+
 .settings__button:hover:not(:disabled) {
   background: var(--track);
 }
@@ -731,14 +735,16 @@ body {
   }
 }
 
-.delete-data {
+.delete-data,
+.export-data {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.5rem 1rem;
 }
 
-.delete-data label {
+.delete-data label,
+.export-data label {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
