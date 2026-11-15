@@ -272,9 +272,7 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await using var connection = _database.Connect();
-        var rows = connection.QueryUnbufferedAsync<IntervalRow>(
-            SelectRange,
-            new { From = from.ToUnixTimeMilliseconds(), To = to.ToUnixTimeMilliseconds(), AppKey = (string?)null, UnknownKey = AppIdentity.Unknown.Key });
+        var rows = connection.QueryUnbufferedAsync<IntervalRow>(SelectRange, RangeParameters(from, to, appKey: null));
 
         await foreach (var row in rows.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
@@ -298,11 +296,15 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         await using var connection = _database.Connect();
         var rows = await connection.QueryAsync<IntervalRow>(new CommandDefinition(
             SelectRange,
-            new { From = from.ToUnixTimeMilliseconds(), To = to.ToUnixTimeMilliseconds(), AppKey = appKey, UnknownKey = AppIdentity.Unknown.Key },
+            RangeParameters(from, to, appKey),
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         return [.. rows.Select(r => r.ToInterval())];
     }
+
+    /// <summary>The parameters of <see cref="SelectRange"/>; no <paramref name="appKey"/> means every app.</summary>
+    private static object RangeParameters(DateTimeOffset from, DateTimeOffset to, string? appKey) =>
+        new { From = from.ToUnixTimeMilliseconds(), To = to.ToUnixTimeMilliseconds(), AppKey = appKey, UnknownKey = AppIdentity.Unknown.Key };
 
     private void Enqueue(WriteItem item)
     {

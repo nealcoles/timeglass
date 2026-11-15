@@ -187,7 +187,7 @@ public static partial class TimeglassApi
             httpContext.Response.ContentType = Csv.ContentType;
 
             var writer = new StreamWriter(httpContext.Response.Body, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), bufferSize: 16 * 1024, leaveOpen: true);
-            await using (writer.ConfigureAwait(false))
+            try
             {
                 await writer.WriteAsync(header.AsMemory(), cancellationToken).ConfigureAwait(false);
                 await foreach (var line in lines.WithCancellation(cancellationToken).ConfigureAwait(false))
@@ -196,6 +196,10 @@ public static partial class TimeglassApi
                 }
 
                 await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await writer.DisposeAsync().ConfigureAwait(false);
             }
         }
     }
