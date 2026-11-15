@@ -133,6 +133,53 @@ public sealed class ReportingQueryTests : IAsyncLifetime
         intervals.ShouldHaveSingleItem().Id.ShouldBe(weekend.Id);
     }
 
+    [Theory]
+    [InlineData("2026-11-03T23:00Z", "2026-11-04T23:00Z")] // one day, cutting the late evening
+    [InlineData("2026-11-04T23:00Z", "2026-11-05T23:00Z")] // starts inside an interval, ends after the open one
+    [InlineData("2020-01-01T00:00Z", "2030-01-01T00:00Z")]
+    [InlineData("2026-10-01T00:00Z", "2026-10-31T00:00Z")] // nothing
+    public async Task Streaming_a_range_gives_the_same_intervals_as_reading_it(string from, string to)
+    {
+        var read = await _repository.GetRangeAsync(Utc(from), Utc(to), Ct);
+
+        var streamed = await _repository.StreamRangeAsync(Utc(from), Utc(to), Ct).ToListAsync(Ct);
+
+        streamed.ShouldBe(read);
+    }
+
+    [Fact]
+    public async Task A_streamed_range_is_read_as_it_is_asked_for_and_can_be_abandoned()
+    {
+        await using (var intervals = _repository.StreamRangeAsync(Utc("2020-01-01T00:00Z"), Utc("2030-01-01T00:00Z"), Ct).GetAsyncEnumerator(Ct))
+        {
+            (await intervals.MoveNextAsync()).ShouldBeTrue();
+            intervals.Current.Title.ShouldBe("main.cs");
+        }
+
+        // The abandoned query holds nothing: writes and a new query go through.
+        await _repository.DeleteRangeAsync(Utc("2026-11-04T00:00Z"), Utc("2026-11-05T00:00Z"), Ct);
+        var left = await _repository.StreamRangeAsync(Utc("2020-01-01T00:00Z"), Utc("2030-01-01T00:00Z"), Ct).ToListAsync(Ct);
+        left.Select(i => i.Title).ShouldBe(["Inbox", "RE: Budget", "main.cs"]);
+    }
+
+    [Fact]
+    public async Task A_streamed_range_stops_when_cancelled()
+    {
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        var seen = 0;
+
+        await Should.ThrowAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var _ in _repository.StreamRangeAsync(Utc("2020-01-01T00:00Z"), Utc("2030-01-01T00:00Z"), cancel.Token))
+            {
+                seen++;
+                await cancel.CancelAsync();
+            }
+        });
+
+        seen.ShouldBe(1);
+    }
+
     [Fact]
     public async Task Drill_down_finds_active_time_stored_without_an_app_under_unknown()
     {

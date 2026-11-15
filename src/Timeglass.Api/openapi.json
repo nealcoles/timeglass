@@ -388,6 +388,87 @@
           }
         }
       }
+    },
+    "/api/export": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "summary": "The recorded time of a range of days, as a JSON or CSV file",
+        "description": "One row per interval, or per day and app (daily-apps). The answer is written as it is read, so a range can be any length. Time in apps that are excluded now is left out, and so are the titles the privacy settings hide now. In CSV, text that a spreadsheet would run as a formula gets a leading apostrophe.",
+        "operationId": "Export",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First local date, yyyy-MM-dd. Required.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last local date, yyyy-MM-dd, included. Required.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "json (the default) or csv.",
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "intervals (the default) or daily-apps.",
+            "schema": {
+              "enum": [
+                "intervals",
+                "daily-apps"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportDto"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -664,6 +745,141 @@
           }
         },
         "description": "Confirms a deletion."
+      },
+      "ExportDailyAppDto": {
+        "required": [
+          "date",
+          "app",
+          "durationMs"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The local date.",
+            "format": "date"
+          },
+          "app": {
+            "description": "The app.",
+            "$ref": "#/components/schemas/AppDto"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Active time in the app that day, in milliseconds.",
+            "format": "int64"
+          }
+        },
+        "description": "One app's active time on one local day."
+      },
+      "ExportDto": {
+        "required": [
+          "from",
+          "to",
+          "granularity",
+          "intervals",
+          "dailyApps"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "First local date.",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "description": "Last local date (included).",
+            "format": "date"
+          },
+          "granularity": {
+            "description": "Which of the lists is filled.",
+            "$ref": "#/components/schemas/ExportGranularity"
+          },
+          "intervals": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ExportIntervalDto"
+            },
+            "description": "The intervals in time order, clipped to the range; null for daily-apps."
+          },
+          "dailyApps": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ExportDailyAppDto"
+            },
+            "description": "Active time per day and app, in date order and the most time first within a day; null for intervals."
+          }
+        },
+        "description": "The recorded time of a range of days, as a JSON export. One of the two lists is filled, by granularity."
+      },
+      "ExportGranularity": {
+        "enum": [
+          "intervals",
+          "daily-apps"
+        ],
+        "description": "What one row of an export is."
+      },
+      "ExportIntervalDto": {
+        "required": [
+          "kind",
+          "app",
+          "title",
+          "start",
+          "end",
+          "durationMs",
+          "isOpen"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Active or away.",
+            "$ref": "#/components/schemas/ActivityKind"
+          },
+          "app": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The app of active time; null for away time.",
+                "$ref": "#/components/schemas/AppDto"
+              }
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The window title; null if none was recorded or the privacy settings hide it."
+          },
+          "start": {
+            "type": "string",
+            "description": "Start (inclusive).",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "description": "End (exclusive); the time of the export if the interval is still running.",
+            "format": "date-time"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "End minus start, in milliseconds.",
+            "format": "int64"
+          },
+          "isOpen": {
+            "type": "boolean",
+            "description": "True if the interval is still running."
+          }
+        },
+        "description": "One recorded interval."
       },
       "HttpValidationProblemDetails": {
         "type": "object",

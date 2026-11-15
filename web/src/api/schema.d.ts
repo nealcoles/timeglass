@@ -177,6 +177,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/export': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The recorded time of a range of days, as a JSON or CSV file
+     * @description One row per interval, or per day and app (daily-apps). The answer is written as it is read, so a range can be any length. Time in apps that are excluded now is left out, and so are the titles the privacy settings hide now. In CSV, text that a spreadsheet would run as a formula gets a leading apostrophe.
+     */
+    get: operations['Export'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -326,6 +346,70 @@ export interface components {
     DeleteIntervalsRequest: {
       /** @description The range being deleted, written as `from..to` (e.g. `2026-11-02..2026-11-04`), so a request can't delete a range it didn't mean to. */
       confirm: null | string;
+    };
+    /** @description One app's active time on one local day. */
+    ExportDailyAppDto: {
+      /**
+       * Format: date
+       * @description The local date.
+       */
+      date: string;
+      /** @description The app. */
+      app: components['schemas']['AppDto'];
+      /**
+       * Format: int64
+       * @description Active time in the app that day, in milliseconds.
+       */
+      durationMs: number;
+    };
+    /** @description The recorded time of a range of days, as a JSON export. One of the two lists is filled, by granularity. */
+    ExportDto: {
+      /**
+       * Format: date
+       * @description First local date.
+       */
+      from: string;
+      /**
+       * Format: date
+       * @description Last local date (included).
+       */
+      to: string;
+      /** @description Which of the lists is filled. */
+      granularity: components['schemas']['ExportGranularity'];
+      /** @description The intervals in time order, clipped to the range; null for daily-apps. */
+      intervals: null | components['schemas']['ExportIntervalDto'][];
+      /** @description Active time per day and app, in date order and the most time first within a day; null for intervals. */
+      dailyApps: null | components['schemas']['ExportDailyAppDto'][];
+    };
+    /**
+     * @description What one row of an export is.
+     * @enum {unknown}
+     */
+    ExportGranularity: 'intervals' | 'daily-apps';
+    /** @description One recorded interval. */
+    ExportIntervalDto: {
+      /** @description Active or away. */
+      kind: components['schemas']['ActivityKind'];
+      app: null | components['schemas']['AppDto'];
+      /** @description The window title; null if none was recorded or the privacy settings hide it. */
+      title: null | string;
+      /**
+       * Format: date-time
+       * @description Start (inclusive).
+       */
+      start: string;
+      /**
+       * Format: date-time
+       * @description End (exclusive); the time of the export if the interval is still running.
+       */
+      end: string;
+      /**
+       * Format: int64
+       * @description End minus start, in milliseconds.
+       */
+      durationMs: number;
+      /** @description True if the interval is still running. */
+      isOpen: boolean;
     };
     HttpValidationProblemDetails: {
       type?: null | string;
@@ -804,6 +888,45 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['HttpValidationProblemDetails'];
+        };
+      };
+    };
+  };
+  Export: {
+    parameters: {
+      query?: {
+        /** @description First local date, yyyy-MM-dd. Required. */
+        from?: string;
+        /** @description Last local date, yyyy-MM-dd, included. Required. */
+        to?: string;
+        /** @description json (the default) or csv. */
+        format?: 'json' | 'csv';
+        /** @description intervals (the default) or daily-apps. */
+        granularity?: 'intervals' | 'daily-apps';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ExportDto'];
+          'text/csv': string;
+        };
       };
       /** @description Bad Request */
       400: {

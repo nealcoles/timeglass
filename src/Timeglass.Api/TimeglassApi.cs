@@ -79,6 +79,23 @@ public static partial class TimeglassApi
                     {
                         schema.Format = "date";
                     }
+
+                    // The export's choices, also bound as strings for the same reason.
+                    if (parameter.Name is "format" && parameter.Schema is OpenApiSchema format)
+                    {
+                        format.Enum = [JsonFormat, CsvFormat];
+                    }
+
+                    if (parameter.Name is "granularity" && parameter.Schema is OpenApiSchema granularity)
+                    {
+                        granularity.Enum = [IntervalsGranularity, DailyAppsGranularity];
+                    }
+                }
+
+                // The export answers in one of two formats; the endpoint's result type only names the JSON one.
+                if (operation.OperationId == ExportOperation && operation.Responses?["200"] is OpenApiResponse { Content: { } content })
+                {
+                    content["text/csv"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.String } };
                 }
 
                 return Task.CompletedTask;
@@ -125,6 +142,7 @@ public static partial class TimeglassApi
             .WithSummary("What the tracker is doing right now");
 
         MapSettingsEndpoints(api);
+        MapExportEndpoints(api);
         return endpoints;
     }
 

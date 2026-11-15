@@ -191,6 +191,7 @@ dev host (below) host the same endpoints.
 | `PUT /api/settings`                  | Validates and saves them; 400 with the errors per field, nothing saved.             |
 | `POST /api/pause`, `/api/resume`     | Pauses (`{"duration": "oneHour"}`, as in the tray menu) or resumes; the new status. |
 | `DELETE /api/intervals?from=&to=`    | Deletes the recorded time of those days. Body `{"confirm": "from..to"}`.            |
+| `GET /api/export?from=&to=`          | The recorded time of those days as a JSON or CSV file (see _Export_).               |
 
 The settings endpoints validate with the settings model's own rules (its data annotations and
 `TimeglassSettings.Validate`, as when `settings.json` loads), and keep the settings the dashboard
@@ -216,6 +217,42 @@ so a request with the wrong query string deletes nothing.
 - `Timeglass.Api.Tests` hosts the endpoints on `TestServer` over a real temp database. The API
   has no entry point of its own, so there is no `WebApplicationFactory` for it (the dev host
   has one, below).
+
+### Export
+
+`GET /api/export?from=&to=&format=json|csv&granularity=intervals|daily-apps` gets the data out
+for spreadsheets, scripts and timesheets (#39). `format` defaults to `json` and `granularity` to
+`intervals`.
+
+- **Rows.** `intervals` is one row per stored interval in time order, clipped to the range, the
+  open one running until now. `daily-apps` is one row per local day and app with the app's
+  active time, in the day summary's order and agreeing with it; days and apps without time have
+  no row. The executable path is in neither.
+- **Streamed.** `IntervalRepository.StreamRangeAsync` reads the range query row by row
+  (unbuffered), `Core/Reporting/Exports` turns the rows into export rows one at a time, and the
+  response is written as they come. Nothing holds the whole range, so there is no limit on its
+  length. The per-day totals hand out a day as soon as an interval starting on a later day
+  arrives, which relies on the query's order by start.
+- **Privacy.** The export applies the privacy settings as they are _now_ (`ExportPrivacy`), not
+  as they were when the time was recorded: time in an app under `excludedApps` is left out, and
+  titles are left out for `appsWithoutTitles` and everywhere while `recordWindowTitles` is off.
+  The database may still hold such rows from before the setting changed; the export doesn't
+  hand them out. Deleted time is gone from the database, so it can't be exported.
+- **JSON.** One object: `from`, `to`, `granularity` and either `intervals` or `dailyApps` (the
+  other is `null`), in the API's usual shapes (`ExportModels.cs`). The list is an
+  `IAsyncEnumerable`, which the serializer writes as it reads.
+- **CSV.** RFC 4180: a header line, CRLF line ends, fields with a comma, quote, line break or
+  outer space in quotes with quotes doubled. UTF-8 with a byte order mark, which Excel needs.
+  Columns are `date,start,end,duration_ms,kind,app_key,app,title` (times with the zone's
+  offset; `date` is the local day the interval starts on) or `date,app_key,app,duration_ms`.
+- **CSV injection.** Titles and app names are text other programs choose, and a spreadsheet
+  runs a cell starting with `=`, `+`, `-` or `@` as a formula. `Csv` puts an apostrophe in front
+  of a field starting with one of those (or a tab, a line break or their full-width forms), so
+  it shows as text. The JSON has the exact value.
+- **A file.** Both formats are sent with `Content-Disposition: attachment` and a name like
+  `timeglass-intervals-2026-11-01_2026-11-30.csv`, and `Cache-Control: no-store`. The
+  dashboard's _Export_ button is a plain link, so the browser saves the stream to disk; the
+  cookie and the same-origin checks below apply to it like to any other request.
 
 ### API security
 
@@ -292,19 +329,20 @@ rather than a routing library. `<Link>` follows a plain click in place and leave
 click (new tab) to the browser; the back button works, and the SPA fallback above makes every
 route a deep link.
 
-| Path                       | Screen                                                         |
-| -------------------------- | -------------------------------------------------------------- |
-| `/`                        | Today (`DayView`): totals, the timeline and the app share list |
-| `/day/{date}`              | The same for another day                                       |
-| `/day/{date}/app/{appKey}` | App drill-down (`AppView`): the app's time by window title     |
-| `/week`, `/week/{date}`    | Week overview (`WeekView`): this week, or the week of a date   |
-| `/settings`                | Settings and privacy (`SettingsView`), and deleting a range    |
+| Path                       | Screen                                                          |
+| -------------------------- | --------------------------------------------------------------- |
+| `/`                        | Today (`DayView`): totals, the timeline and the app share list  |
+| `/day/{date}`              | The same for another day                                        |
+| `/day/{date}/app/{appKey}` | App drill-down (`AppView`): the app's time by window title      |
+| `/week`, `/week/{date}`    | Week overview (`WeekView`): this week, or the week of a date    |
+| `/settings`                | Settings and privacy (`SettingsView`), export, deleting a range |
 
 The header shows the tracker's state, a _Pause_ menu with the tray's choices (or _Resume_ while
 paused) and the link to the settings. The settings page edits what used to need `settings.json`:
 away detection, apps that never go idle, window titles, excluded apps, apps without titles, app
 renames and _Start with Windows_. It checks the form before saving and then shows the API's
-errors next to their fields. Deleting a range asks first, in a dialog that says how much active
+errors next to their fields. _Export recorded time_ (`ExportData`) picks a range, the rows and
+the format, and links to `/api/export`. Deleting a range asks first, in a dialog that says how much active
 time the range holds; focus starts on _Cancel_.
 
 The drill-down lists the API's top 10 titles with time and share of the app's time, and the

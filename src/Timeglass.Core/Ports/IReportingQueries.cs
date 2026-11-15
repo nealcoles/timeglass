@@ -1,3 +1,4 @@
+using Timeglass.Core.Domain;
 using Timeglass.Core.Reporting;
 
 namespace Timeglass.Core.Ports;
@@ -77,5 +78,18 @@ public interface IReportingQueries
         DateTimeOffset now,
         TimeSpan dayStart = default,
         int topApps = RangeSummaries.DefaultTopApps,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The intervals that overlap [<paramref name="from"/>, <paramref name="to"/>), ordered by
+    /// start and not clipped, read one at a time as they are asked for. For exports
+    /// (<see cref="Exports"/>), where a range can hold more than should be loaded at once.
+    /// </summary>
+    /// <param name="from">Start of the range (inclusive).</param>
+    /// <param name="to">End of the range (exclusive).</param>
+    /// <param name="cancellationToken">Stops the query.</param>
+    IAsyncEnumerable<ActivityInterval> StreamRangeAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
         CancellationToken cancellationToken = default);
 }
