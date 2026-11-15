@@ -41,6 +41,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _openLogFolder = new("Open &log folder");
     private readonly ToolStripMenuItem _about = new("&About Timeglass");
     private readonly ToolStripMenuItem _restartToUpdate = new() { Visible = false };
+    private readonly ToolStripSeparator _separator = new();
     private readonly ToolStripMenuItem _quit = new("&Quit");
     private readonly NotifyIcon _icon;
     private readonly System.Windows.Forms.Timer _refresh = new();
@@ -82,7 +83,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
         _about.Click += (_, _) => ShowAbout();
         _restartToUpdate.Click += (_, _) => RestartToUpdate();
         _quit.Click += (_, _) => ExitThread();
-        _menu.Items.AddRange([_openDashboard, _pause, _resume, _startWithWindows, _settings, _openLogFolder, _about, _restartToUpdate, new ToolStripSeparator(), _quit]);
+        _menu.Items.AddRange([_openDashboard, _pause, _resume, _startWithWindows, _settings, _openLogFolder, _about, _restartToUpdate, _separator, _quit]);
         _menu.Opening += (_, _) =>
         {
             RefreshAutostart();
@@ -137,6 +138,7 @@ internal sealed partial class TrayApplicationContext : ApplicationContext
             _icon.Visible = false;
             _icon.Dispose();
             _menu.Dispose();
+            _separator.Dispose();
             _openDashboard.Font.Dispose();
             _activeIcon.Dispose();
             _pausedIcon.Dispose();

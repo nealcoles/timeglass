@@ -41,12 +41,12 @@ internal static class InstalledApp
         var folder = Path.GetDirectoryName(processPath);
         if (!string.Equals(Path.GetFileName(folder), AppFolder, StringComparison.OrdinalIgnoreCase)
             || Path.GetDirectoryName(folder) is not { Length: > 0 } root
-            || !File.Exists(Path.Combine(root, Updater)))
+            || !File.Exists(Path.Join(root, Updater)))
         {
             return processPath;
         }
 
-        var launcher = Path.Combine(root, Path.GetFileName(processPath));
+        var launcher = Path.Join(root, Path.GetFileName(processPath));
         return File.Exists(launcher) ? launcher : processPath;
     }
 

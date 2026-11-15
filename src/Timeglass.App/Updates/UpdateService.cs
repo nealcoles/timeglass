@@ -157,13 +157,9 @@ internal sealed partial class UpdateService : BackgroundService
 
             return true;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // Offline, rate limited, disk full: whatever it is, try again later.
-        catch (Exception ex)
-#pragma warning restore CA1031
+        // Offline, rate limited, disk full: whatever it is, try again later. Only the host
+        // stopping is passed on.
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             LogCheckFailed(_logger, ex);
             return false;

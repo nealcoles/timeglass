@@ -15,21 +15,21 @@ public sealed class InstalledAppTests : IDisposable
     /// <summary>The folder the setup program makes: launcher, updater and the app under <c>current</c>.</summary>
     private (string Launcher, string App) Install(bool launcher = true, bool updater = true)
     {
-        var root = Path.Combine(_folder.Path, InstalledApp.PackageId);
-        var app = Path.Combine(root, "current", "Timeglass.exe");
+        var root = Path.Join(_folder.Path, InstalledApp.PackageId);
+        var app = Path.Join(root, "current", "Timeglass.exe");
         Directory.CreateDirectory(Path.GetDirectoryName(app)!);
         File.WriteAllText(app, "app");
         if (launcher)
         {
-            File.WriteAllText(Path.Combine(root, "Timeglass.exe"), "launcher");
+            File.WriteAllText(Path.Join(root, "Timeglass.exe"), "launcher");
         }
 
         if (updater)
         {
-            File.WriteAllText(Path.Combine(root, "Update.exe"), "updater");
+            File.WriteAllText(Path.Join(root, "Update.exe"), "updater");
         }
 
-        return (Path.Combine(root, "Timeglass.exe"), app);
+        return (Path.Join(root, "Timeglass.exe"), app);
     }
 
     private AutostartRegistration Autostart(string exe) => new(_registry, exe);
@@ -59,7 +59,7 @@ public sealed class InstalledAppTests : IDisposable
     [Fact]
     public void An_unzipped_copy_starts_itself()
     {
-        var exe = Path.Combine(_folder.Path, "Timeglass.exe");
+        var exe = Path.Join(_folder.Path, "Timeglass.exe");
         Directory.CreateDirectory(_folder.Path);
         File.WriteAllText(exe, "app");
 
