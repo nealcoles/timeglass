@@ -186,21 +186,14 @@ public static partial class TimeglassApi
             var cancellationToken = httpContext.RequestAborted;
             httpContext.Response.ContentType = Csv.ContentType;
 
-            var writer = new StreamWriter(httpContext.Response.Body, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), bufferSize: 16 * 1024, leaveOpen: true);
-            try
+            await using var writer = new StreamWriter(httpContext.Response.Body, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), bufferSize: 16 * 1024, leaveOpen: true);
+            await writer.WriteAsync(header.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await foreach (var line in lines.WithCancellation(cancellationToken).ConfigureAwait(false))
             {
-                await writer.WriteAsync(header.AsMemory(), cancellationToken).ConfigureAwait(false);
-                await foreach (var line in lines.WithCancellation(cancellationToken).ConfigureAwait(false))
-                {
-                    await writer.WriteAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
-                }
+                await writer.WriteAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
+            }
 
-                await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                await writer.DisposeAsync().ConfigureAwait(false);
-            }
+            await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }
