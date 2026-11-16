@@ -78,9 +78,8 @@ internal static class InstalledApp
             updater.ApplyAfterExit(arguments);
             return true;
         }
-#pragma warning disable CA1031 // Whatever is wrong with the update, the app must still start and track.
-        catch (Exception)
-#pragma warning restore CA1031
+        // Whatever is wrong with the update, the app must still start and track.
+        catch (Exception ex) when (UpdateFailures.IsRecoverable(ex))
         {
             return false;
         }

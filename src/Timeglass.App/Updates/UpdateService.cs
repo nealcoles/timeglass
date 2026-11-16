@@ -71,9 +71,8 @@ internal sealed partial class UpdateService : BackgroundService
             LogApplying(_logger, version);
             return true;
         }
-#pragma warning disable CA1031 // A failed update must not take the tracker down; the next start tries again.
-        catch (Exception ex)
-#pragma warning restore CA1031
+        // A failed update must not take the tracker down; the next start tries again.
+        catch (Exception ex) when (UpdateFailures.IsRecoverable(ex))
         {
             LogApplyFailed(_logger, ex);
             return false;
@@ -130,9 +129,8 @@ internal sealed partial class UpdateService : BackgroundService
             LogNotInstalled(_logger);
             return false;
         }
-#pragma warning disable CA1031 // Without updates the app still does its job.
-        catch (Exception ex)
-#pragma warning restore CA1031
+        // Without updates the app still does its job.
+        catch (Exception ex) when (UpdateFailures.IsRecoverable(ex))
         {
             LogCheckFailed(_logger, ex);
             return false;
@@ -159,7 +157,8 @@ internal sealed partial class UpdateService : BackgroundService
         }
         // Offline, rate limited, disk full: whatever it is, try again later. Only the host
         // stopping is passed on.
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (UpdateFailures.IsRecoverable(ex)
+            && (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested))
         {
             LogCheckFailed(_logger, ex);
             return false;
