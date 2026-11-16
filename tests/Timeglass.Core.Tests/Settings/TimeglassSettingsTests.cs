@@ -62,6 +62,13 @@ public class TimeglassSettingsTests
     }
 
     [Fact]
+    public void Everything_is_kept_by_default()
+    {
+        new TimeglassSettings().RetentionMonths.ShouldBeNull();
+        Errors(new TimeglassSettings { RetentionMonths = 12 }).ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Idle_detection_can_be_turned_off()
     {
         Errors(new TimeglassSettings { IdleThreshold = null }).ShouldBeEmpty();
@@ -73,11 +80,13 @@ public class TimeglassSettingsTests
     [InlineData(nameof(TimeglassSettings.CheckpointInterval), "CheckpointInterval must be between 00:00:01 and 00:10:00.")]
     [InlineData(nameof(TimeglassSettings.ApiPort), "ApiPort must be between 1024 and 65535.")]
     [InlineData(nameof(TimeglassSettings.LogLevel), "LogLevel must be one of Trace, Debug, Information, Warning, Error, Critical or None.")]
+    [InlineData(nameof(TimeglassSettings.RetentionMonths), "RetentionMonths must be between 1 and 120, or null to keep everything.")]
     public void Out_of_range_values_are_rejected_with_a_clear_message(string property, string message)
     {
         var settings = new TimeglassSettings();
         switch (property)
         {
+            case nameof(TimeglassSettings.RetentionMonths): settings.RetentionMonths = 0; break;
             case nameof(TimeglassSettings.IdleThreshold): settings.IdleThreshold = TimeSpan.FromSeconds(10); break;
             case nameof(TimeglassSettings.MinimumInterval): settings.MinimumInterval = TimeSpan.FromSeconds(-1); break;
             case nameof(TimeglassSettings.CheckpointInterval): settings.CheckpointInterval = TimeSpan.Zero; break;

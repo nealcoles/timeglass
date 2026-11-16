@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Dapper;
@@ -80,6 +81,40 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         WHERE i.is_open = 0 AND i.start_utc < @To AND (i.end_utc > @From OR i.start_utc >= @From);
         """;
 
+    private const string SelectRolledUp = """
+        SELECT d.day AS Day, d.kind AS Kind, a.key AS AppKey, a.display_name AS AppName,
+               d.duration_ms AS DurationMs, d.first_utc AS FirstUtc, d.last_utc AS LastUtc
+        FROM daily_app_totals d
+        LEFT JOIN apps a ON a.id = d.app_id
+        WHERE d.day >= @First AND d.day <= @Last;
+        """;
+
+    private const string SelectClosedBefore = """
+        SELECT i.id AS Id, i.start_utc AS StartUtc, i.end_utc AS EndUtc, i.kind AS Kind, i.is_open AS IsOpen,
+               i.exe_path AS ExePath, i.window_title AS Title, a.key AS AppKey, a.display_name AS AppName
+        FROM intervals i
+        LEFT JOIN apps a ON a.id = i.app_id
+        WHERE i.is_open = 0 AND i.start_utc < @Before
+        ORDER BY i.start_utc;
+        """;
+
+    private const string SelectAppId = "SELECT id FROM apps WHERE key = @Key;";
+
+    private const string AddToTotal = """
+        UPDATE daily_app_totals
+        SET duration_ms = duration_ms + @DurationMs, first_utc = MIN(first_utc, @FirstUtc), last_utc = MAX(last_utc, @LastUtc)
+        WHERE day = @Day AND kind = @Kind AND app_id IS @AppId;
+        """;
+
+    private const string InsertTotal = """
+        INSERT INTO daily_app_totals (day, kind, app_id, duration_ms, first_utc, last_utc)
+        VALUES (@Day, @Kind, @AppId, @DurationMs, @FirstUtc, @LastUtc);
+        """;
+
+    private const string DeleteClosedBefore = "DELETE FROM intervals WHERE is_open = 0 AND end_utc <= @Before AND start_utc < @Before;";
+
+    private const string DayFormat = "yyyy-MM-dd";
+
     private const string DeleteInterval = "DELETE FROM intervals WHERE id = @Id;";
 
     private const string UpdateBounds = "UPDATE intervals SET start_utc = @StartUtc, end_utc = @EndUtc WHERE id = @Id;";
@@ -139,6 +174,40 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     }
 
     /// <summary>
+    /// Retention (#41): replaces the closed intervals before <paramref name="before"/> with their
+    /// totals per local day, kind and app in <c>daily_app_totals</c> (<see cref="DailyTotals"/>),
+    /// so the day and week summaries stay the same while window titles, executables and the
+    /// timeline of those days are gone. An interval that crosses <paramref name="before"/> is cut
+    /// there. Runs after the changes queued so far, in one transaction, with <c>secure_delete</c> on.
+    /// </summary>
+    /// <param name="before">Keep everything from here on; usually the start of a local day.</param>
+    /// <param name="zone">The time zone the days of the totals are in.</param>
+    /// <param name="cancellationToken">Stops waiting; the work still runs.</param>
+    /// <returns>How many intervals were rolled up.</returns>
+    public async Task<int> ApplyRetentionAsync(DateTimeOffset before, TimeZoneInfo zone, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var retention = new Retention(before, zone);
+        Enqueue(new WriteItem(Changes: null, done, Retain: retention));
+        await done.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return retention.RolledUp;
+    }
+
+    /// <summary>
+    /// Runs <see cref="DatabaseMaintenance.Run"/> after the changes queued so far, so no write of
+    /// the tracker runs meanwhile.
+    /// </summary>
+    /// <param name="allowVacuum">Whether the file may be rebuilt now; see <see cref="DatabaseMaintenance.Run"/>.</param>
+    /// <param name="cancellationToken">Stops waiting; the work still runs.</param>
+    public async Task<MaintenanceResult> RunMaintenanceAsync(bool allowVacuum, CancellationToken cancellationToken)
+    {
+        var done = new TaskCompletionSource<MaintenanceResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Enqueue(new WriteItem(Changes: null, Flushed: null, Maintain: new Maintenance(allowVacuum, done)));
+        return await done.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Completes once every change queued before this call has been written.
     /// Throws the error of the most recent write if that write failed.
     /// </summary>
@@ -179,7 +248,23 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     {
         var (from, to) = DaySummaries.Bounds(day, zone, dayStart);
         var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
-        return DaySummaries.Build(intervals, day, zone, now, dayStart);
+        var rolledUp = await GetRolledUpAsync(day, day, cancellationToken).ConfigureAwait(false);
+        return DaySummaries.Build(intervals, day, zone, now, dayStart, rolledUp);
+    }
+
+    /// <summary>
+    /// The totals that retention left of local days <paramref name="firstDay"/> to
+    /// <paramref name="lastDay"/> (both included); see <see cref="ApplyRetentionAsync"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<RolledUpTotal>> GetRolledUpAsync(DateOnly firstDay, DateOnly lastDay, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _database.Connect();
+        var rows = await connection.QueryAsync<TotalRow>(new CommandDefinition(
+            SelectRolledUp,
+            new { First = DayText(firstDay), Last = DayText(lastDay) },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        return [.. rows.Select(r => r.ToTotal())];
     }
 
     /// <summary>
@@ -258,7 +343,8 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
         var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
-        return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, topApps);
+        var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
+        return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, topApps, rolledUp);
     }
 
     /// <summary>
@@ -325,7 +411,7 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
                 batch.Add(item);
             }
 
-            if (batch.Any(i => i.Changes is not null || i.Delete is not null))
+            if (batch.Any(i => i.Changes is not null || i.Delete is not null || i.Retain is not null))
             {
                 try
                 {
@@ -353,13 +439,29 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
                     item.Flushed?.TrySetException(_lastError);
                 }
             }
+
+            foreach (var maintenance in batch.Select(i => i.Maintain).OfType<Maintenance>())
+            {
+                try
+                {
+                    using var connection = _database.Connect();
+                    maintenance.Done.TrySetResult(DatabaseMaintenance.Run(connection, maintenance.AllowVacuum));
+                }
+#pragma warning disable CA1031 // Maintenance failing must not stop the writer; the caller gets the error.
+                catch (Exception ex)
+#pragma warning restore CA1031
+                {
+                    maintenance.Done.TrySetException(ex);
+                }
+            }
         }
     }
 
     private void Write(List<WriteItem> batch)
     {
         using var connection = _database.Connect();
-        if (batch.Any(i => i.Delete is not null))
+        var deletes = batch.Any(i => i.Delete is not null || i.Retain is not null);
+        if (deletes)
         {
             // Per connection, and not allowed inside a transaction.
             connection.Execute("PRAGMA secure_delete = ON;");
@@ -379,13 +481,18 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
                 {
                     WriteDelete(connection, transaction, delete);
                 }
+
+                if (item.Retain is { } retention)
+                {
+                    WriteRetention(connection, transaction, retention);
+                }
             }
 
             transaction.Commit();
         }
         finally
         {
-            if (batch.Any(i => i.Delete is not null))
+            if (deletes)
             {
                 // Connections are pooled; don't leave the setting behind.
                 connection.Execute("PRAGMA secure_delete = OFF;");
@@ -433,6 +540,60 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         }
     }
 
+    private static void WriteRetention(SqliteConnection connection, SqliteTransaction transaction, Retention retention)
+    {
+        var before = retention.Before.ToUnixTimeMilliseconds();
+
+        // Streamed, so only the totals are held however much history there is.
+        var rows = connection.Query<IntervalRow>(SelectClosedBefore, new { Before = before }, transaction, buffered: false);
+        var counted = 0;
+        var totals = DailyTotals.Build(
+            rows.Select(r =>
+            {
+                counted++;
+                return r.ToInterval();
+            }),
+            retention.Before,
+            retention.Zone);
+
+        var appIds = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var total in totals)
+        {
+            long? appId = null;
+            if (total.App is { } app)
+            {
+                if (!appIds.TryGetValue(app.Key, out var id))
+                {
+                    id = connection.ExecuteScalar<long>(SelectAppId, new { app.Key }, transaction);
+                    appIds[app.Key] = id;
+                }
+
+                appId = id;
+            }
+
+            var parameters = new
+            {
+                Day = DayText(total.Day),
+                Kind = (int)total.Kind,
+                AppId = appId,
+                DurationMs = (long)total.Duration.TotalMilliseconds,
+                FirstUtc = total.First.ToUnixTimeMilliseconds(),
+                LastUtc = total.Last.ToUnixTimeMilliseconds(),
+            };
+            if (connection.Execute(AddToTotal, parameters, transaction) == 0)
+            {
+                connection.Execute(InsertTotal, parameters, transaction);
+            }
+        }
+
+        // Whole intervals in one statement; what is left reaches past the cut-off and is cut there.
+        connection.Execute(DeleteClosedBefore, new { Before = before }, transaction);
+        WriteDelete(connection, transaction, new DeleteRange(DateTimeOffset.UnixEpoch, retention.Before));
+        retention.RolledUp = counted;
+    }
+
+    private static string DayText(DateOnly day) => day.ToString(DayFormat, CultureInfo.InvariantCulture);
+
     private void WriteChanges(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<IntervalChange> changes)
     {
         foreach (var change in changes)
@@ -472,9 +633,47 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         return id;
     }
 
-    private sealed record WriteItem(IReadOnlyList<IntervalChange>? Changes, TaskCompletionSource? Flushed, DeleteRange? Delete = null);
+    private sealed record WriteItem(
+        IReadOnlyList<IntervalChange>? Changes,
+        TaskCompletionSource? Flushed,
+        DeleteRange? Delete = null,
+        Retention? Retain = null,
+        Maintenance? Maintain = null);
 
     private sealed record DeleteRange(DateTimeOffset From, DateTimeOffset To);
+
+    private sealed record Retention(DateTimeOffset Before, TimeZoneInfo Zone)
+    {
+        /// <summary>Set by the writer before the item completes.</summary>
+        public int RolledUp { get; set; }
+    }
+
+    private sealed record Maintenance(bool AllowVacuum, TaskCompletionSource<MaintenanceResult> Done);
+
+    private sealed class TotalRow
+    {
+        public string Day { get; init; } = "";
+
+        public long Kind { get; init; }
+
+        public string? AppKey { get; init; }
+
+        public string? AppName { get; init; }
+
+        public long DurationMs { get; init; }
+
+        public long FirstUtc { get; init; }
+
+        public long LastUtc { get; init; }
+
+        public RolledUpTotal ToTotal() => new(
+            DateOnly.ParseExact(Day, DayFormat, CultureInfo.InvariantCulture),
+            (IntervalKind)Kind,
+            AppKey is null ? null : new AppIdentity(AppKey, AppName ?? AppKey),
+            TimeSpan.FromMilliseconds(DurationMs),
+            DateTimeOffset.FromUnixTimeMilliseconds(FirstUtc),
+            DateTimeOffset.FromUnixTimeMilliseconds(LastUtc));
+    }
 
     private sealed class IntervalRow
     {

@@ -42,10 +42,12 @@ public sealed class MigrationTests : IDisposable
             .ShouldBe(
             [
                 "apps",
+                "daily_app_totals",
                 "intervals",
                 "ix_intervals_start_utc",
                 "sqlite_autoindex_apps_1",
                 "sqlite_autoindex_intervals_1",
+                "ux_daily_app_totals",
                 "ux_intervals_single_open",
             ]);
     }
@@ -93,6 +95,73 @@ public sealed class MigrationTests : IDisposable
         using var check = database.Connect();
         check.QuerySingle<(string Key, string? Color)>("SELECT key, color FROM apps;").ShouldBe(("outlook", null));
         check.ExecuteScalar<string>("SELECT window_title FROM intervals;").ShouldBe("Inbox");
+    }
+
+    [Fact]
+    public void A_backup_is_made_before_a_migration_runs()
+    {
+        using (var v1 = _temp.Open(Migrator.Embedded.Take(1).ToList()))
+        {
+            v1.BackupPath.ShouldBeNull(); // a new file has nothing to keep
+            using var connection = v1.Connect();
+            connection.Execute("""
+                INSERT INTO intervals (id, start_utc, end_utc, kind, window_title, is_open)
+                VALUES ('0190f2a0-0000-7000-8000-000000000001', 1000, 61000, 1, 'Inbox', 0);
+                """);
+        }
+
+        // A migration that would lose the data if the backup were taken after it.
+        IReadOnlyList<Migration> later =
+        [
+            .. Migrator.Embedded,
+            new(Migrator.LatestVersion + 1, "9999_drop.sql", "DELETE FROM intervals;"),
+        ];
+
+        using var database = _temp.Open(later);
+
+        var backup = database.BackupPath.ShouldNotBeNull();
+        backup.ShouldBe(_temp.Path + ".v1.bak", StringCompareShould.IgnoreCase);
+        using var copy = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={backup};Pooling=False");
+        copy.Open();
+        Migrator.GetVersion(copy).ShouldBe(1);
+        copy.ExecuteScalar<string>("SELECT window_title FROM intervals;").ShouldBe("Inbox");
+    }
+
+    [Fact]
+    public void No_backup_when_the_schema_is_up_to_date()
+    {
+        using (_temp.Open())
+        {
+        }
+
+        using var again = _temp.Open();
+
+        again.BackupPath.ShouldBeNull();
+        Directory.GetFiles(Path.GetDirectoryName(_temp.Path)!, "*.bak").ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Only_the_newest_backups_are_kept()
+    {
+        for (var version = 1; version <= Migrator.LatestVersion + 3; version++)
+        {
+            IReadOnlyList<Migration> upTo =
+            [
+                .. Migrator.Embedded.Take(version),
+                .. Enumerable.Range(Migrator.LatestVersion + 1, Math.Max(0, version - Migrator.LatestVersion))
+                    .Select(v => new Migration(v, $"{v:D4}_noop.sql", "SELECT 1;")),
+            ];
+            using (_temp.Open(upTo))
+            {
+            }
+        }
+
+        Directory.GetFiles(Path.GetDirectoryName(_temp.Path)!, "*.bak")
+            .Select(Path.GetFileName)
+            .Order(StringComparer.Ordinal)
+            .ShouldBe(Enumerable.Range(Migrator.LatestVersion, TimeglassDatabase.BackupsKept)
+                .Select(v => $"timeglass.db.v{v}.bak")
+                .Order(StringComparer.Ordinal));
     }
 
     [Fact]

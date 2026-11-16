@@ -55,6 +55,13 @@ public sealed class TimeglassSettings : IValidatableObject
     /// </summary>
     public List<AppAliasSetting> AppAliases { get; set; } = [];
 
+    /// <summary>
+    /// How many months of intervals (window titles, the timeline) are kept. Older days are reduced
+    /// to their totals per app (#41). <see langword="null"/>, the default, keeps everything.
+    /// </summary>
+    [Range(1, 120, ErrorMessage = "{0} must be between {1} and {2}, or null to keep everything.")]
+    public int? RetentionMonths { get; set; }
+
     /// <summary>Port of the local HTTP API (#27). Always bound to loopback.</summary>
     [Range(1024, 65535, ErrorMessage = "{0} must be between {1} and {2}.")]
     public int ApiPort { get; set; } = DefaultApiPort;

@@ -129,12 +129,34 @@ applied in order by `Migrator`.
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `apps`      | `id`, `key` (unique, e.g. `outlook`), `display_name`                                                                             |
 | `intervals` | `id` (engine GUID), `start_utc`, `end_utc` (Unix ms), `kind` (0 active, 1 away), `app_id`, `exe_path`, `window_title`, `is_open` |
+| `daily_app_totals` | `day` (local `yyyy-MM-dd`), `kind`, `app_id`, `duration_ms`, `first_utc`, `last_utc`; one row per day, kind and app |
 
 Intervals never overlap and `end_utc >= start_utc`. They are contiguous within a tracking run;
 paused time and time in an excluded app are gaps. All times are UTC; converting to local
 days (including DST) is a reporting concern, below.
 
 To change the schema, add the next numbered `.sql` file. Never edit a script that has shipped.
+`TimeglassDatabase.Open` copies an existing file to `timeglass.db.vN.bak` (SQLite's online
+backup, so the WAL is included) before it applies newer scripts, and keeps the three newest copies.
+
+### Retention and upkeep
+
+`DatabaseUpkeep`, a hosted service in the app, runs once a day (first five minutes after
+start, then whenever 24 hours have passed on the wall clock, looked at hourly):
+
+- **Retention** (#41), when the `retentionMonths` setting is set.
+  `IntervalRepository.ApplyRetentionAsync` replaces the closed intervals before the start of the
+  local day that many months ago with their totals in `daily_app_totals` (`DailyTotals.Build`,
+  which splits intervals at local day boundaries exactly as the day summary does), cuts an interval that crosses
+  the cut-off, and deletes the rest with `secure_delete` on, in one transaction through the
+  repository's writer. The day and range summaries add the totals of their days
+  (`rolledUp` parameter), so they read the same before and after; timelines, title drill-downs
+  and exports only see intervals. A total's day is in the time zone of the run that wrote it,
+  with days starting at midnight.
+- **Maintenance** (`DatabaseMaintenance.Run`, also through the writer): `PRAGMA optimize`, then
+  `VACUUM` if at least a quarter of the file (and 1 MB) is unused pages and the user has had no
+  input for 10 minutes, then `wal_checkpoint(TRUNCATE)`. A wanted `VACUUM` that had to wait is
+  tried at the next hourly look while the user is away. A failed run is logged and retried an hour later.
 
 ### Reporting
 

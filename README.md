@@ -211,6 +211,16 @@ quit the app and delete the folder. The installer puts the program in a folder o
 (`%LOCALAPPDATA%\sevenam.Timeglass`) and never touches this one, not even on uninstall. The
 updater logs to `%LOCALAPPDATA%\velopack\`; those logs hold versions and paths, nothing recorded.
 
+Before a new version updates the database's schema, it copies the file to
+`timeglass.db.vN.bak` next to it (N is the old schema version); the three newest copies are
+kept. Once a day the app tidies the database: it applies `retentionMonths` (see _Settings_),
+updates SQLite's statistics, empties the `-wal` file and, while you are away and a quarter or more of
+the file is unused, rebuilds it to give the space back.
+
+With `retentionMonths` set, days older than that many months are reduced to their time per app:
+the day and week views show them as before, but window titles, executables and the timeline of
+those days are deleted (overwritten in the file, not just unlinked), and exports no longer contain them.
+
 Log files roll over daily (and past 10 MB) and are deleted after seven days. The tray menu's
 _Open log folder_ opens them. The level is `Information` by default; set `"logLevel": "Debug"`
 in the settings to also log tracking state changes. Window titles are never written to the log.
@@ -235,6 +245,7 @@ settings at startup stop the app with a message that names the problem.
 | `excludedApps`       | `[]`            | App keys that are not tracked at all: while one is in front, nothing is stored. |
 | `appsWithoutTitles`  | `[]`            | App keys whose time is tracked but whose window titles are never stored.        |
 | `appAliases`         | `[]`            | Renames and extra apps on top of the built-in aliases, see below.               |
+| `retentionMonths`    | `null`          | Months of detail to keep (1 to 120); older days keep only time per app. `null` keeps everything. |
 | `apiPort`            | `5381`          | Port of the API on 127.0.0.1 (1024 to 65535); another if taken. Needs a restart |
 | `logLevel`           | `"Information"` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` or `None`.      |
 
