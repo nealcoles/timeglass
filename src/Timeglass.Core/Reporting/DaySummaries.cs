@@ -61,12 +61,17 @@ public static class DaySummaries
     /// <param name="zone">The user's time zone.</param>
     /// <param name="now">The current time, so a still-open interval has an end.</param>
     /// <param name="dayStart">Local time the day begins; see <see cref="Bounds"/>.</param>
+    /// <param name="rolledUp">
+    /// Totals that replaced intervals removed by retention (<see cref="DailyTotals"/>). Those for
+    /// <paramref name="day"/> are added as they are; the rest are ignored.
+    /// </param>
     public static DaySummary Build(
         IEnumerable<ActivityInterval> intervals,
         DateOnly day,
         TimeZoneInfo zone,
         DateTimeOffset now,
-        TimeSpan dayStart = default)
+        TimeSpan dayStart = default,
+        IEnumerable<RolledUpTotal>? rolledUp = null)
     {
         ArgumentNullException.ThrowIfNull(intervals);
         var (dayFrom, dayTo) = Bounds(day, zone, dayStart);
@@ -94,11 +99,33 @@ public static class DaySummaries
                 continue;
             }
 
+            AddActive(interval.App, start, end, length);
+        }
+
+        foreach (var total in rolledUp ?? [])
+        {
+            if (total.Day != day)
+            {
+                continue;
+            }
+
+            if (total.Kind == IntervalKind.Away)
+            {
+                away += total.Duration;
+            }
+            else
+            {
+                AddActive(total.App, total.First, total.Last, total.Duration);
+            }
+        }
+
+        void AddActive(AppIdentity? identity, DateTimeOffset start, DateTimeOffset end, TimeSpan length)
+        {
             active += length;
             first = first is null ? start : Min(first.Value, start);
             last = last is null ? end : Max(last.Value, end);
 
-            var app = interval.App ?? AppIdentity.Unknown;
+            var app = identity ?? AppIdentity.Unknown;
             if (perApp.TryGetValue(app.Key, out var total))
             {
                 // Display names can change (a rename in settings); show the latest one.

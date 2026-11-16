@@ -47,6 +47,7 @@ public static class RangeSummaries
     /// <param name="now">The current time, so a still-open interval has an end.</param>
     /// <param name="dayStart">Local time each day begins; see <see cref="DaySummaries.Bounds"/>.</param>
     /// <param name="topApps">How many apps to list per day. 0 lists none.</param>
+    /// <param name="rolledUp">Totals that replaced intervals removed by retention; see <see cref="DaySummaries.Build"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="topApps"/> is negative.</exception>
     public static RangeSummary Build(
         IEnumerable<ActivityInterval> intervals,
@@ -55,7 +56,8 @@ public static class RangeSummaries
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        int topApps = DefaultTopApps)
+        int topApps = DefaultTopApps,
+        IEnumerable<RolledUpTotal>? rolledUp = null)
     {
         ArgumentNullException.ThrowIfNull(intervals);
         ArgumentOutOfRangeException.ThrowIfNegative(topApps);
@@ -88,13 +90,15 @@ public static class RangeSummaries
             }
         }
 
+        var rolledUpByDay = (rolledUp ?? []).ToLookup(t => t.Day);
         var days = new List<DayTotal>(dayCount);
         var perApp = new Dictionary<string, (AppIdentity App, TimeSpan Duration)>(StringComparer.Ordinal);
         var active = TimeSpan.Zero;
         var away = TimeSpan.Zero;
         for (var i = 0; i < dayCount; i++)
         {
-            var summary = DaySummaries.Build(buckets[i] ?? [], firstDay.AddDays(i), zone, now, dayStart);
+            var day = firstDay.AddDays(i);
+            var summary = DaySummaries.Build(buckets[i] ?? [], day, zone, now, dayStart, rolledUpByDay[day]);
             days.Add(new DayTotal(summary.Day, summary.Start, summary.End, summary.Active, summary.Away, [.. summary.Apps.Take(topApps)]));
             active += summary.Active;
             away += summary.Away;

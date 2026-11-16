@@ -50,6 +50,7 @@ public sealed record SettingsDto(
         AppAliases = [.. (AppAliases ?? []).Select(a => a.ToSetting())],
         MinimumInterval = current.MinimumInterval,
         CheckpointInterval = current.CheckpointInterval,
+        RetentionMonths = current.RetentionMonths,
         ApiPort = current.ApiPort,
         LogLevel = current.LogLevel,
     };

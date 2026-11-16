@@ -116,6 +116,15 @@ internal static partial class TimeglassHost
         services.AddSingleton<TrackerDataDeletion>();
         services.AddSingleton<CrashHandler>();
 
+        // Retention and upkeep of the database (#41), once a day.
+        services.AddSingleton(sp => new DatabaseUpkeep(
+            sp.GetRequiredService<IntervalRepository>(),
+            sp.GetRequiredService<IIdleSource>(),
+            () => sp.GetRequiredService<LiveSettings>().Current.Settings.RetentionMonths,
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<DatabaseUpkeep>>()));
+        services.AddHostedService(sp => sp.GetRequiredService<DatabaseUpkeep>());
+
         // Updates for an installed copy (#40). Last, so the first check starts after everything else.
         services.AddSingleton<IAppUpdater, VelopackUpdater>();
         services.AddSingleton<UpdateService>();
@@ -189,9 +198,17 @@ internal static partial class TimeglassHost
         var logger = services.GetRequiredService<ILogger<TimeglassDatabase>>();
 
         var database = TimeglassDatabase.Open(options.DatabasePath ?? TimeglassDatabase.DefaultPath);
+        if (database.BackupPath is { } backup)
+        {
+            LogDatabaseBackedUp(logger, backup);
+        }
+
         LogDatabaseOpened(logger, database.Path, database.RecoveredIntervals);
         return database;
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Copied the database to {Backup} before updating its schema")]
+    private static partial void LogDatabaseBackedUp(ILogger logger, string backup);
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Opened {Path}; closed {Recovered} interval(s) left open by a previous run")]
