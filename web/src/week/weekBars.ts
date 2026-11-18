@@ -15,7 +15,7 @@ export interface BarSegment {
 
 /**
  * A day's stacked bar: one segment per top app, then one for the rest of the day's active time.
- * `colorFor` is the week's app list colours, so an app folded into "Other" there is grey here too.
+ * `colorFor` is the week's app list colours, so each app is the same colour in the bar and the list.
  */
 export function barSegments(
   day: DayTotalDto,

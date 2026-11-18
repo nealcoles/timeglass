@@ -24,8 +24,8 @@ describe('appColor', () => {
 });
 
 describe('appShares', () => {
-  it('lists every app by name when they fit', () => {
-    const rows = appShares([app('a', 30, 60), app('b', 20, 40)], 2);
+  it('lists every app by name', () => {
+    const rows = appShares([app('a', 30, 60), app('b', 20, 40)]);
 
     expect(rows.map((r) => r.name)).toEqual(['A', 'B']);
     expect(rows[0]?.color).toBe(appColor('a'));
@@ -37,24 +37,13 @@ describe('appShares', () => {
     expect(rows.map((r) => r.key)).toEqual(['b', 'a']);
   });
 
-  it('folds the rest into Other, keeping the total at 100%', () => {
-    const rows = appShares(
-      [app('a', 50, 50), app('b', 30, 30), app('c', 10, 10), app('d', 6, 6), app('e', 4, 4)],
-      2,
-    );
+  it('never folds apps into Other, however many there are (#96)', () => {
+    const apps = 'abcdefghij'.split('').map((key, i) => app(key, 10 - i, 10));
+    const rows = appShares(apps);
 
-    expect(rows.map((r) => r.name)).toEqual(['A', 'B', 'Other']);
-    const other = rows[2];
-    expect(other).toBeDefined();
-    expect(other).toMatchObject({ key: null, count: 3, percent: 20, color: OTHER_COLOR });
-    expect(other?.durationMs).toBe(20 * 60_000);
+    expect(rows.map((r) => r.key)).toEqual('abcdefghij'.split(''));
+    expect(rows.every((r) => r.color !== OTHER_COLOR)).toBe(true);
     expect(rows.reduce((sum, r) => sum + r.percent, 0)).toBe(100);
-  });
-
-  it('shows a single leftover app by name instead of as Other', () => {
-    const rows = appShares([app('a', 50, 50), app('b', 30, 30), app('c', 20, 20)], 2);
-
-    expect(rows.map((r) => r.name)).toEqual(['A', 'B', 'C']);
   });
 
   it('returns nothing for a day without apps', () => {

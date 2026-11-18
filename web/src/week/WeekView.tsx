@@ -66,7 +66,7 @@ interface WeekSectionsProps {
 }
 
 function WeekSections({ days, rows, activeMs, awayMs, today }: WeekSectionsProps) {
-  const colors = new Map(rows.flatMap((r) => (r.key === null ? [] : [[r.key, r.color] as const])));
+  const colors = new Map(rows.map((r) => [r.key, r.color] as const));
   const colorFor = (appKey: string) => colors.get(appKey) ?? OTHER_COLOR;
   const activeDays = days.filter((d) => d.activeMs > 0).length;
   const longest = Math.max(...days.map((d) => d.activeMs), 0);
