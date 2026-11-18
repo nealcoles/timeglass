@@ -76,8 +76,8 @@ export function DayView({ date, today = localToday() }: DayViewProps) {
 }
 
 function DaySections({ date, rows }: { date: string; rows: ReturnType<typeof appShares> }) {
-  // The timeline uses the list's colours, so an app folded into "Other" is grey in both.
-  const colors = new Map(rows.flatMap((r) => (r.key === null ? [] : [[r.key, r.color] as const])));
+  // The timeline uses the list's colours, so each app is the same colour in both.
+  const colors = new Map(rows.map((r) => [r.key, r.color] as const));
   const colorFor = (appKey: string) => colors.get(appKey) ?? OTHER_COLOR;
 
   return (

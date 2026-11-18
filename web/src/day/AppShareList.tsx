@@ -32,25 +32,19 @@ export function AppShareList({ rows, date }: AppShareListProps) {
       </thead>
       <tbody>
         {rows.map((row) => (
-          <tr key={row.key ?? 'other'} data-app={row.key ?? 'other'}>
+          <tr key={row.key} data-app={row.key}>
             <th scope="row" className="app-shares__name">
               <span
                 className="app-shares__swatch"
                 style={{ backgroundColor: row.color }}
                 aria-hidden="true"
               />
-              {row.key === null || date === undefined ? (
+              {date === undefined ? (
                 row.name
               ) : (
                 <Link href={paths.app(date, row.key)} className="app-shares__link">
                   {row.name}
                 </Link>
-              )}
-              {row.key === null && (
-                <span className="app-shares__count">
-                  {' '}
-                  ({row.count} {row.count === 1 ? 'app' : 'apps'})
-                </span>
               )}
               <span className="app-shares__track" aria-hidden="true">
                 <span

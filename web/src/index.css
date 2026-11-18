@@ -106,11 +106,6 @@ body {
   border-radius: 2px;
 }
 
-.app-shares__count {
-  color: var(--muted);
-  font-weight: 400;
-}
-
 .app-shares__track {
   display: block;
   height: 0.5rem;

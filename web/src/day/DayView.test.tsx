@@ -90,7 +90,7 @@ describe('DayView', () => {
     expect(block?.style.backgroundColor).toBe(swatch?.style.backgroundColor);
   });
 
-  it('folds apps beyond the top six into Other', async () => {
+  it('lists every app by name instead of folding some into Other', async () => {
     const base = daySummary();
     const extra = ['a', 'b', 'c'].map((key) => ({
       app: { key, name: `App ${key}` },
@@ -103,16 +103,11 @@ describe('DayView', () => {
     renderWithApi(<DayView date={demoDate} />);
 
     const table = await screen.findByRole('table');
-    const other = within(table).getByRole('rowheader', { name: /^Other/ });
-    expect(other).toHaveTextContent('Other (2 apps)');
-    const row = other.closest('tr');
-    expect(row).not.toBeNull();
-    expect(
-      within(row as HTMLElement)
-        .getAllByRole('cell')
-        .map((c) => c.textContent),
-    ).toEqual(['2m', '2%']);
-    expect(within(table).getAllByRole('row')).toHaveLength(1 + 7);
+    expect(within(table).queryByRole('rowheader', { name: /^Other/ })).toBeNull();
+    for (const key of ['a', 'b', 'c']) {
+      expect(within(table).getByRole('link', { name: `App ${key}` })).toBeInTheDocument();
+    }
+    expect(within(table).getAllByRole('row')).toHaveLength(1 + base.apps.length + extra.length);
   });
 
   it('gives each app a stable colour', async () => {
