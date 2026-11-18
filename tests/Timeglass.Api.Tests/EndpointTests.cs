@@ -131,7 +131,7 @@ public sealed class EndpointTests : IAsyncLifetime
         range.To.ShouldBe(new DateOnly(2026, 11, 8));
         range.Days.Select(d => d.Date.Day).ShouldBe([2, 3, 4, 5, 6, 7, 8]);
         range.Days.Select(d => d.ActiveMs).ShouldBe([0, 0, Minutes(210) - 3000, Minutes(180), 0, 0, 0]);
-        range.Days[2].TopApps.Select(a => a.App.Key).ShouldBe(["code", "outlook"]);
+        range.Days[2].Apps.Select(a => a.App.Key).ShouldBe(["code", "outlook"]);
         range.ActiveMs.ShouldBe(Minutes(390) - 3000);
         range.AwayMs.ShouldBe(Minutes(60));
         range.Apps.Select(a => (a.App.Key, a.Percent)).ShouldBe([("code", 69), ("outlook", 31)]);

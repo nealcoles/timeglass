@@ -186,7 +186,7 @@ and hands the rows over.
   without a recorded title is its own group with a `null` title.
 - **Range summary** (`RangeSummaries`, `IntervalRepository.GetRangeSummaryAsync`). For the
   week view: one entry per day (every day, also empty ones) with active and away totals and
-  the day's top apps, plus totals per app over the whole range. Each day is built by the day
+  every app used that day, plus totals per app over the whole range. Each day is built by the day
   summary, so the two always agree. A range is at most 366 days.
 - **Range query.** Intervals never overlap, so of the ones starting before a range only the
   latest can reach into it. `GetRangeAsync` starts its index scan there instead of at the

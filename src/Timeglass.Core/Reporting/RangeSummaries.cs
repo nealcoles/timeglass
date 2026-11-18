@@ -6,9 +6,6 @@ namespace Timeglass.Core.Reporting;
 /// <remarks>Each day is summarised by <see cref="DaySummaries.Build"/>, so the days agree with the day view.</remarks>
 public static class RangeSummaries
 {
-    /// <summary>How many apps each day lists unless the caller asks for another number.</summary>
-    public const int DefaultTopApps = 3;
-
     /// <summary>The longest range a query may ask for, in days.</summary>
     public const int MaxDays = 366;
 
@@ -36,7 +33,7 @@ public static class RangeSummaries
 
     /// <summary>
     /// Summarises local days <paramref name="firstDay"/> to <paramref name="lastDay"/> (both
-    /// included): totals and the top <paramref name="topApps"/> apps per day, and totals per app
+    /// included): totals and every app per day, and totals per app
     /// over the whole range. Intervals crossing a day boundary count towards each day they cover.
     /// An open interval counts as running until <paramref name="now"/>.
     /// </summary>
@@ -46,9 +43,7 @@ public static class RangeSummaries
     /// <param name="zone">The user's time zone.</param>
     /// <param name="now">The current time, so a still-open interval has an end.</param>
     /// <param name="dayStart">Local time each day begins; see <see cref="DaySummaries.Bounds"/>.</param>
-    /// <param name="topApps">How many apps to list per day. 0 lists none.</param>
     /// <param name="rolledUp">Totals that replaced intervals removed by retention; see <see cref="DaySummaries.Build"/>.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topApps"/> is negative.</exception>
     public static RangeSummary Build(
         IEnumerable<ActivityInterval> intervals,
         DateOnly firstDay,
@@ -56,11 +51,9 @@ public static class RangeSummaries
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        int topApps = DefaultTopApps,
         IEnumerable<RolledUpTotal>? rolledUp = null)
     {
         ArgumentNullException.ThrowIfNull(intervals);
-        ArgumentOutOfRangeException.ThrowIfNegative(topApps);
         var (rangeStart, rangeEnd) = Bounds(firstDay, lastDay, zone, dayStart);
 
         // starts[i] is where day i begins; starts[^1] is the end of the range.
@@ -99,7 +92,7 @@ public static class RangeSummaries
         {
             var day = firstDay.AddDays(i);
             var summary = DaySummaries.Build(buckets[i] ?? [], day, zone, now, dayStart, rolledUpByDay[day]);
-            days.Add(new DayTotal(summary.Day, summary.Start, summary.End, summary.Active, summary.Away, [.. summary.Apps.Take(topApps)]));
+            days.Add(new DayTotal(summary.Day, summary.Start, summary.End, summary.Active, summary.Away, summary.Apps));
             active += summary.Active;
             away += summary.Away;
 

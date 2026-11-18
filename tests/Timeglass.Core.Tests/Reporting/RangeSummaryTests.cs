@@ -12,18 +12,17 @@ public class RangeSummaryTests
 
     private static string Describe(DayTotal day) =>
         $"{day.Day:ddd} {day.Active.TotalMinutes}/{day.Away.TotalMinutes}"
-        + string.Concat(day.TopApps.Select(a => $" {a.App.Key}:{a.Duration.TotalMinutes}"));
+        + string.Concat(day.Apps.Select(a => $" {a.App.Key}:{a.Duration.TotalMinutes}"));
 
-    public static TheoryData<string, ActivityInterval[], int, string[]> Weeks => new()
+    public static TheoryData<string, ActivityInterval[], string[]> Weeks => new()
     {
         {
             "an empty week has every day",
             [],
-            3,
             ["Mon 0/0", "Tue 0/0", "Wed 0/0", "Thu 0/0", "Fri 0/0", "Sat 0/0", "Sun 0/0"]
         },
         {
-            "top apps per day, longest first",
+            "every app per day, longest first",
             [
                 Active(Utc("2026-11-02T08:00Z"), Utc("2026-11-02T10:00Z"), Code),
                 Active(Utc("2026-11-02T10:00Z"), Utc("2026-11-02T10:30Z"), Teams),
@@ -31,13 +30,11 @@ public class RangeSummaryTests
                 Away(Utc("2026-11-02T11:30Z"), Utc("2026-11-02T12:00Z")),
                 Active(Utc("2026-11-04T08:00Z"), Utc("2026-11-04T08:20Z"), Teams),
             ],
-            2,
-            ["Mon 210/30 code:120 outlook:60", "Tue 0/0", "Wed 20/0 teams:20", "Thu 0/0", "Fri 0/0", "Sat 0/0", "Sun 0/0"]
+            ["Mon 210/30 code:120 outlook:60 teams:30", "Tue 0/0", "Wed 20/0 teams:20", "Thu 0/0", "Fri 0/0", "Sat 0/0", "Sun 0/0"]
         },
         {
             "an interval over midnight counts towards both days",
             [Active(Utc("2026-11-03T22:00Z"), Utc("2026-11-04T01:00Z"), Code)],
-            3,
             ["Mon 0/0", "Tue 60/0 code:60", "Wed 120/0 code:120", "Thu 0/0", "Fri 0/0", "Sat 0/0", "Sun 0/0"]
         },
         {
@@ -46,22 +43,15 @@ public class RangeSummaryTests
                 Active(Utc("2026-11-01T22:00Z"), Utc("2026-11-02T00:00Z"), Code), // 23:00 Sunday to 01:00 Monday
                 Active(Utc("2026-11-08T22:30Z"), Utc("2026-11-09T00:00Z"), Outlook), // 23:30 Sunday to 01:00 Monday
             ],
-            3,
             ["Mon 60/0 code:60", "Tue 0/0", "Wed 0/0", "Thu 0/0", "Fri 0/0", "Sat 0/0", "Sun 30/0 outlook:30"]
-        },
-        {
-            "no apps listed when none are asked for",
-            [Active(Utc("2026-11-05T08:00Z"), Utc("2026-11-05T09:00Z"), Code)],
-            0,
-            ["Mon 0/0", "Tue 0/0", "Wed 0/0", "Thu 60/0", "Fri 0/0", "Sat 0/0", "Sun 0/0"]
         },
     };
 
     [Theory]
     [MemberData(nameof(Weeks))]
-    public void Summarises_each_day_of_a_week(string because, ActivityInterval[] intervals, int topApps, string[] expected)
+    public void Summarises_each_day_of_a_week(string because, ActivityInterval[] intervals, string[] expected)
     {
-        var summary = RangeSummaries.Build(intervals, Monday, Sunday, Oslo, Later, topApps: topApps);
+        var summary = RangeSummaries.Build(intervals, Monday, Sunday, Oslo, Later);
 
         summary.Days.Select(Describe).ShouldBe(expected, because);
         summary.Active.ShouldBe(new TimeSpan(summary.Days.Sum(d => d.Active.Ticks)));
@@ -88,14 +78,14 @@ public class RangeSummaryTests
 
         // Includes the 25 hour day, 25 October, and a day start after midnight.
         var dayStart = TimeSpan.FromHours(4);
-        var summary = RangeSummaries.Build(intervals, Day("2026-10-21"), Day("2026-11-03"), Oslo, Later, dayStart, topApps: 10);
+        var summary = RangeSummaries.Build(intervals, Day("2026-10-21"), Day("2026-11-03"), Oslo, Later, dayStart);
 
         summary.Days.Count.ShouldBe(14);
         foreach (var day in summary.Days)
         {
             var expected = DaySummaries.Build(intervals, day.Day, Oslo, Later, dayStart);
             (day.Start, day.End, day.Active, day.Away).ShouldBe((expected.Start, expected.End, expected.Active, expected.Away));
-            day.TopApps.ShouldBe(expected.Apps);
+            day.Apps.ShouldBe(expected.Apps);
         }
     }
 
@@ -146,7 +136,6 @@ public class RangeSummaryTests
     {
         Should.Throw<ArgumentException>(() => RangeSummaries.Build([], Sunday, Monday, Oslo, Later));
         Should.Throw<ArgumentException>(() => RangeSummaries.Build([], Day("2026-01-01"), Day("2027-01-02"), Oslo, Later)); // 367 days
-        Should.Throw<ArgumentOutOfRangeException>(() => RangeSummaries.Build([], Monday, Sunday, Oslo, Later, topApps: -1));
         RangeSummaries.Build([], Day("2026-01-01"), Day("2026-12-31"), Oslo, Later).Days.Count.ShouldBe(365);
     }
 }

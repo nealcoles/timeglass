@@ -321,7 +321,7 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     }
 
     /// <summary>
-    /// Totals per day, the top apps of each day and totals per app over local days
+    /// Totals per day, the apps of each day and totals per app over local days
     /// <paramref name="firstDay"/> to <paramref name="lastDay"/> (both included), for the week
     /// view (<see cref="RangeSummaries.Build"/>).
     /// </summary>
@@ -330,7 +330,6 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     /// <param name="zone">The user's time zone.</param>
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
-    /// <param name="topApps">How many apps to list per day.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
     public async Task<RangeSummary> GetRangeSummaryAsync(
         DateOnly firstDay,
@@ -338,13 +337,12 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        int topApps = RangeSummaries.DefaultTopApps,
         CancellationToken cancellationToken = default)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
         var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, topApps, rolledUp);
+        return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, rolledUp);
     }
 
     /// <summary>

@@ -339,8 +339,8 @@ export interface components {
        * @description Away time, in milliseconds.
        */
       awayMs: number;
-      /** @description The day's apps with the most time; shares are of the whole day. */
-      topApps: components['schemas']['AppTotalDto'][];
+      /** @description Every app used that day, longest first; shares are of the whole day. */
+      apps: components['schemas']['AppTotalDto'][];
     };
     /** @description Confirms a deletion. */
     DeleteIntervalsRequest: {

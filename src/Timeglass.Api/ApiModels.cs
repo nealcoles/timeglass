@@ -173,7 +173,7 @@ public sealed record RangeSummaryDto(
         summary.End,
         summary.Active.ToMs(),
         summary.Away.ToMs(),
-        [.. summary.Days.Select(d => new DayTotalDto(d.Day, d.Start, d.End, d.Active.ToMs(), d.Away.ToMs(), [.. d.TopApps.Select(AppTotalDto.Create)]))],
+        [.. summary.Days.Select(d => new DayTotalDto(d.Day, d.Start, d.End, d.Active.ToMs(), d.Away.ToMs(), [.. d.Apps.Select(AppTotalDto.Create)]))],
         [.. summary.Apps.Select(AppTotalDto.Create)]);
 }
 
@@ -183,14 +183,14 @@ public sealed record RangeSummaryDto(
 /// <param name="End">First instant of the next day (exclusive).</param>
 /// <param name="ActiveMs">Active time, in milliseconds.</param>
 /// <param name="AwayMs">Away time, in milliseconds.</param>
-/// <param name="TopApps">The day's apps with the most time; shares are of the whole day.</param>
+/// <param name="Apps">Every app used that day, longest first; shares are of the whole day.</param>
 public sealed record DayTotalDto(
     DateOnly Date,
     DateTimeOffset Start,
     DateTimeOffset End,
     long ActiveMs,
     long AwayMs,
-    IReadOnlyList<AppTotalDto> TopApps);
+    IReadOnlyList<AppTotalDto> Apps);
 
 /// <summary>What the tracker is doing right now.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<TrackingStateKind>))]
