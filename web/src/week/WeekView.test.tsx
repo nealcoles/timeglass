@@ -73,7 +73,7 @@ describe('WeekView', () => {
     expect(totals).toEqual({ Active: '35h', Away: '5h 25m', 'Per active day': '7h' });
   });
 
-  it('draws a bar per day stacked by its top apps', async () => {
+  it('draws a bar per day stacked by all its apps', async () => {
     renderWithApi(<WeekView date={demoDate} today={demoDate} />);
 
     const rows = dayRows(await dayTable());
@@ -87,7 +87,7 @@ describe('WeekView', () => {
       '2026-11-08',
     ]);
     expect(rows[0]).toMatchObject({
-      bar: 'Visual Studio Code 3h, Outlook 1h 45m, Microsoft Edge 1h 15m, other apps 1h',
+      bar: 'Visual Studio Code 3h, Outlook 1h 45m, Microsoft Edge 1h 15m, Microsoft Teams 45m, Windows Terminal 15m',
       time: '7h',
     });
     expect(rows[3]?.day).toMatch(/\(today\)$/);

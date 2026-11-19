@@ -215,8 +215,8 @@ public sealed class ExportTests
 
         var totals = await Exports.DailyApps(stored.ToAsyncEnumerable(), Day("2026-11-01"), Day("2026-11-07"), Oslo, now, NoPrivacy, cancellationToken: Ct).ToListAsync(Ct);
 
-        var range = RangeSummaries.Build(stored, Day("2026-11-01"), Day("2026-11-07"), Oslo, now, topApps: int.MaxValue);
-        totals.ShouldBe(range.Days.SelectMany(d => d.TopApps.Select(a => new DailyAppTotal(d.Day, a.App, a.Duration))));
+        var range = RangeSummaries.Build(stored, Day("2026-11-01"), Day("2026-11-07"), Oslo, now);
+        totals.ShouldBe(range.Days.SelectMany(d => d.Apps.Select(a => new DailyAppTotal(d.Day, a.App, a.Duration))));
         totals.ShouldNotBeEmpty();
     }
 

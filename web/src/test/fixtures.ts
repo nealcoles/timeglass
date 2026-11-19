@@ -141,7 +141,7 @@ export function rangeSummary(from: string, to: string): RangeSummaryDto {
       end: at(nextDay(date), '00:00:00'),
       activeMs: workday ? minutes(420) : 0,
       awayMs: workday ? minutes(65) : 0,
-      topApps: workday ? appTotals.slice(0, 3) : [],
+      apps: workday ? appTotals : [],
     });
   }
   const workdays = days.filter((d) => d.activeMs > 0).length;

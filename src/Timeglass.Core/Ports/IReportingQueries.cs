@@ -69,7 +69,6 @@ public interface IReportingQueries
     /// <param name="zone">The user's time zone.</param>
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
-    /// <param name="topApps">How many apps to list per day.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
     Task<RangeSummary> GetRangeSummaryAsync(
         DateOnly firstDay,
@@ -77,7 +76,6 @@ public interface IReportingQueries
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        int topApps = RangeSummaries.DefaultTopApps,
         CancellationToken cancellationToken = default);
 
     /// <summary>

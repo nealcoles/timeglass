@@ -19,7 +19,7 @@ interface WeekViewProps {
 }
 
 /**
- * The week at a glance (#35): each day's active time as a bar stacked by its top apps, and the
+ * The week at a glance (#35): each day's active time as a bar stacked by its apps, and the
  * week's apps below. A day opens in the day view.
  */
 export function WeekView({ date, today }: WeekViewProps) {
@@ -91,12 +91,12 @@ function WeekSections({ days, rows, activeMs, awayMs, today }: WeekSectionsProps
       <h3>Day by day</h3>
       <table className="week-days">
         <caption className="visually-hidden">
-          Active time per day, with each day&apos;s top apps
+          Active time per day, with each day&apos;s apps
         </caption>
         <thead className="visually-hidden">
           <tr>
             <th scope="col">Day</th>
-            <th scope="col">Top apps</th>
+            <th scope="col">Apps</th>
             <th scope="col">Time</th>
           </tr>
         </thead>
@@ -165,7 +165,7 @@ function WeekDayRow({ day, today, longestMs, colorFor }: WeekDayRowProps) {
           <span className="week-days__track" role="img" aria-label={describeSegments(segments)}>
             {segments.map((s) => (
               <span
-                key={s.key ?? '\0other'}
+                key={s.key}
                 className="week-days__segment"
                 style={{ width: `${s.width * 100}%`, backgroundColor: s.color }}
                 title={`${s.name}: ${formatDuration(s.durationMs)}`}

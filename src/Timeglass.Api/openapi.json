@@ -691,7 +691,7 @@
           "end",
           "activeMs",
           "awayMs",
-          "topApps"
+          "apps"
         ],
         "type": "object",
         "properties": {
@@ -720,12 +720,12 @@
             "description": "Away time, in milliseconds.",
             "format": "int64"
           },
-          "topApps": {
+          "apps": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AppTotalDto"
             },
-            "description": "The day's apps with the most time; shares are of the whole day."
+            "description": "Every app used that day, longest first; shares are of the whole day."
           }
         },
         "description": "One day in a range."

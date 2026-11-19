@@ -98,14 +98,14 @@ public sealed class ReportingQueryTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("2026-11-02", "2026-11-08", 2, new[] { "0", "0", "210 code:180 outlook:30", "180 code:90 outlook:90", "0", "0", "0" })]
-    [InlineData("2026-11-04", "2026-11-05", 1, new[] { "210 code:180", "180 code:90" })]
-    [InlineData("2026-11-05", "2026-11-05", 3, new[] { "180 code:90 outlook:90" })]
-    public async Task Week_overview(string firstDay, string lastDay, int topApps, string[] expected)
+    [InlineData("2026-11-02", "2026-11-08", new[] { "0", "0", "210 code:180 outlook:30", "180 code:90 outlook:90", "0", "0", "0" })]
+    [InlineData("2026-11-04", "2026-11-05", new[] { "210 code:180 outlook:30", "180 code:90 outlook:90" })]
+    [InlineData("2026-11-05", "2026-11-05", new[] { "180 code:90 outlook:90" })]
+    public async Task Week_overview(string firstDay, string lastDay, string[] expected)
     {
-        var summary = await _repository.GetRangeSummaryAsync(Day(firstDay), Day(lastDay), Oslo, Now, topApps: topApps, cancellationToken: Ct);
+        var summary = await _repository.GetRangeSummaryAsync(Day(firstDay), Day(lastDay), Oslo, Now, cancellationToken: Ct);
 
-        summary.Days.Select(d => $"{Math.Round(d.Active.TotalMinutes)}{string.Concat(d.TopApps.Select(a => $" {a.App.Key}:{Math.Round(a.Duration.TotalMinutes)}"))}")
+        summary.Days.Select(d => $"{Math.Round(d.Active.TotalMinutes)}{string.Concat(d.Apps.Select(a => $" {a.App.Key}:{Math.Round(a.Duration.TotalMinutes)}"))}")
             .ShouldBe(expected);
         summary.Active.ShouldBe(new TimeSpan(summary.Days.Sum(d => d.Active.Ticks)));
     }

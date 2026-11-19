@@ -28,14 +28,11 @@ public sealed record RangeSummary(
 /// <param name="End">First instant of the next day (exclusive).</param>
 /// <param name="Active">Active time in the day.</param>
 /// <param name="Away">Away time in the day.</param>
-/// <param name="TopApps">
-/// The apps with the most active time that day, longest first. Shares and percentages are of the
-/// whole day, as in <see cref="DaySummary.Apps"/>, so they add up to less than 100 when apps were left out.
-/// </param>
+/// <param name="Apps">Active time per app that day, longest first, as in <see cref="DaySummary.Apps"/>.</param>
 public sealed record DayTotal(
     DateOnly Day,
     DateTimeOffset Start,
     DateTimeOffset End,
     TimeSpan Active,
     TimeSpan Away,
-    IReadOnlyList<AppDayTotal> TopApps);
+    IReadOnlyList<AppDayTotal> Apps);
