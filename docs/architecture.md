@@ -181,9 +181,9 @@ and hands the rows over.
   than 5 seconds apart are merged into one block; a block's `Duration` leaves out the merged
   gaps.
 - **App drill-down** (`TitleBreakdowns`, `IntervalRepository.GetTitleBreakdownAsync`). One
-  app's time over a day or a range of days, grouped by exact window title: the top N titles
-  (10 by default) and the rest summed as "other", with percentages that add up to 100. Time
-  without a recorded title is its own group with a `null` title.
+  app's time over a day or a range of days, grouped by exact window title: every title, longest
+  first, with percentages that add up to 100 (#100). Time without a recorded title is its own
+  group with a `null` title.
 - **Range summary** (`RangeSummaries`, `IntervalRepository.GetRangeSummaryAsync`). For the
   week view: one entry per day (every day, also empty ones) with active and away totals and
   every app used that day, plus totals per app over the whole range. Each day is built by the day

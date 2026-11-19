@@ -48,7 +48,6 @@ public interface IReportingQueries
     /// <param name="zone">The user's time zone.</param>
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
-    /// <param name="top">How many titles to list by name.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
     Task<TitleBreakdown> GetTitleBreakdownAsync(
         string appKey,
@@ -57,7 +56,6 @@ public interface IReportingQueries
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        int top = TitleBreakdowns.DefaultTop,
         CancellationToken cancellationToken = default);
 
     /// <summary>

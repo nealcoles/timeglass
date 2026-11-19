@@ -19,7 +19,8 @@ interface AppViewProps {
 
 /**
  * The app drill-down (#34): which window titles (mails, documents, projects) an app's time on a
- * day went to, with a search box to find one.
+ * day went to, with a search box to find one. Every title is listed, in a list that scrolls on
+ * its own when there are many (#100).
  */
 export function AppView({ date, appKey, isToday = false }: AppViewProps) {
   const appDay = useAppDay(date, appKey);
@@ -82,8 +83,7 @@ function TitleList({ day }: { day: AppDayDto }) {
   const [query, setQuery] = useState('');
   const searchId = useId();
   const rows = filterTitles(day.titles, query);
-  const searching = query.trim() !== '';
-  const longest = Math.max(...day.titles.map((t) => t.durationMs), day.other?.durationMs ?? 0, 1);
+  const longest = Math.max(...day.titles.map((t) => t.durationMs), 1);
   const color = appColor(day.app.key);
 
   return (
@@ -105,50 +105,39 @@ function TitleList({ day }: { day: AppDayDto }) {
           No titles match “{query.trim()}”.
         </p>
       ) : (
-        <table className="app-shares app-titles">
-          <caption className="visually-hidden">
-            Time in {day.app.name} per window title, longest first
-          </caption>
-          <thead className="visually-hidden">
-            <tr>
-              <th scope="col">Title</th>
-              <th scope="col">Time</th>
-              <th scope="col">Share</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <TitleRowView
-                key={row.title ?? '\0none'}
-                label={row.title ?? 'No title recorded'}
-                muted={row.title === null}
-                title={row.title ?? undefined}
-                durationMs={row.durationMs}
-                percent={row.percent}
-                width={row.durationMs / longest}
-                color={color}
-              />
-            ))}
-            {!searching && day.other && (
-              <TitleRowView
-                label={`${day.other.count} other ${day.other.count === 1 ? 'title' : 'titles'}`}
-                muted
-                durationMs={day.other.durationMs}
-                percent={day.other.percent}
-                width={day.other.durationMs / longest}
-                color={color}
-              />
-            )}
-          </tbody>
-        </table>
-      )}
-
-      {searching && day.other && (
-        <p className="app-day__note">
-          The search covers the {day.titles.filter((t) => t.title !== null).length} titles with the
-          most time; the {day.other.count} shorter ones ({formatDuration(day.other.durationMs)})
-          aren&apos;t listed.
-        </p>
+        <div
+          className="app-titles__scroll"
+          role="region"
+          aria-label={`Window titles in ${day.app.name}`}
+          tabIndex={0}
+        >
+          <table className="app-shares app-titles">
+            <caption className="visually-hidden">
+              Time in {day.app.name} per window title, longest first
+            </caption>
+            <thead className="visually-hidden">
+              <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Time</th>
+                <th scope="col">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <TitleRowView
+                  key={row.title ?? '\0none'}
+                  label={row.title ?? 'No title recorded'}
+                  muted={row.title === null}
+                  title={row.title ?? undefined}
+                  durationMs={row.durationMs}
+                  percent={row.percent}
+                  width={row.durationMs / longest}
+                  color={color}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

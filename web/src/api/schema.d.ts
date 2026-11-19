@@ -51,7 +51,7 @@ export interface paths {
     };
     /**
      * One app's time on one day, by window title
-     * @description The 10 titles with the most time, and the rest together as other.
+     * @description Every title, longest first.
      */
     get: operations['GetAppDay'];
     put?: never;
@@ -241,9 +241,8 @@ export interface components {
        * @description Active time in the app, in milliseconds.
        */
       totalMs: number;
-      /** @description The titles with the most time, longest first. */
+      /** @description Every title, longest first. */
       titles: components['schemas']['TitleTotalDto'][];
-      other: null | components['schemas']['OtherTitlesDto'];
     };
     /** @description An app as shown to the user. */
     AppDto: {
@@ -422,29 +421,6 @@ export interface components {
         [key: string]: string[];
       };
     };
-    /** @description The titles left out of the list, together. */
-    OtherTitlesDto: {
-      /**
-       * Format: int32
-       * @description How many distinct titles.
-       */
-      count: number;
-      /**
-       * Format: int64
-       * @description Their active time together, in milliseconds.
-       */
-      durationMs: number;
-      /**
-       * Format: double
-       * @description Exact fraction of the app's time, between 0 and 1.
-       */
-      share: number;
-      /**
-       * Format: int32
-       * @description Whole percentage.
-       */
-      percent: number;
-    };
     /**
      * @description How long to pause tracking for; the same choices as the tray menu.
      * @enum {unknown}
@@ -597,7 +573,7 @@ export interface components {
       share: number;
       /**
        * Format: int32
-       * @description Whole percentage; titles and other add up to 100.
+       * @description Whole percentage; the titles add up to 100.
        */
       percent: number;
     };

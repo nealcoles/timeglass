@@ -112,16 +112,14 @@ public sealed record TimelineBlockDto(
 /// <param name="Start">First instant of the day (inclusive).</param>
 /// <param name="End">First instant of the next day (exclusive).</param>
 /// <param name="TotalMs">Active time in the app, in milliseconds.</param>
-/// <param name="Titles">The titles with the most time, longest first.</param>
-/// <param name="Other">The remaining titles together, or null if every title is listed.</param>
+/// <param name="Titles">Every title, longest first.</param>
 public sealed record AppDayDto(
     DateOnly Date,
     AppDto App,
     DateTimeOffset Start,
     DateTimeOffset End,
     long TotalMs,
-    IReadOnlyList<TitleTotalDto> Titles,
-    OtherTitlesDto? Other)
+    IReadOnlyList<TitleTotalDto> Titles)
 {
     internal static AppDayDto Create(DateOnly date, TitleBreakdown breakdown) => new(
         date,
@@ -129,23 +127,15 @@ public sealed record AppDayDto(
         breakdown.Start,
         breakdown.End,
         breakdown.Total.ToMs(),
-        [.. breakdown.Titles.Select(t => new TitleTotalDto(t.Title, t.Duration.ToMs(), t.Share, t.Percent))],
-        breakdown.Other is { } o ? new OtherTitlesDto(o.Count, o.Duration.ToMs(), o.Share, o.Percent) : null);
+        [.. breakdown.Titles.Select(t => new TitleTotalDto(t.Title, t.Duration.ToMs(), t.Share, t.Percent))]);
 }
 
 /// <summary>Time with one window title.</summary>
 /// <param name="Title">The title, or null for time where no title was recorded.</param>
 /// <param name="DurationMs">Active time with this title, in milliseconds.</param>
 /// <param name="Share">Exact fraction of the app's time, between 0 and 1.</param>
-/// <param name="Percent">Whole percentage; titles and other add up to 100.</param>
+/// <param name="Percent">Whole percentage; the titles add up to 100.</param>
 public sealed record TitleTotalDto(string? Title, long DurationMs, double Share, int Percent);
-
-/// <summary>The titles left out of the list, together.</summary>
-/// <param name="Count">How many distinct titles.</param>
-/// <param name="DurationMs">Their active time together, in milliseconds.</param>
-/// <param name="Share">Exact fraction of the app's time, between 0 and 1.</param>
-/// <param name="Percent">Whole percentage.</param>
-public sealed record OtherTitlesDto(int Count, long DurationMs, double Share, int Percent);
 
 /// <summary>Totals per day and per app over a range of local days.</summary>
 /// <param name="From">First local date.</param>

@@ -34,7 +34,7 @@ describe('AppView', () => {
     expect(screen.getByText('Active').nextElementSibling).toHaveTextContent('3h');
   });
 
-  it('lists titles longest first with time and share of the app, then the rest', async () => {
+  it('lists every title longest first with time and share of the app', async () => {
     renderWithApi(<AppView date={demoDate} appKey="vscode" />);
 
     await screen.findByRole('table', {
@@ -43,8 +43,27 @@ describe('AppView', () => {
     expect(rows()).toEqual([
       ['TrackingEngine.cs - timeglass - Visual Studio Code', '1h 30m', '50%'],
       ['DaySummaries.cs - timeglass - Visual Studio Code', '1h', '33%'],
-      ['3 other titles', '30m', '17%'],
+      ['Program.cs - timeglass - Visual Studio Code', '30m', '17%'],
     ]);
+  });
+
+  it('lists every title instead of folding the short ones into other (#100)', async () => {
+    const titles = Array.from({ length: 40 }, (_, i) => ({
+      title: `File${i}.cs - timeglass - Visual Studio Code`,
+      durationMs: (40 - i) * 60_000,
+      share: 0,
+      percent: 1,
+    }));
+    useAppDay({ ...appDay(), titles });
+
+    renderWithApi(<AppView date={demoDate} appKey="vscode" />);
+
+    await screen.findByRole('table');
+    expect(rows()).toHaveLength(40);
+    expect(rows().some(([title]) => /other/i.test(title ?? ''))).toBe(false);
+    expect(
+      screen.getByRole('region', { name: 'Window titles in Visual Studio Code' }),
+    ).toHaveAttribute('tabindex', '0');
   });
 
   it('gives a long title its full text as a tooltip', async () => {
@@ -62,9 +81,6 @@ describe('AppView', () => {
     await user.type(screen.getByRole('searchbox', { name: 'Filter titles' }), 'daysumm');
 
     expect(rows()).toEqual([['DaySummaries.cs - timeglass - Visual Studio Code', '1h', '33%']]);
-    expect(screen.getByText(/The search covers the 2 titles with the most time/)).toHaveTextContent(
-      "the 3 shorter ones (30m) aren't listed.",
-    );
   });
 
   it('says so when no title matches, and shows all again when cleared', async () => {
@@ -98,7 +114,6 @@ describe('AppView', () => {
     useAppDay({
       ...appDay(),
       titles: [{ title: null, durationMs: 180 * 60_000, share: 1, percent: 100 }],
-      other: null,
     });
 
     renderWithApi(<AppView date={demoDate} appKey="vscode" />);

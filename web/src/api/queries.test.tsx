@@ -61,8 +61,7 @@ describe('API hooks', () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(seen).toEqual({ date: demoDate, appKey: 'vscode' });
-      expect(result.current.data?.titles).toHaveLength(2);
-      expect(result.current.data?.other?.count).toBe(3);
+      expect(result.current.data?.titles).toHaveLength(3);
     });
 
     it('useRangeSummary sends from and to as query parameters', async () => {
