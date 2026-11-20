@@ -16,7 +16,7 @@ export interface TitleRow {
  * one whose titles aren't recorded. Then a list with one "no title" row says nothing useful.
  */
 export function hasNoTitles(day: AppDayDto): boolean {
-  return day.totalMs > 0 && day.other === null && day.titles.every((t) => t.title === null);
+  return day.totalMs > 0 && day.titles.every((t) => t.title === null);
 }
 
 /**

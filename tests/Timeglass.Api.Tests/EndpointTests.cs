@@ -109,7 +109,6 @@ public sealed class EndpointTests : IAsyncLifetime
             (null, Minutes(10)),
         ]);
         app.Titles.Sum(t => t.Percent).ShouldBe(100);
-        app.Other.ShouldBeNull();
     }
 
     [Fact]

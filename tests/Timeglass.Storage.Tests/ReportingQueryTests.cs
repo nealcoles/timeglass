@@ -79,21 +79,19 @@ public sealed class ReportingQueryTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("code", "2026-11-04", "2026-11-04", 10, 180, "main.cs 80, late.cs 60, tests.cs 30, (none) 10")]
-    [InlineData("code", "2026-11-04", "2026-11-04", 2, 180, "main.cs 80, late.cs 60, 2 other 40")]
-    [InlineData("code", "2026-11-04", "2026-11-05", 10, 270, "late.cs 120, main.cs 110, tests.cs 30, (none) 10")]
-    [InlineData("outlook", "2026-11-04", "2026-11-05", 10, 120, "Inbox 90, RE: Budget 30")]
-    [InlineData("outlook", "2026-11-05", "2026-11-05", 1, 90, "Inbox 60, 1 other 30")]
-    [InlineData("teams", "2026-11-04", "2026-11-05", 10, 0, "")]
-    public async Task Title_drill_down(string app, string firstDay, string lastDay, int top, int expectedMinutes, string expected)
+    [InlineData("code", "2026-11-04", "2026-11-04", 180, "main.cs 80, late.cs 60, tests.cs 30, (none) 10")]
+    [InlineData("code", "2026-11-04", "2026-11-05", 270, "late.cs 120, main.cs 110, tests.cs 30, (none) 10")]
+    [InlineData("outlook", "2026-11-04", "2026-11-05", 120, "Inbox 90, RE: Budget 30")]
+    [InlineData("outlook", "2026-11-05", "2026-11-05", 90, "Inbox 60, RE: Budget 30")]
+    [InlineData("teams", "2026-11-04", "2026-11-05", 0, "")]
+    public async Task Title_drill_down(string app, string firstDay, string lastDay, int expectedMinutes, string expected)
     {
-        var breakdown = await _repository.GetTitleBreakdownAsync(app, Day(firstDay), Day(lastDay), Oslo, Now, top: top, cancellationToken: Ct);
+        var breakdown = await _repository.GetTitleBreakdownAsync(app, Day(firstDay), Day(lastDay), Oslo, Now, cancellationToken: Ct);
 
         breakdown.App.Key.ShouldBe(app);
         Math.Round(breakdown.Total.TotalMinutes).ShouldBe(expectedMinutes);
         string.Join(", ", breakdown.Titles
-                .Select(t => $"{t.Title ?? "(none)"} {Math.Round(t.Duration.TotalMinutes)}")
-                .Concat(breakdown.Other is { } other ? [$"{other.Count} other {Math.Round(other.Duration.TotalMinutes)}"] : []))
+                .Select(t => $"{t.Title ?? "(none)"} {Math.Round(t.Duration.TotalMinutes)}"))
             .ShouldBe(expected);
     }
 

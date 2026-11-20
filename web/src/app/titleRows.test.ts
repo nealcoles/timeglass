@@ -27,9 +27,7 @@ describe('filterTitles', () => {
 
 describe('hasNoTitles', () => {
   it('is true when all of the time is untitled', () => {
-    expect(
-      hasNoTitles({ ...appDay(), titles: [{ ...row(null, 180), percent: 100 }], other: null }),
-    ).toBe(true);
+    expect(hasNoTitles({ ...appDay(), titles: [{ ...row(null, 180), percent: 100 }] })).toBe(true);
   });
 
   it('is false when some time has a title, or there is no time', () => {

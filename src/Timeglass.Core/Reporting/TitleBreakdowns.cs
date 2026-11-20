@@ -5,13 +5,10 @@ namespace Timeglass.Core.Reporting;
 /// <summary>Builds <see cref="TitleBreakdown"/> values: one app's time grouped by window title.</summary>
 public static class TitleBreakdowns
 {
-    /// <summary>How many titles are listed by name unless the caller asks for another number.</summary>
-    public const int DefaultTop = 10;
-
     /// <summary>
     /// One app's time by title over local days <paramref name="firstDay"/> to
     /// <paramref name="lastDay"/> (both included) in <paramref name="zone"/>; see
-    /// <see cref="Build(IEnumerable{ActivityInterval}, string, DateTimeOffset, DateTimeOffset, DateTimeOffset, int)"/>.
+    /// <see cref="Build(IEnumerable{ActivityInterval}, string, DateTimeOffset, DateTimeOffset, DateTimeOffset)"/>.
     /// For one day, pass the same date twice.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="lastDay"/> is before <paramref name="firstDay"/>.</exception>
@@ -22,33 +19,28 @@ public static class TitleBreakdowns
         DateOnly lastDay,
         TimeZoneInfo zone,
         DateTimeOffset now,
-        TimeSpan dayStart = default,
-        int top = DefaultTop)
+        TimeSpan dayStart = default)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
-        return Build(intervals, appKey, from, to, now, top);
+        return Build(intervals, appKey, from, to, now);
     }
 
     /// <summary>
     /// Active time in the app with key <paramref name="appKey"/> inside
-    /// [<paramref name="from"/>, <paramref name="to"/>), grouped by exact window title. The
-    /// <paramref name="top"/> titles with the most time are listed; the rest are summed into
-    /// <see cref="TitleBreakdown.Other"/>. Time without a recorded title (titles turned off, or a
-    /// window without one) is grouped under a <see langword="null"/> title. Intervals are clipped to
-    /// the range, and an open interval counts as running until <paramref name="now"/>.
+    /// [<paramref name="from"/>, <paramref name="to"/>), grouped by exact window title. Every
+    /// title is listed, longest first (#100). Time without a recorded title (titles turned off, or
+    /// a window without one) is grouped under a <see langword="null"/> title. Intervals are clipped
+    /// to the range, and an open interval counts as running until <paramref name="now"/>.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="top"/> is less than 1.</exception>
     public static TitleBreakdown Build(
         IEnumerable<ActivityInterval> intervals,
         string appKey,
         DateTimeOffset from,
         DateTimeOffset to,
-        DateTimeOffset now,
-        int top = DefaultTop)
+        DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(intervals);
         ArgumentException.ThrowIfNullOrEmpty(appKey);
-        ArgumentOutOfRangeException.ThrowIfLessThan(top, 1);
 
         AppIdentity? app = null;
         var lastSeen = DateTimeOffset.MinValue;
@@ -97,21 +89,12 @@ public static class TitleBreakdowns
             .ThenBy(t => t.Title, StringComparer.Ordinal)
             .ToList();
 
-        var listed = groups.Take(top).ToList();
-        var rest = groups.Skip(top).ToList();
-        var restDuration = new TimeSpan(rest.Sum(t => t.Duration.Ticks));
-
-        long[] parts = [.. listed.Select(t => t.Duration.Ticks), .. rest.Count > 0 ? [restDuration.Ticks] : Array.Empty<long>()];
-        var percents = DaySummaries.RoundToHundred(parts);
-
-        var titles = listed
+        var percents = DaySummaries.RoundToHundred([.. groups.Select(t => t.Duration.Ticks)]);
+        var titles = groups
             .Select((t, i) => new TitleTotal(t.Title, t.Duration, Share(t.Duration, total), percents[i]))
             .ToList();
-        var other = rest.Count == 0
-            ? null
-            : new OtherTitles(rest.Count, restDuration, Share(restDuration, total), percents[^1]);
 
-        return new TitleBreakdown(app ?? new AppIdentity(appKey, appKey), from, to, total, titles, other);
+        return new TitleBreakdown(app ?? new AppIdentity(appKey, appKey), from, to, total, titles);
     }
 
     private static double Share(TimeSpan part, TimeSpan total) => (double)part.Ticks / total.Ticks;

@@ -124,8 +124,13 @@ export function appDay(date: string = demoDate, appKey: string = apps.code.key):
               share: 1 / 3,
               percent: 33,
             },
+            {
+              title: 'Program.cs - timeglass - Visual Studio Code',
+              durationMs: minutes(30),
+              share: 1 / 6,
+              percent: 17,
+            },
           ],
-    other: total === 0 ? null : { count: 3, durationMs: minutes(30), share: 1 / 6, percent: 17 },
   };
 }
 

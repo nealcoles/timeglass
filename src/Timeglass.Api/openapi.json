@@ -100,7 +100,7 @@
           "Days"
         ],
         "summary": "One app's time on one day, by window title",
-        "description": "The 10 titles with the most time, and the rest together as other.",
+        "description": "Every title, longest first.",
         "operationId": "GetAppDay",
         "parameters": [
           {
@@ -521,8 +521,7 @@
           "start",
           "end",
           "totalMs",
-          "titles",
-          "other"
+          "titles"
         ],
         "type": "object",
         "properties": {
@@ -555,18 +554,7 @@
             "items": {
               "$ref": "#/components/schemas/TitleTotalDto"
             },
-            "description": "The titles with the most time, longest first."
-          },
-          "other": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "description": "The remaining titles together, or null if every title is listed.",
-                "$ref": "#/components/schemas/OtherTitlesDto"
-              }
-            ]
+            "description": "Every title, longest first."
           }
         },
         "description": "Where the time in one app went on one local day, by window title."
@@ -926,38 +914,6 @@
           }
         }
       },
-      "OtherTitlesDto": {
-        "required": [
-          "count",
-          "durationMs",
-          "share",
-          "percent"
-        ],
-        "type": "object",
-        "properties": {
-          "count": {
-            "type": "integer",
-            "description": "How many distinct titles.",
-            "format": "int32"
-          },
-          "durationMs": {
-            "type": "integer",
-            "description": "Their active time together, in milliseconds.",
-            "format": "int64"
-          },
-          "share": {
-            "type": "number",
-            "description": "Exact fraction of the app's time, between 0 and 1.",
-            "format": "double"
-          },
-          "percent": {
-            "type": "integer",
-            "description": "Whole percentage.",
-            "format": "int32"
-          }
-        },
-        "description": "The titles left out of the list, together."
-      },
       "PauseDuration": {
         "enum": [
           "untilResumed",
@@ -1267,7 +1223,7 @@
           },
           "percent": {
             "type": "integer",
-            "description": "Whole percentage; titles and other add up to 100.",
+            "description": "Whole percentage; the titles add up to 100.",
             "format": "int32"
           }
         },

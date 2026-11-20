@@ -293,8 +293,8 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
 
     /// <summary>
     /// One app's time grouped by window title over local days <paramref name="firstDay"/> to
-    /// <paramref name="lastDay"/> (both included): the <paramref name="top"/> titles with the most
-    /// time and the rest as "other" (<see cref="TitleBreakdowns.Build"/>). For one day, pass the same date twice.
+    /// <paramref name="lastDay"/> (both included), every title listed (<see cref="TitleBreakdowns.Build"/>).
+    /// For one day, pass the same date twice.
     /// </summary>
     /// <param name="appKey">The app's key, e.g. <c>outlook</c>.</param>
     /// <param name="firstDay">First local date.</param>
@@ -302,7 +302,6 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     /// <param name="zone">The user's time zone.</param>
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
-    /// <param name="top">How many titles to list by name.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
     public async Task<TitleBreakdown> GetTitleBreakdownAsync(
         string appKey,
@@ -311,13 +310,12 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        int top = TitleBreakdowns.DefaultTop,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(appKey);
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
         var intervals = await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
-        return TitleBreakdowns.Build(intervals, appKey, from, to, now, top);
+        return TitleBreakdowns.Build(intervals, appKey, from, to, now);
     }
 
     /// <summary>

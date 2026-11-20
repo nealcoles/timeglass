@@ -128,7 +128,7 @@ public static partial class TimeglassApi
             .WithName("GetAppDay")
             .WithTags("Days")
             .WithSummary("One app's time on one day, by window title")
-            .WithDescription("The 10 titles with the most time, and the rest together as other.");
+            .WithDescription("Every title, longest first.");
 
         api.MapGet("/range/summary", GetRangeSummaryAsync)
             .WithName("GetRangeSummary")
