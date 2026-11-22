@@ -53,3 +53,12 @@ export function formatDateRange(from: string, to: string, locale?: string): stri
     timeZone: 'UTC',
   }).formatRange(toUtc(from), toUtc(to));
 }
+
+/** `2 Nov` (in the browser's locale) from `2026-11-02`. */
+export function formatDayMonth(date: string, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`));
+}

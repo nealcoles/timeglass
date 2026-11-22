@@ -357,10 +357,16 @@ route a deep link.
 | `/day/{date}`              | The same for another day                                        |
 | `/day/{date}/app/{appKey}` | App drill-down (`AppView`): the app's time by window title      |
 | `/week`, `/week/{date}`    | Week overview (`WeekView`): this week, or the week of a date    |
+| `/trends`                  | Trends (`TrendsView`): app use over the last 7 to 365 days      |
 | `/settings`                | Settings and privacy (`SettingsView`), export, deleting a range |
 
 The header shows the tracker's state, a _Pause_ menu with the tray's choices (or _Resume_ while
-paused) and the link to the settings. The settings page edits what used to need `settings.json`:
+paused) and the links to the trends and the settings. The trends page draws a line per app
+over the last 7, 30, 90, 180 or 365 days from `/api/range/summary`, day by day up to 90 days and
+week by week beyond (each point an average per day). One dropdown picks how many of the longest
+apps to draw (top 3, 5, 10 or all), another picks a single app from those logged in the period;
+the table below the chart gives each app's total, its average per day and the change from the
+first half of the period to the second. The settings page edits what used to need `settings.json`:
 away detection, apps that never go idle, window titles, excluded apps, apps without titles, app
 renames and _Start with Windows_. It checks the form before saving and then shows the API's
 errors next to their fields. _Export recorded time_ (`ExportData`) picks a range, the rows and

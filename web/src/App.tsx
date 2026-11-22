@@ -6,6 +6,7 @@ import { Link } from './Link.tsx';
 import { paths, useRoute, type Route } from './router.ts';
 import { SettingsView } from './settings/SettingsView.tsx';
 import { TrackerControl } from './status/TrackerControl.tsx';
+import { TrendsView } from './trends/TrendsView.tsx';
 import { WeekView } from './week/WeekView.tsx';
 
 type ApiStatus = 'checking' | 'online' | 'offline';
@@ -35,6 +36,13 @@ export function App() {
           </p>
           {data && <TrackerControl status={data} />}
           <Link
+            href={paths.trends()}
+            className="app__settings"
+            aria-current={route.name === 'trends' ? 'page' : undefined}
+          >
+            Trends
+          </Link>
+          <Link
             href={paths.settings()}
             className="app__settings"
             aria-current={route.name === 'settings' ? 'page' : undefined}
@@ -60,6 +68,8 @@ function Screen({ route, today }: { route: Route; today: string }) {
       return <WeekView date={today} today={today} />;
     case 'week':
       return <WeekView date={route.date} today={today} />;
+    case 'trends':
+      return <TrendsView today={today} />;
     case 'settings':
       return <SettingsView today={today} />;
     case 'notFound':
