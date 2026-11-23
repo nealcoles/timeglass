@@ -35,3 +35,11 @@ GetClassName
 
 // Idle detection
 GetLastInputInfo
+
+// Page titles inside Chromium-based apps (UI Automation)
+CUIAutomation
+IUIAutomation
+IUIAutomationElement
+IUIAutomationTreeWalker
+UIA_CONTROLTYPE_ID
+SysFreeString

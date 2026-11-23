@@ -20,6 +20,14 @@ public sealed record ForegroundWatcherOptions
 
     /// <summary>How often the foreground window and title are polled to catch missed events.</summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Exe names of Chromium-based apps whose window title never changes. For these the title is
+    /// the title of the page shown inside, read through UI Automation (#102). Falls back to the
+    /// window title when the page title can't be read.
+    /// </summary>
+    public IReadOnlySet<string> PageTitleApps { get; init; } =
+        new HashSet<string>(["claude.exe"], StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -46,11 +54,18 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
     private readonly ILogger _logger;
     private readonly ForegroundChangeDetector _detector = new();
     private readonly WindowInspector _inspector = WindowInspector.CreateDefault();
+    private readonly PageTitleReader _pageTitles = new();
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _started = new();
 
     // Kept in a field so the delegate isn't collected while Windows still calls it.
     private readonly WINEVENTPROC _callback;
+
+    // Whether the last checked window belongs to a page-title app; only used on the watcher thread.
+    private (nint Window, uint ProcessId, bool IsPageApp) _lastApp;
+
+    // The page title last reported, for GetCurrent on other threads.
+    private volatile PageTitle? _lastPageTitle;
 
     private uint _threadId;
     private Exception? _startError;
@@ -82,7 +97,18 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
     public event Action<WindowSnapshot?>? ForegroundChanged;
 
     /// <inheritdoc />
-    public WindowSnapshot? GetCurrent() => _inspector.Read(PInvoke.GetForegroundWindow());
+    /// <remarks>
+    /// Page titles are only read on the watcher thread. When the foreground window is the one the
+    /// watcher last saw with a page title, that title is used instead of the window title.
+    /// </remarks>
+    public WindowSnapshot? GetCurrent()
+    {
+        var window = PInvoke.GetForegroundWindow();
+        var snapshot = _inspector.Read(window);
+        return snapshot is not null && _lastPageTitle is { } last && last.Window == (nint)window
+            ? snapshot with { Title = last.Title }
+            : snapshot;
+    }
 
     /// <summary>Removes the hooks and stops the watcher thread.</summary>
     public void Dispose()
@@ -202,13 +228,16 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
     {
         try
         {
-            var title = window.IsNull ? null : WindowInspector.ReadTitle(window);
+            var pageTitle = IsPageApp(window) ? _pageTitles.Read(window) : null;
+            var title = pageTitle ?? (window.IsNull ? null : WindowInspector.ReadTitle(window));
             if (!_detector.IsChange((nint)window, title))
             {
                 return;
             }
 
-            ForegroundChanged?.Invoke(_inspector.Read(window));
+            _lastPageTitle = pageTitle is null ? null : new PageTitle((nint)window, pageTitle);
+            var snapshot = _inspector.Read(window);
+            ForegroundChanged?.Invoke(pageTitle is null || snapshot is null ? snapshot : snapshot with { Title = pageTitle });
         }
 #pragma warning disable CA1031 // An exception here would end the message loop and with it all tracking.
         catch (Exception ex)
@@ -217,4 +246,22 @@ public sealed class Win32ForegroundWindowSource : IForegroundWindowSource, IDisp
             _logger.LogError(ex, "Failed to report a foreground change");
         }
     }
+
+    private bool IsPageApp(HWND window)
+    {
+        if (window.IsNull || _options.PageTitleApps.Count == 0)
+        {
+            return false;
+        }
+
+        var processId = WindowInspector.ProcessIdOf(window);
+        if (_lastApp.Window != (nint)window || _lastApp.ProcessId != processId)
+        {
+            _lastApp = ((nint)window, processId, _options.PageTitleApps.Contains(_inspector.ExeNameOf(processId)));
+        }
+
+        return _lastApp.IsPageApp;
+    }
+
+    private sealed record PageTitle(nint Window, string Title);
 }

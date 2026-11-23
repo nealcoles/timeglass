@@ -70,7 +70,11 @@ internal sealed class WindowInspector
             FileDescription: process.FileDescription);
     }
 
-    private static unsafe uint ProcessIdOf(HWND window)
+    /// <summary>The exe name of a process, or empty when unknown.</summary>
+    public string ExeNameOf(uint processId) => _processes.Resolve(processId).ExeName;
+
+    /// <summary>The id of the process that owns a window.</summary>
+    public static unsafe uint ProcessIdOf(HWND window)
     {
         uint processId;
         _ = PInvoke.GetWindowThreadProcessId(window, &processId);
