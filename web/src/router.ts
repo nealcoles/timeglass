@@ -12,6 +12,7 @@ export type Route =
   | { name: 'app'; date: string; appKey: string }
   | { name: 'thisWeek' }
   | { name: 'week'; date: string }
+  | { name: 'trends' }
   | { name: 'settings' }
   | { name: 'notFound' };
 
@@ -26,6 +27,9 @@ export function parseRoute(pathname: string): Route {
   }
   if (parts[0] === 'settings' && parts.length === 1) {
     return { name: 'settings' };
+  }
+  if (parts[0] === 'trends' && parts.length === 1) {
+    return { name: 'trends' };
   }
   if (parts[0] === 'week' && parts.length === 1) {
     return { name: 'thisWeek' };
@@ -60,6 +64,7 @@ export const paths = {
   day: (date: string) => `/day/${date}`,
   app: (date: string, appKey: string) => `/day/${date}/app/${encodeURIComponent(appKey)}`,
   week: (date: string) => `/week/${date}`,
+  trends: () => '/trends',
   settings: () => '/settings',
 };
 
