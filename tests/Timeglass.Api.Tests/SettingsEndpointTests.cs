@@ -78,6 +78,40 @@ public sealed class SettingsEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Work_hours_round_trip_in_minutes_and_shape_the_workday()
+    {
+        using var response = await PutAsync(Defaults with { WorkHoursStartMinutes = 8 * 60 + 30, WorkHoursEndMinutes = 16 * 60 });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        _host.Settings.Current.WorkHoursStart.ShouldBe(TimeSpan.FromHours(8.5));
+        _host.Settings.Current.WorkHoursEnd.ShouldBe(TimeSpan.FromHours(16));
+        var settings = await _host.GetJsonAsync<SettingsDto>("/api/settings", Ct);
+        settings.WorkHoursStartMinutes.ShouldBe(8 * 60 + 30);
+        settings.WorkHoursEndMinutes.ShouldBe(16 * 60);
+    }
+
+    [Fact]
+    public async Task Leaving_out_work_hours_keeps_them()
+    {
+        _host.Settings.Current = new TimeglassSettings { WorkHoursStart = TimeSpan.FromHours(7) };
+
+        using var response = await PutAsync(Defaults);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        _host.Settings.Current.WorkHoursStart.ShouldBe(TimeSpan.FromHours(7));
+        _host.Settings.Current.WorkHoursEnd.ShouldBe(TimeSpan.FromHours(17));
+    }
+
+    [Fact]
+    public async Task Work_hours_that_end_before_they_start_are_refused()
+    {
+        using var response = await PutAsync(Defaults with { WorkHoursStartMinutes = 17 * 60, WorkHoursEndMinutes = 9 * 60 });
+
+        var errors = await ErrorsAsync(response);
+        errors["workHoursEndMinutes"]!.AsArray().Single()!.GetValue<string>().ShouldBe("WorkHoursEnd must be after WorkHoursStart.");
+    }
+
+    [Fact]
     public async Task Get_settings_with_idle_detection_off()
     {
         _host.Settings.Current = new TimeglassSettings { IdleThreshold = null };

@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Timeglass.Core.Apps;
+using Timeglass.Core.Reporting;
 using Timeglass.Core.Settings;
 using Timeglass.Core.Tracking;
 
@@ -170,5 +172,28 @@ public class TimeglassSettingsTests
         options.MinimumInterval.ShouldBe(TimeSpan.FromSeconds(5));
         options.CheckpointInterval.ShouldBe(TimeSpan.FromMinutes(1));
         options.TickInterval.ShouldBe(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Work_hours_default_to_nine_to_five()
+    {
+        new TimeglassSettings().ToWorkHours().ShouldBe(new WorkHours(TimeSpan.FromHours(9), TimeSpan.FromHours(17)));
+    }
+
+    [Theory]
+    [InlineData("17:00", "09:00")]
+    [InlineData("09:00", "09:00")]
+    public void Work_hours_must_end_after_they_start(string start, string end)
+    {
+        var settings = new TimeglassSettings { WorkHoursStart = TimeSpan.Parse(start, CultureInfo.InvariantCulture), WorkHoursEnd = TimeSpan.Parse(end, CultureInfo.InvariantCulture) };
+
+        Errors(settings).ShouldContain("WorkHoursEnd must be after WorkHoursStart.");
+    }
+
+    [Fact]
+    public void Work_hours_must_be_a_time_of_day()
+    {
+        Errors(new TimeglassSettings { WorkHoursEnd = TimeSpan.FromHours(25) })
+            .ShouldContain(e => e.StartsWith("WorkHoursEnd must be between", StringComparison.Ordinal));
     }
 }

@@ -17,6 +17,8 @@ namespace Timeglass.Api;
 /// <param name="AppsWithoutTitles">App keys whose time is tracked but whose window titles are never stored.</param>
 /// <param name="AppAliases">The user's app renames and aliases, applied on top of the built-in ones.</param>
 /// <param name="StartWithWindows">Whether the app starts when the user signs in; null where the host can't tell (read) or to leave it as it is (write).</param>
+/// <param name="WorkHoursStartMinutes">Minutes after local midnight that work hours begin, 0 to 1439; null keeps the current value (write).</param>
+/// <param name="WorkHoursEndMinutes">Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).</param>
 public sealed record SettingsDto(
     int? IdleThresholdSeconds,
     IReadOnlyList<string> IdleExemptApps,
@@ -24,7 +26,9 @@ public sealed record SettingsDto(
     bool RecordWindowTitles,
     IReadOnlyList<string> AppsWithoutTitles,
     IReadOnlyList<AppAliasDto> AppAliases,
-    bool? StartWithWindows)
+    bool? StartWithWindows,
+    int? WorkHoursStartMinutes = null,
+    int? WorkHoursEndMinutes = null)
 {
     internal static SettingsDto Create(TimeglassSettings settings, bool? startWithWindows) => new(
         settings.IdleThreshold is { } idle ? (int)Math.Round(idle.TotalSeconds) : null,
@@ -33,7 +37,9 @@ public sealed record SettingsDto(
         settings.RecordWindowTitles,
         [.. settings.AppsWithoutTitles ?? []],
         [.. (settings.AppAliases ?? []).Select(AppAliasDto.Create)],
-        startWithWindows);
+        startWithWindows,
+        (int)settings.WorkHoursStart.TotalMinutes,
+        (int)settings.WorkHoursEnd.TotalMinutes);
 
     /// <summary>
     /// These settings on top of <paramref name="current"/>: the fields the dashboard doesn't edit
@@ -53,6 +59,8 @@ public sealed record SettingsDto(
         RetentionMonths = current.RetentionMonths,
         ApiPort = current.ApiPort,
         LogLevel = current.LogLevel,
+        WorkHoursStart = WorkHoursStartMinutes is { } start ? TimeSpan.FromMinutes(start) : current.WorkHoursStart,
+        WorkHoursEnd = WorkHoursEndMinutes is { } end ? TimeSpan.FromMinutes(end) : current.WorkHoursEnd,
     };
 
     internal static List<string> Keys(IEnumerable<string?>? keys) =>
@@ -127,6 +135,8 @@ internal static class SettingsValidation
     private static string FieldName(string member) => member switch
     {
         nameof(TimeglassSettings.IdleThreshold) => "idleThresholdSeconds",
+        nameof(TimeglassSettings.WorkHoursStart) => "workHoursStartMinutes",
+        nameof(TimeglassSettings.WorkHoursEnd) => "workHoursEndMinutes",
         _ => JsonNamingPolicy.CamelCase.ConvertName(member),
     };
 }

@@ -583,8 +583,13 @@ body {
   width: 5rem;
 }
 
+.settings__inline input[type='time'] {
+  width: auto;
+}
+
 .settings input[type='text'],
 .settings input[type='number'],
+.settings input[type='time'],
 .settings input[type='date'] {
   padding: 0.25rem 0.5rem;
   font: inherit;

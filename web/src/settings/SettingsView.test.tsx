@@ -146,6 +146,22 @@ describe('SettingsView', () => {
     ]);
   });
 
+  it('saves new work hours (#110)', async () => {
+    const saved = captureSaves();
+    const user = await renderSettings();
+    const hours = screen.getByRole('group', { name: 'Work hours' });
+
+    const from = within(hours).getByLabelText('from');
+    await user.clear(from);
+    await user.type(from, '08:30');
+    await user.click(screen.getByRole('button', { name: 'Save settings' }));
+
+    expect(
+      await screen.findByText(/Saved\. The new settings apply right away\./),
+    ).toBeInTheDocument();
+    expect(saved).toEqual([settings({ workHoursStartMinutes: 8 * 60 + 30 })]);
+  });
+
   it('checks the form before saving', async () => {
     const saved = captureSaves();
     const user = await renderSettings(settings({ excludedApps: ['edge'] }));

@@ -66,6 +66,12 @@ export function DayView({ date, today = localToday() }: DayViewProps) {
                 <dd>{formatClockTime(summary.data.lastActivity)}</dd>
               </div>
             )}
+            {summary.data.firstActivity && (
+              <div title="Time from your first to your last activity that falls inside your work hours, set in Settings">
+                <dt>Workday</dt>
+                <dd>{formatDuration(summary.data.workdayMs)}</dd>
+              </div>
+            )}
           </dl>
 
           <DaySections date={date} rows={appShares(summary.data.apps)} />
