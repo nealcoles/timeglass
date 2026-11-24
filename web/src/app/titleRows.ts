@@ -30,3 +30,8 @@ export function filterTitles(titles: readonly TitleRow[], query: string): TitleR
   }
   return titles.filter((t) => t.title?.toLocaleLowerCase().includes(needle) ?? false);
 }
+
+/** How many different titles the list has, not counting time where no title was recorded. */
+export function countTitles(titles: readonly TitleRow[]): number {
+  return titles.filter((t) => t.title !== null).length;
+}

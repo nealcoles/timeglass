@@ -283,6 +283,13 @@ body {
   border-radius: 4px;
 }
 
+/* How many titles match the filter, e.g. "2 of 14 titles" (#109). */
+.app-day__count {
+  font-size: 0.875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Long titles are cut off with an ellipsis; the full title is the tooltip. */
 /* Every title is listed (#100), so a long list scrolls on its own below the search box. */
 .app-titles__scroll {

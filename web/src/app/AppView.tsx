@@ -6,7 +6,7 @@ import { appColor } from '../day/appColor.ts';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { paths } from '../router.ts';
-import { filterTitles, hasNoTitles } from './titleRows.ts';
+import { countTitles, filterTitles, hasNoTitles } from './titleRows.ts';
 
 interface AppViewProps {
   /** The local date, `yyyy-MM-dd`. */
@@ -20,7 +20,7 @@ interface AppViewProps {
 /**
  * The app drill-down (#34): which window titles (mails, documents, projects) an app's time on a
  * day went to, with a search box to find one. Every title is listed, in a list that scrolls on
- * its own when there are many (#100).
+ * its own when there are many (#100), and how many different titles there are (#109).
  */
 export function AppView({ date, appKey, isToday = false }: AppViewProps) {
   const appDay = useAppDay(date, appKey);
@@ -63,6 +63,12 @@ export function AppView({ date, appKey, isToday = false }: AppViewProps) {
               <dt>Active</dt>
               <dd>{formatDuration(appDay.data.totalMs)}</dd>
             </div>
+            {!hasNoTitles(appDay.data) && (
+              <div>
+                <dt>Titles</dt>
+                <dd>{countTitles(appDay.data.titles)}</dd>
+              </div>
+            )}
           </dl>
           {hasNoTitles(appDay.data) ? (
             <p className="app-day__empty">
@@ -83,6 +89,8 @@ function TitleList({ day }: { day: AppDayDto }) {
   const [query, setQuery] = useState('');
   const searchId = useId();
   const rows = filterTitles(day.titles, query);
+  const total = countTitles(day.titles);
+  const filtering = query.trim() !== '';
   const longest = Math.max(...day.titles.map((t) => t.durationMs), 1);
   const color = appColor(day.app.key);
 
@@ -98,6 +106,11 @@ function TitleList({ day }: { day: AppDayDto }) {
           autoComplete="off"
           spellCheck={false}
         />
+        {filtering && rows.length > 0 && (
+          <span className="app-day__count" aria-live="polite">
+            {rows.length} of {total} {total === 1 ? 'title' : 'titles'}
+          </span>
+        )}
       </div>
 
       {rows.length === 0 ? (
