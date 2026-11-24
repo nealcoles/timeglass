@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Logging;
 using Timeglass.Core.Apps;
+using Timeglass.Core.Reporting;
 using Timeglass.Core.Tracking;
 
 namespace Timeglass.Core.Settings;
@@ -61,6 +62,17 @@ public sealed class TimeglassSettings : IValidatableObject
     /// </summary>
     [Range(1, 120, ErrorMessage = "{0} must be between {1} and {2}, or null to keep everything.")]
     public int? RetentionMonths { get; set; }
+
+    /// <summary>Local time work hours begin, for the workday on the main screen (#110).</summary>
+    [Range(typeof(TimeSpan), "00:00:00", "23:59:00", ErrorMessage = "{0} must be between {1} and {2}.")]
+    public TimeSpan WorkHoursStart { get; set; } = WorkHours.Default.Start;
+
+    /// <summary>Local time work hours end; after <see cref="WorkHoursStart"/>.</summary>
+    [Range(typeof(TimeSpan), "00:00:00", "23:59:00", ErrorMessage = "{0} must be between {1} and {2}.")]
+    public TimeSpan WorkHoursEnd { get; set; } = WorkHours.Default.End;
+
+    /// <summary>The work hours these settings stand for.</summary>
+    public WorkHours ToWorkHours() => new(WorkHoursStart, WorkHoursEnd);
 
     /// <summary>Port of the local HTTP API (#27). Always bound to loopback.</summary>
     [Range(1024, 65535, ErrorMessage = "{0} must be between {1} and {2}.")]
@@ -128,6 +140,13 @@ public sealed class TimeglassSettings : IValidatableObject
                     $"{string.Join(", ", both)} cannot be in both {nameof(ExcludedApps)} and {nameof(AppsWithoutTitles)}; pick one.",
                     [nameof(ExcludedApps), nameof(AppsWithoutTitles)]);
             }
+        }
+
+        if (WorkHoursEnd <= WorkHoursStart)
+        {
+            yield return new ValidationResult(
+                $"{nameof(WorkHoursEnd)} must be after {nameof(WorkHoursStart)}.",
+                [nameof(WorkHoursEnd)]);
         }
 
         if (AppAliases is null)

@@ -21,6 +21,9 @@ export interface SettingsForm {
   aliases: AliasRow[];
   /** Null where the app can't start with Windows (the dev host), so the switch is hidden. */
   startWithWindows: boolean | null;
+  /** When work hours begin and end, `HH:mm` as the time inputs give them. */
+  workStart: string;
+  workEnd: string;
 }
 
 /** Errors by the API's field names (`idleThresholdSeconds`, `excludedApps`, …). */
@@ -32,6 +35,27 @@ export const IDLE_MAX_SECONDS = 4 * 60 * 60;
 
 /** The idle threshold offered when the user turns idle detection back on. */
 const DEFAULT_IDLE_MINUTES = '5';
+
+/** Work hours when the API leaves them out: 09:00 to 17:00, as in `WorkHours.Default`. */
+const DEFAULT_WORK_START = 9 * 60;
+const DEFAULT_WORK_END = 17 * 60;
+
+/** `HH:mm` for minutes after midnight. */
+export function toClock(minutes: number): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
+}
+
+/** Minutes after midnight from `HH:mm`, or NaN if it isn't a time of day. */
+export function fromClock(clock: string): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(clock.trim());
+  if (!match) {
+    return Number.NaN;
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours < 24 && minutes < 60 ? hours * 60 + minutes : Number.NaN;
+}
 
 export function toForm(settings: SettingsDto): SettingsForm {
   return {
@@ -51,6 +75,8 @@ export function toForm(settings: SettingsDto): SettingsForm {
       titlePattern: a.titlePattern ?? '',
     })),
     startWithWindows: settings.startWithWindows,
+    workStart: toClock(settings.workHoursStartMinutes ?? DEFAULT_WORK_START),
+    workEnd: toClock(settings.workHoursEndMinutes ?? DEFAULT_WORK_END),
   };
 }
 
@@ -77,6 +103,8 @@ export function toSettings(form: SettingsForm): SettingsDto {
       titlePattern: row.titlePattern.trim() === '' ? null : row.titlePattern,
     })),
     startWithWindows: form.startWithWindows,
+    workHoursStartMinutes: fromClock(form.workStart),
+    workHoursEndMinutes: fromClock(form.workEnd),
   };
 }
 
@@ -91,6 +119,17 @@ export function validate(form: SettingsForm): FieldErrors {
     if (!Number.isFinite(seconds) || seconds < IDLE_MIN_SECONDS || seconds > IDLE_MAX_SECONDS) {
       errors.idleThresholdSeconds = ['Enter a number of minutes from 0.5 to 240.'];
     }
+  }
+
+  const workStart = fromClock(form.workStart);
+  const workEnd = fromClock(form.workEnd);
+  if (Number.isNaN(workStart)) {
+    errors.workHoursStartMinutes = ['Enter the time work hours begin, such as 09:00.'];
+  }
+  if (Number.isNaN(workEnd)) {
+    errors.workHoursEndMinutes = ['Enter the time work hours end, such as 17:00.'];
+  } else if (!Number.isNaN(workStart) && workEnd <= workStart) {
+    errors.workHoursEndMinutes = ['Work hours must end after they begin.'];
   }
 
   const withoutTitles = new Set(form.appsWithoutTitles.map((k) => k.toLowerCase()));

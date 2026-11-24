@@ -36,6 +36,7 @@ public sealed record AppTotalDto(AppDto App, long DurationMs, double Share, int 
 /// <param name="AwayMs">Total away time (idle, locked or asleep), in milliseconds.</param>
 /// <param name="FirstActivity">Start of the first active time, or null if there was none.</param>
 /// <param name="LastActivity">End of the last active time, or null if there was none.</param>
+/// <param name="WorkdayMs">Time from the first to the last activity that falls inside the work hours in the settings (09:00 to 17:00 by default), in milliseconds.</param>
 /// <param name="Apps">Active time per app, longest first.</param>
 public sealed record DaySummaryDto(
     DateOnly Date,
@@ -45,9 +46,10 @@ public sealed record DaySummaryDto(
     long AwayMs,
     DateTimeOffset? FirstActivity,
     DateTimeOffset? LastActivity,
+    long WorkdayMs,
     IReadOnlyList<AppTotalDto> Apps)
 {
-    internal static DaySummaryDto Create(DaySummary summary, TimeZoneInfo zone) => new(
+    internal static DaySummaryDto Create(DaySummary summary, TimeZoneInfo zone, WorkHours workHours) => new(
         summary.Day,
         summary.Start,
         summary.End,
@@ -55,6 +57,7 @@ public sealed record DaySummaryDto(
         summary.Away.ToMs(),
         summary.FirstActivity?.In(zone),
         summary.LastActivity?.In(zone),
+        workHours.Within(summary.Day, summary.FirstActivity, summary.LastActivity, zone).ToMs(),
         [.. summary.Apps.Select(AppTotalDto.Create)]);
 }
 

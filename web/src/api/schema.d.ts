@@ -308,6 +308,11 @@ export interface components {
        * @description End of the last active time, or null if there was none.
        */
       lastActivity: null | string;
+      /**
+       * Format: int64
+       * @description Time from the first to the last activity that falls inside the work hours in the settings (09:00 to 17:00 by default), in milliseconds.
+       */
+      workdayMs: number;
       /** @description Active time per app, longest first. */
       apps: components['schemas']['AppTotalDto'][];
     };
@@ -487,6 +492,16 @@ export interface components {
       appAliases: components['schemas']['AppAliasDto'][];
       /** @description Whether the app starts when the user signs in; null where the host can't tell (read) or to leave it as it is (write). */
       startWithWindows: null | boolean;
+      /**
+       * Format: int32
+       * @description Minutes after local midnight that work hours begin, 0 to 1439; null keeps the current value (write).
+       */
+      workHoursStartMinutes?: null | number;
+      /**
+       * Format: int32
+       * @description Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).
+       */
+      workHoursEndMinutes?: null | number;
     };
     /** @description The tracker's current state. */
     StatusDto: {

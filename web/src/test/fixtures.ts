@@ -64,6 +64,8 @@ export function daySummary(date: string = demoDate): DaySummaryDto {
     awayMs: minutes(65),
     firstActivity: at(date, '08:12:31'),
     lastActivity: at(date, '16:05:00'),
+    // From 09:00, when work hours begin, to the last activity at 16:05.
+    workdayMs: minutes(425),
     apps: appTotals,
   };
 }
@@ -173,6 +175,8 @@ export function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
     appsWithoutTitles: [],
     appAliases: [],
     startWithWindows: false,
+    workHoursStartMinutes: 9 * 60,
+    workHoursEndMinutes: 17 * 60,
     ...overrides,
   };
 }

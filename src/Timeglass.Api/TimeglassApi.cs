@@ -149,6 +149,7 @@ public static partial class TimeglassApi
     private static async Task<Results<Ok<DaySummaryDto>, ValidationProblem>> GetDaySummaryAsync(
         [Description("Local date, yyyy-MM-dd.")] string date,
         [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
         [FromServices] TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -158,7 +159,7 @@ public static partial class TimeglassApi
         }
 
         var summary = await reports.GetDaySummaryAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(DaySummaryDto.Create(summary, time.LocalTimeZone));
+        return TypedResults.Ok(DaySummaryDto.Create(summary, time.LocalTimeZone, settings.Current.ToWorkHours()));
     }
 
     private static async Task<Results<Ok<TimelineDto>, ValidationProblem>> GetTimelineAsync(

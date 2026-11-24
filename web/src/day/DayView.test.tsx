@@ -36,7 +36,23 @@ describe('DayView', () => {
       Away: '1h 5m',
       'First activity': '08:12',
       'Last activity': '16:05',
+      Workday: '7h 5m',
     });
+  });
+
+  it('leaves out the workday when there was no activity (#110)', async () => {
+    useSummary({
+      ...daySummary(),
+      activeMs: 0,
+      firstActivity: null,
+      lastActivity: null,
+      workdayMs: 0,
+    });
+
+    renderWithApi(<DayView date={demoDate} />);
+
+    await screen.findByRole('table');
+    expect(totals()).not.toHaveProperty('Workday');
   });
 
   it('heads the view with the date, and "Today" for today', async () => {

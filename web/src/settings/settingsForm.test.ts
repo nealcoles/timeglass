@@ -1,5 +1,5 @@
 import { settings } from '../test/fixtures.ts';
-import { addKey, toForm, toSettings, validate } from './settingsForm.ts';
+import { addKey, fromClock, toClock, toForm, toSettings, validate } from './settingsForm.ts';
 
 describe('settings form', () => {
   it('round-trips the settings', () => {
@@ -11,11 +11,14 @@ describe('settings form', () => {
       appsWithoutTitles: ['edge'],
       appAliases: [{ key: 'game', name: 'Game', exes: ['a.exe', 'b.exe'], titlePattern: null }],
       startWithWindows: true,
+      workHoursStartMinutes: 8 * 60 + 30,
+      workHoursEndMinutes: 16 * 60,
     });
 
     const form = toForm(dto);
 
     expect(form.idleMinutes).toBe('1.5');
+    expect([form.workStart, form.workEnd]).toEqual(['08:30', '16:00']);
     expect(form.aliases[0]?.exes).toBe('a.exe, b.exe');
     expect(toSettings(form)).toEqual(dto);
   });
@@ -76,5 +79,40 @@ describe('settings form', () => {
     expect(addKey(['vlc'], ' zoom ')).toEqual(['vlc', 'zoom']);
     expect(addKey(['vlc'], 'VLC')).toEqual(['vlc']);
     expect(addKey(['vlc'], '  ')).toEqual(['vlc']);
+  });
+});
+
+describe('work hours (#110)', () => {
+  it('reads and writes times of day as minutes after midnight', () => {
+    expect(toClock(9 * 60 + 5)).toBe('09:05');
+    expect(fromClock('09:05')).toBe(9 * 60 + 5);
+    expect(fromClock('23:59')).toBe(23 * 60 + 59);
+    expect(fromClock('')).toBeNaN();
+    expect(fromClock('24:00')).toBeNaN();
+    expect(fromClock('9')).toBeNaN();
+  });
+
+  it('defaults to 09:00 to 17:00 when the API leaves them out', () => {
+    const dto = settings();
+    delete dto.workHoursStartMinutes;
+    delete dto.workHoursEndMinutes;
+    const form = toForm(dto);
+
+    expect([form.workStart, form.workEnd]).toEqual(['09:00', '17:00']);
+  });
+
+  it('needs both times, ending after they begin', () => {
+    const form = toForm(settings());
+
+    expect(validate({ ...form, workStart: '' }).workHoursStartMinutes).toEqual([
+      'Enter the time work hours begin, such as 09:00.',
+    ]);
+    expect(validate({ ...form, workEnd: '' }).workHoursEndMinutes).toEqual([
+      'Enter the time work hours end, such as 17:00.',
+    ]);
+    expect(validate({ ...form, workStart: '17:00', workEnd: '09:00' }).workHoursEndMinutes).toEqual(
+      ['Work hours must end after they begin.'],
+    );
+    expect(validate(form)).toEqual({});
   });
 });

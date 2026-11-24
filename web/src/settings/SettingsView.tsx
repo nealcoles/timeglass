@@ -25,6 +25,8 @@ const FIELDS = new Set([
   'excludedApps',
   'appsWithoutTitles',
   'appAliases',
+  'workHoursStartMinutes',
+  'workHoursEndMinutes',
 ]);
 
 /**
@@ -138,6 +140,34 @@ function SettingsEditor({ initial, today }: { initial: SettingsDto; today: strin
           suggestions={suggestions}
           errors={errors.idleExemptApps}
         />
+
+        <fieldset className="settings__field">
+          <legend>Work hours</legend>
+          <p className="settings__hint">
+            The workday on the main screen counts the time from your first to your last activity
+            that falls inside these hours.
+          </p>
+          <label className="settings__inline">
+            from
+            <input
+              type="time"
+              value={form.workStart}
+              aria-invalid={errors.workHoursStartMinutes !== undefined}
+              onChange={(e) => change({ workStart: e.target.value })}
+            />
+          </label>
+          <label className="settings__inline">
+            to
+            <input
+              type="time"
+              value={form.workEnd}
+              aria-invalid={errors.workHoursEndMinutes !== undefined}
+              onChange={(e) => change({ workEnd: e.target.value })}
+            />
+          </label>
+          <FieldErrorList errors={errors.workHoursStartMinutes} />
+          <FieldErrorList errors={errors.workHoursEndMinutes} />
+        </fieldset>
 
         {form.startWithWindows !== null && (
           <fieldset className="settings__field">
