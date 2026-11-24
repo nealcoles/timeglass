@@ -73,6 +73,30 @@ describe('AppView', () => {
     expect(title).toHaveAttribute('title', 'TrackingEngine.cs - timeglass - Visual Studio Code');
   });
 
+  it('counts the different titles, leaving out time without a title (#109)', async () => {
+    const base = appDay();
+    useAppDay({
+      ...base,
+      titles: [...base.titles, { title: null, durationMs: 5 * 60_000, share: 5 / 180, percent: 3 }],
+    });
+
+    renderWithApi(<AppView date={demoDate} appKey="vscode" />);
+
+    await screen.findByRole('table');
+    expect(screen.getByText('Titles').nextElementSibling).toHaveTextContent('3');
+  });
+
+  it('shows how many titles match the filter (#109)', async () => {
+    const user = userEvent.setup();
+    renderWithApi(<AppView date={demoDate} appKey="vscode" />);
+    await screen.findByRole('table');
+    expect(screen.queryByText(/of 3 titles/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox', { name: 'Filter titles' }), 'daysumm');
+
+    expect(screen.getByText('1 of 3 titles')).toBeInTheDocument();
+  });
+
   it('filters the titles as you type', async () => {
     const user = userEvent.setup();
     renderWithApi(<AppView date={demoDate} appKey="vscode" />);
@@ -123,6 +147,7 @@ describe('AppView', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(screen.queryByText('Titles')).not.toBeInTheDocument();
     expect(screen.getByText('Active').nextElementSibling).toHaveTextContent('3h');
   });
 

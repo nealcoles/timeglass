@@ -1,5 +1,5 @@
 import { appDay } from '../test/fixtures.ts';
-import { filterTitles, hasNoTitles, type TitleRow } from './titleRows.ts';
+import { countTitles, filterTitles, hasNoTitles, type TitleRow } from './titleRows.ts';
 
 const row = (title: string | null, minutes: number): TitleRow => ({
   title,
@@ -33,5 +33,14 @@ describe('hasNoTitles', () => {
   it('is false when some time has a title, or there is no time', () => {
     expect(hasNoTitles(appDay())).toBe(false);
     expect(hasNoTitles(appDay(undefined, 'outlook'))).toBe(false);
+  });
+});
+
+describe('countTitles', () => {
+  it('counts the different titles and leaves out untitled time', () => {
+    expect(countTitles([row('Inbox - Outlook', 30), row(null, 20), row('Budget.xlsx', 10)])).toBe(
+      2,
+    );
+    expect(countTitles([row(null, 20)])).toBe(0);
   });
 });
