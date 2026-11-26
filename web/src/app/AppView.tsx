@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import type { AppDayDto } from '../api/client.ts';
 import { errorMessage } from '../api/errors.ts';
 import { useAppDay } from '../api/queries.ts';
-import { appColor } from '../day/appColor.ts';
+import { OTHER_COLOR } from '../day/appColor.ts';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { paths } from '../router.ts';
@@ -37,7 +37,7 @@ export function AppView({ date, appKey, isToday = false }: AppViewProps) {
       <h2 id="app-day-heading">
         <span
           className="app-day__swatch"
-          style={{ backgroundColor: appColor(appKey) }}
+          style={{ backgroundColor: appDay.data?.color ?? OTHER_COLOR }}
           aria-hidden="true"
         />
         {name}
@@ -92,7 +92,7 @@ function TitleList({ day }: { day: AppDayDto }) {
   const total = countTitles(day.titles);
   const filtering = query.trim() !== '';
   const longest = Math.max(...day.titles.map((t) => t.durationMs), 1);
-  const color = appColor(day.app.key);
+  const color = day.color ?? OTHER_COLOR;
 
   return (
     <>

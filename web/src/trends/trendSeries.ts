@@ -1,6 +1,5 @@
 import type { DayTotalDto, RangeSummaryDto } from '../api/client.ts';
 import { weekStart } from '../dates.ts';
-import { appColor } from '../day/appColor.ts';
 
 /** How many of the period's apps the chart draws: the longest ones, or all of them. */
 export type AppLimit = number | 'all';
@@ -65,7 +64,7 @@ export function trendSeries(
   const series = picked.map((a) => ({
     key: a.app.key,
     name: a.app.name,
-    color: appColor(a.app.key),
+    color: a.color,
     totalMs: a.durationMs,
     values: groups.map((g) => {
       const sum = g.reduce(
