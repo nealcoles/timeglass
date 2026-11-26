@@ -30,14 +30,14 @@ async function renderSettings(current: SettingsDto = settings()) {
 }
 
 describe('SettingsView', () => {
-  it('saves keyword groups in priority order', async () => {
+  it('saves categories in priority order', async () => {
     const saved = captureSaves();
     const user = await renderSettings();
-    expect(screen.getByText('No keyword groups yet.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Add group' }));
-    await user.type(screen.getByRole('textbox', { name: 'Group 1 name' }), 'Investigator');
+    expect(screen.getByText('No categories yet.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add category' }));
+    await user.type(screen.getByRole('textbox', { name: 'Category 1 name' }), 'Investigator');
     await user.type(
-      screen.getByRole('textbox', { name: 'Keywords, group 1' }),
+      screen.getByRole('textbox', { name: 'Keywords, category 1' }),
       'investigator, research',
     );
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
@@ -58,12 +58,12 @@ describe('SettingsView', () => {
         ],
       }),
     );
-    expect(screen.getByRole('button', { name: 'Move group 1 up' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Move group 3 down' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Move group 2 up' }));
-    expect(screen.getByRole('textbox', { name: 'Group 1 name' })).toHaveValue('Prizm');
-    expect(screen.getByRole('textbox', { name: 'Keywords, group 1' })).toHaveValue('prizm');
-    await user.click(screen.getByRole('button', { name: 'Remove group 3' }));
+    expect(screen.getByRole('button', { name: 'Move category 1 up' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move category 3 down' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Move category 2 up' }));
+    expect(screen.getByRole('textbox', { name: 'Category 1 name' })).toHaveValue('Prizm');
+    expect(screen.getByRole('textbox', { name: 'Keywords, category 1' })).toHaveValue('prizm');
+    await user.click(screen.getByRole('button', { name: 'Remove category 3' }));
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
     await screen.findByText(/Saved\. The new settings apply right away/);
     expect(saved[0]?.keywordGroups).toEqual([

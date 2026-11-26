@@ -58,17 +58,19 @@ describe('WeekView', () => {
     const user = userEvent.setup();
     renderWithApi(<WeekView date={demoDate} today={demoDate} />);
     await dayTable();
-    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
-    const table = await screen.findByRole('table', { name: /each day.s groups/ });
+    await user.click(screen.getByRole('button', { name: 'Category' }));
+    const table = await screen.findByRole('table', { name: /each day.s categories/ });
     expect(dayRows(table)[0]?.bar).toContain('Investigator');
     expect(dayRows(table)[0]?.bar).toContain('Away');
     expect(dayRows(table)[0]?.time).toBe('8h 5m');
-    const groups = screen.getByRole('table', { name: 'Tracked time per group, longest first' });
-    expect(groups).toHaveTextContent('Investigator');
-    expect(within(groups).queryByRole('link', { name: 'Away' })).not.toBeInTheDocument();
+    const categories = screen.getByRole('table', {
+      name: 'Tracked time per category, longest first',
+    });
+    expect(categories).toHaveTextContent('Investigator');
+    expect(within(categories).queryByRole('link', { name: 'Away' })).not.toBeInTheDocument();
     const colors = ['group-0', 'group-20'].map(
       (key) =>
-        groups.querySelector<HTMLElement>(`tr[data-app="${key}"] .app-shares__swatch`)?.style
+        categories.querySelector<HTMLElement>(`tr[data-app="${key}"] .app-shares__swatch`)?.style
           .backgroundColor,
     );
     expect(colors[0]).toBeTruthy();

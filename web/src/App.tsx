@@ -38,20 +38,33 @@ export function App() {
             Tracker: {status}
           </p>
           {data && <TrackerControl status={data} />}
-          <Link
-            href={paths.trends()}
-            className="app__settings"
-            aria-current={route.name === 'trends' ? 'page' : undefined}
-          >
-            Trends
-          </Link>
-          <Link
-            href={paths.settings()}
-            className="app__settings"
-            aria-current={route.name === 'settings' ? 'page' : undefined}
-          >
-            Settings
-          </Link>
+          <nav className="app__nav" aria-label="Main navigation">
+            <Link
+              href={
+                'view' in route && route.view === 'groups'
+                  ? withGroupingView(paths.today(), 'groups')
+                  : paths.today()
+              }
+              className="app__nav-link"
+              aria-current={route.name === 'today' || route.name === 'day' ? 'page' : undefined}
+            >
+              Usage
+            </Link>
+            <Link
+              href={paths.trends()}
+              className="app__nav-link"
+              aria-current={route.name === 'trends' ? 'page' : undefined}
+            >
+              Trends
+            </Link>
+            <Link
+              href={paths.settings()}
+              className="app__nav-link"
+              aria-current={route.name === 'settings' ? 'page' : undefined}
+            >
+              Settings
+            </Link>
+          </nav>
         </div>
       </header>
       {!isPending && <Screen route={route} today={today} />}

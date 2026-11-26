@@ -55,13 +55,13 @@ export function GroupAppView({
         </p>
       ) : titles.data.totalMs === 0 ? (
         <p className="app-day__empty">
-          No time in this application matched the group in this period.
+          No time in this application matched the category in this period.
         </p>
       ) : (
         <>
           <dl className="day__totals">
             <div>
-              <dt>Active in group</dt>
+              <dt>Active in category</dt>
               <dd>{formatDuration(titles.data.totalMs)}</dd>
             </div>
             {!hasNoTitles(titles.data) && (

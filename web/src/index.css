@@ -485,11 +485,16 @@ button.date-nav__view {
   margin: 0;
 }
 
-.app__settings {
+.app__nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.app__nav-link {
   color: inherit;
 }
 
-.app__settings[aria-current] {
+.app__nav-link[aria-current] {
   font-weight: 600;
 }
 

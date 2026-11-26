@@ -153,17 +153,16 @@ $api = Get-Content "$env:LOCALAPPDATA\Timeglass\api.json" | ConvertFrom-Json
 Invoke-RestMethod "http://127.0.0.1:$($api.port)/api/status" -Headers @{ Authorization = "Bearer $($api.token)" }
 ```
 
-### Keyword groups
+### Categories
 
-In _Settings_, add named keyword groups and choose their priority. Keywords match substrings of
-application names and recorded window titles without regard to case. The first matching group gets
-the time; the rest appears as _Ungrouped_. Choose **View by: Keyword group** on the day, week or
-trends screen to see these totals. Select a group, then an application, to see the window titles
-assigned to that group for the selected period. The day timeline remains coloured by application.
-Tracked away time is automatically included as an Away group; group percentages include both active
-and away time. Away has no application or title drill-down.
-Colours are chosen to distinguish the applications or groups shown together, so an item's colour
-may change when the displayed set changes.
+In _Settings_, add named categories and choose their priority. Keywords match substrings of
+application names and recorded window titles without regard to case. The first matching category
+gets the time; the rest appears as _Ungrouped_. Choose **View by: Category** on the day, week or
+trends screen to see these totals. Select a category, then an application, to see the window titles
+assigned to that category for the selected period. The day timeline remains coloured by application.
+Tracked away time is automatically included as an Away category; category percentages include both
+active and away time. Away has no application or title drill-down.
+Each application or category keeps the same colour across day, week, and trends views.
 
 Time without a recorded title can match only its application name. This also applies to older
 time whose titles have been removed by retention.

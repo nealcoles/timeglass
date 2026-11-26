@@ -100,16 +100,16 @@ export function TrendsView({
             {LIMITS.map((l) => (
               <option key={l} value={String(l)}>
                 {l === 'all'
-                  ? `All ${view === 'groups' ? 'groups' : 'apps'}`
-                  : `Top ${l} ${view === 'groups' ? 'groups' : 'apps'}`}
+                  ? `All ${view === 'groups' ? 'categories' : 'apps'}`
+                  : `Top ${l} ${view === 'groups' ? 'categories' : 'apps'}`}
               </option>
             ))}
           </select>
         </div>
         <div className="trends__control">
-          <label htmlFor={appId}>{view === 'groups' ? 'Group' : 'App'}</label>
+          <label htmlFor={appId}>{view === 'groups' ? 'Category' : 'App'}</label>
           <select id={appId} value={picked} onChange={(event) => setAppKey(event.target.value)}>
-            <option value={ALL_APPS}>Top {view === 'groups' ? 'groups' : 'apps'}</option>
+            <option value={ALL_APPS}>Top {view === 'groups' ? 'categories' : 'apps'}</option>
             {apps.map((a) => (
               <option key={a.app.key} value={a.app.key}>
                 {a.app.name}
@@ -161,12 +161,12 @@ function TrendSections({
       <TrendChart trend={trend} grouped={grouped} />
       <table className="app-shares trends__table">
         <caption className="visually-hidden">
-          The {grouped ? 'groups' : 'apps'} in the chart, with their time in the period and how it
-          changed
+          The {grouped ? 'categories' : 'apps'} in the chart, with their time in the period and how
+          it changed
         </caption>
         <thead>
           <tr>
-            <th scope="col">{grouped ? 'Group' : 'App'}</th>
+            <th scope="col">{grouped ? 'Category' : 'App'}</th>
             <th scope="col">Total</th>
             <th scope="col">Per day</th>
             <th scope="col" title="The second half of the period against the first">

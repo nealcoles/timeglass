@@ -44,12 +44,12 @@ export function GroupView({
             : errorMessage(applications.error)}
         </p>
       ) : applications.data.apps.length === 0 ? (
-        <p className="app-day__empty">No time matched this group in the selected period.</p>
+        <p className="app-day__empty">No time matched this category in the selected period.</p>
       ) : (
         <>
           <dl className="day__totals">
             <div>
-              <dt>Active in group</dt>
+              <dt>Active in category</dt>
               <dd>{formatDuration(applications.data.activeMs)}</dd>
             </div>
           </dl>

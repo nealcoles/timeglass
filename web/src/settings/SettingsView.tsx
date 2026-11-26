@@ -233,8 +233,8 @@ function SettingsEditor({ initial, today }: { initial: SettingsDto; today: strin
         />
       </section>
 
-      <section className="settings__section" aria-labelledby="settings-groups">
-        <h3 id="settings-groups">Groups</h3>
+      <section className="settings__section" aria-labelledby="settings-categories">
+        <h3 id="settings-categories">Categories</h3>
         <GroupEditor
           rows={form.groups}
           onChange={(groups) => change({ groups })}

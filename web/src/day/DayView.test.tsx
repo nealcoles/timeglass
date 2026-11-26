@@ -68,13 +68,13 @@ describe('DayView', () => {
     const user = userEvent.setup();
     renderWithApi(<DayView date={demoDate} />);
     await screen.findByRole('table');
-    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
-    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+    await user.click(screen.getByRole('button', { name: 'Category' }));
+    expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
     const table = await screen.findByRole('table', {
-      name: 'Tracked time per group, longest first',
+      name: 'Tracked time per category, longest first',
     });
 
     expect(within(table).getByText('Investigator')).toBeInTheDocument();
@@ -131,9 +131,9 @@ describe('DayView', () => {
     const user = userEvent.setup();
     renderWithApi(<DayView date={demoDate} />);
     expect(await screen.findByText(/No active time was tracked/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
+    await user.click(screen.getByRole('button', { name: 'Category' }));
     const table = await screen.findByRole('table', {
-      name: 'Tracked time per group, longest first',
+      name: 'Tracked time per category, longest first',
     });
     expect(table).toHaveTextContent('Away');
     expect(table).toHaveTextContent('100%');

@@ -67,7 +67,7 @@ export function DayView({
         <>
           <p className="day__empty">
             {summary.data.awayMs > 0
-              ? 'No active time was tracked. Select Keyword group to see away time.'
+              ? 'No active time was tracked. Select Category to see away time.'
               : isToday
                 ? 'Nothing tracked yet today. Time shows up here as you use your computer.'
                 : 'Nothing was tracked on this day.'}
@@ -117,7 +117,7 @@ export function DayView({
           {view === 'apps' ? (
             <AppShareList rows={rows} date={date} />
           ) : grouped.isPending ? (
-            <p role="status">Loading groups…</p>
+            <p role="status">Loading categories…</p>
           ) : grouped.isError ? (
             <p role="alert">{errorMessage(grouped.error)}</p>
           ) : (

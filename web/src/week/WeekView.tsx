@@ -117,12 +117,12 @@ function WeekSections({
       <table className="week-days">
         <caption className="visually-hidden">
           {grouped ? 'Tracked time' : 'Active time'} per day, with each day&apos;s{' '}
-          {grouped ? 'groups' : 'apps'}
+          {grouped ? 'categories' : 'apps'}
         </caption>
         <thead className="visually-hidden">
           <tr>
             <th scope="col">Day</th>
-            <th scope="col">{grouped ? 'Groups' : 'Apps'}</th>
+            <th scope="col">{grouped ? 'Categories' : 'Apps'}</th>
             <th scope="col">Time</th>
           </tr>
         </thead>

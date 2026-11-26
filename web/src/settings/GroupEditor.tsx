@@ -22,17 +22,17 @@ export function GroupEditor({
   }
   return (
     <fieldset className="settings__field">
-      <legend>Keyword groups</legend>
+      <legend>Categories</legend>
       <p className="settings__hint">
         Match any keyword against application names or recorded window titles, ignoring case. The
-        first matching group wins; everything else is Ungrouped. Older time retained without titles
-        can only match application names. Tracked away time is included automatically. Separate
-        keywords with commas.
+        first matching category wins; everything else is Ungrouped. Older time retained without
+        titles can only match application names. Tracked away time is included automatically.
+        Separate keywords with commas.
       </p>
       {rows.length === 0 ? (
-        <p className="settings__none">No keyword groups yet.</p>
+        <p className="settings__none">No categories yet.</p>
       ) : (
-        <ol className="keyword-groups" aria-label="Keyword groups in priority order">
+        <ol className="keyword-groups" aria-label="Categories in priority order">
           {rows.map((row, i) => (
             <li className="keyword-groups__item" key={i}>
               <div className="keyword-groups__header">
@@ -43,7 +43,7 @@ export function GroupEditor({
                     className="settings__button"
                     disabled={i === 0}
                     onClick={() => move(i, -1)}
-                    aria-label={`Move group ${i + 1} up`}
+                    aria-label={`Move category ${i + 1} up`}
                   >
                     Move up
                   </button>
@@ -52,7 +52,7 @@ export function GroupEditor({
                     className="settings__button"
                     disabled={i === rows.length - 1}
                     onClick={() => move(i, 1)}
-                    aria-label={`Move group ${i + 1} down`}
+                    aria-label={`Move category ${i + 1} down`}
                   >
                     Move down
                   </button>
@@ -60,7 +60,7 @@ export function GroupEditor({
                     type="button"
                     className="settings__button"
                     onClick={() => onChange(rows.filter((_, n) => n !== i))}
-                    aria-label={`Remove group ${i + 1}`}
+                    aria-label={`Remove category ${i + 1}`}
                   >
                     Remove
                   </button>
@@ -68,10 +68,10 @@ export function GroupEditor({
               </div>
               <div className="keyword-groups__fields">
                 <label>
-                  Group name
+                  Category name
                   <input
                     type="text"
-                    aria-label={`Group ${i + 1} name`}
+                    aria-label={`Category ${i + 1} name`}
                     placeholder="e.g. Investigator"
                     value={row.name}
                     onChange={(e) =>
@@ -83,7 +83,7 @@ export function GroupEditor({
                   Keywords
                   <input
                     type="text"
-                    aria-label={`Keywords, group ${i + 1}`}
+                    aria-label={`Keywords, category ${i + 1}`}
                     placeholder="e.g. investigator, research"
                     value={row.keywords}
                     onChange={(e) =>
@@ -103,7 +103,7 @@ export function GroupEditor({
         className="settings__button"
         onClick={() => onChange([...rows, { name: '', keywords: '' }])}
       >
-        Add group
+        Add category
       </button>
       <FieldErrorList errors={errors} />
     </fieldset>

@@ -124,7 +124,7 @@ export function DayTimeline({
           ))}
         </div>
         <figcaption className="visually-hidden">
-          Colours match the {colorByGroup ? 'group' : 'app'} list.
+          Colours match the {colorByGroup ? 'category' : 'app'} list.
           {!colorByGroup && !includeBlock && ' Faint stretches are away time.'}
         </figcaption>
       </figure>

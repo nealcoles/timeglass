@@ -61,17 +61,17 @@ describe('App routes', () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
+    await user.click(screen.getByRole('button', { name: 'Category' }));
     expect(globalThis.location.search).toBe('?view=groups');
     await user.click(screen.getByRole('link', { name: 'Week' }));
     expect(globalThis.location.pathname + globalThis.location.search).toBe(
       '/week/2026-11-02?view=groups',
     );
-    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    const table = await screen.findByRole('table', { name: /each day.s groups/ });
+    const table = await screen.findByRole('table', { name: /each day.s categories/ });
     expect(
       screen.getByRole('group', { name: 'View by' }).compareDocumentPosition(table) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -80,7 +80,7 @@ describe('App routes', () => {
     expect(globalThis.location.pathname + globalThis.location.search).toBe(
       '/day/2026-11-04?view=groups',
     );
-    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -96,7 +96,7 @@ describe('App routes', () => {
       globalThis.history.replaceState(null, '', '/week/2026-11-02?view=groups');
       globalThis.dispatchEvent(new PopStateEvent('popstate'));
     });
-    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -230,7 +230,7 @@ describe('App routes', () => {
       await user.click(screen.getByRole('link', { name: /Back to R&D \/ Prizm/ }));
       expect(await screen.findByRole('heading', { name: 'R&D / Prizm' })).toBeInTheDocument();
       await user.click(screen.getByRole('link', { name: /Back to/ }));
-      expect(await screen.findByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+      expect(await screen.findByRole('button', { name: 'Category' })).toHaveAttribute(
         'aria-pressed',
         'true',
       );
@@ -385,6 +385,19 @@ describe('App routes', () => {
 });
 
 describe('App settings', () => {
+  it('opens Usage from the header and preserves category view', async () => {
+    const user = userEvent.setup();
+    globalThis.history.replaceState(null, '', '/trends?view=groups');
+    renderWithApi(<App />);
+
+    await screen.findByRole('heading', { level: 2, name: 'Trends' });
+    await user.click(screen.getByRole('link', { name: 'Usage' }));
+
+    expect(globalThis.location.pathname + globalThis.location.search).toBe('/?view=groups');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('opens the settings from the header', async () => {
     const user = userEvent.setup();
     renderWithApi(<App />);

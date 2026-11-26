@@ -57,14 +57,14 @@ describe('TrendsView', () => {
     const user = userEvent.setup();
     renderWithApi(<TrendsView today={demoDate} />);
     await appTable();
-    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
-    const table = await screen.findByRole('table', { name: /The groups in the chart/ });
+    await user.click(screen.getByRole('button', { name: 'Category' }));
+    const table = await screen.findByRole('table', { name: /The categories in the chart/ });
     expect(table).toHaveTextContent('Investigator');
-    expect(screen.getByLabelText('Group')).toHaveTextContent('Investigator');
+    expect(screen.getByLabelText('Category')).toHaveTextContent('Investigator');
     expect(chartLines()).toEqual(['group-0', 'away']);
     expect(within(table).queryByRole('link', { name: 'Away' })).not.toBeInTheDocument();
     expect(screen.getByRole('img')).toHaveAccessibleName(/Average tracked time per day/);
-    await user.selectOptions(screen.getByLabelText('Group'), 'Away');
+    await user.selectOptions(screen.getByLabelText('Category'), 'Away');
     expect(chartLines()).toEqual(['away']);
   });
   it('asks for the last 30 days, ending today', async () => {

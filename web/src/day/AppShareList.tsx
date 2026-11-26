@@ -33,11 +33,11 @@ export function AppShareList({
   return (
     <table className="app-shares">
       <caption className="visually-hidden">
-        {grouped ? 'Tracked time per group' : 'Active time per app'}, longest first
+        {grouped ? 'Tracked time per category' : 'Active time per app'}, longest first
       </caption>
       <thead className="visually-hidden">
         <tr>
-          <th scope="col">{grouped ? 'Group' : 'App'}</th>
+          <th scope="col">{grouped ? 'Category' : 'App'}</th>
           <th scope="col">Time</th>
           <th scope="col">Share</th>
         </tr>

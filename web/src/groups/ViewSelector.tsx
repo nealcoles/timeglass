@@ -24,7 +24,7 @@ export function ViewSelector({
         aria-pressed={value === 'groups'}
         onClick={() => onChange('groups')}
       >
-        Keyword group
+        Category
       </button>
     </div>
   );

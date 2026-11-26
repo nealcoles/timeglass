@@ -168,11 +168,11 @@ export function validate(form: SettingsForm): FieldErrors {
   form.groups.forEach((group, i) => {
     const name = group.name.trim().toLowerCase();
     if (!name || name === 'ungrouped' || names.has(name)) {
-      groupErrors.push(`Group ${i + 1}: enter a unique name other than Ungrouped.`);
+      groupErrors.push(`Category ${i + 1}: enter a unique name other than Ungrouped.`);
     }
     names.add(name);
     if (!group.keywords.split(',').some((keyword) => keyword.trim())) {
-      groupErrors.push(`Group ${i + 1}: enter at least one keyword.`);
+      groupErrors.push(`Category ${i + 1}: enter at least one keyword.`);
     }
   });
   if (groupErrors.length > 0) {
