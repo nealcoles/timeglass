@@ -8,6 +8,7 @@ interface DayTimelineProps {
   date: string;
   /** The colour of an app, the same one the app list uses. */
   colorFor: (appKey: string) => string;
+  grouped?: boolean;
 }
 
 /**
@@ -15,7 +16,7 @@ interface DayTimelineProps {
  * faint gaps and untracked time left blank. Hovering or focusing a block shows its app, clock
  * times and duration. The lane is one tab stop; the arrow keys, Home and End move between blocks.
  */
-export function DayTimeline({ date, colorFor }: DayTimelineProps) {
+export function DayTimeline({ date, colorFor, grouped = false }: DayTimelineProps) {
   const timeline = useTimeline(date);
   const [hovered, setHovered] = useState<number | null>(null);
   const [focused, setFocused] = useState<number | null>(null);
@@ -110,7 +111,8 @@ export function DayTimeline({ date, colorFor }: DayTimelineProps) {
         ))}
       </div>
       <figcaption className="visually-hidden">
-        Colours match the app list. Faint stretches are away time.
+        {grouped ? 'Colours represent applications.' : 'Colours match the app list.'} Faint
+        stretches are away time.
       </figcaption>
     </figure>
   );

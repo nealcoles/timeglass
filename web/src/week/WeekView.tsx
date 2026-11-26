@@ -1,6 +1,7 @@
 import type { DayTotalDto } from '../api/client.ts';
 import { errorMessage } from '../api/errors.ts';
-import { useRangeSummary } from '../api/queries.ts';
+import { useState } from 'react';
+import { useGroupedRangeSummary, useRangeSummary } from '../api/queries.ts';
 import { addDays, formatDateRange, formatShortDay, weekStart } from '../dates.ts';
 import { AppShareList } from '../day/AppShareList.tsx';
 import { OTHER_COLOR } from '../day/appColor.ts';
@@ -8,6 +9,7 @@ import { appShares } from '../day/appShares.ts';
 import { formatDuration } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { DateNav } from '../nav/DateNav.tsx';
+import { ViewSelector, type GroupingView } from '../groups/ViewSelector.tsx';
 import { navigate, paths } from '../router.ts';
 import { barSegments, describeSegments } from './weekBars.ts';
 
@@ -16,16 +18,20 @@ interface WeekViewProps {
   date: string;
   /** Today's date, `yyyy-MM-dd`. */
   today: string;
+  initialView?: GroupingView;
 }
 
 /**
  * The week at a glance (#35): each day's active time as a bar stacked by its apps, and the
  * week's apps below. A day opens in the day view.
  */
-export function WeekView({ date, today }: WeekViewProps) {
+export function WeekView({ date, today, initialView = 'apps' }: WeekViewProps) {
   const from = weekStart(date);
   const to = addDays(from, 6);
-  const range = useRangeSummary(from, to);
+  const [view, setView] = useState<GroupingView>(initialView);
+  const apps = useRangeSummary(from, to, { enabled: view === 'apps' });
+  const groups = useGroupedRangeSummary(from, to, { enabled: view === 'groups' });
+  const range = view === 'apps' ? apps : groups;
   const dates = formatDateRange(from, to);
   const heading = from === weekStart(today) ? `This week, ${dates}` : `Week of ${dates}`;
 
@@ -33,6 +39,7 @@ export function WeekView({ date, today }: WeekViewProps) {
     <section className="week" aria-labelledby="week-heading" aria-busy={range.isPending}>
       <h2 id="week-heading">{heading}</h2>
       <DateNav view="week" date={date} today={today} />
+      <ViewSelector value={view} onChange={setView} />
 
       {range.isPending ? (
         <p role="status" className="day__loading">
@@ -51,6 +58,9 @@ export function WeekView({ date, today }: WeekViewProps) {
           activeMs={range.data.activeMs}
           awayMs={range.data.awayMs}
           today={today}
+          grouped={view === 'groups'}
+          from={from}
+          to={to}
         />
       )}
     </section>
@@ -63,13 +73,25 @@ interface WeekSectionsProps {
   activeMs: number;
   awayMs: number;
   today: string;
+  grouped: boolean;
+  from: string;
+  to: string;
 }
 
-function WeekSections({ days, rows, activeMs, awayMs, today }: WeekSectionsProps) {
+function WeekSections({
+  days,
+  rows,
+  activeMs,
+  awayMs,
+  today,
+  grouped,
+  from,
+  to,
+}: WeekSectionsProps) {
   const colors = new Map(rows.map((r) => [r.key, r.color] as const));
   const colorFor = (appKey: string) => colors.get(appKey) ?? OTHER_COLOR;
   const activeDays = days.filter((d) => d.activeMs > 0).length;
-  const longest = Math.max(...days.map((d) => d.activeMs), 0);
+  const longest = Math.max(...days.map((d) => d.activeMs + (grouped ? d.awayMs : 0)), 0);
 
   return (
     <>
@@ -91,12 +113,13 @@ function WeekSections({ days, rows, activeMs, awayMs, today }: WeekSectionsProps
       <h3>Day by day</h3>
       <table className="week-days">
         <caption className="visually-hidden">
-          Active time per day, with each day&apos;s apps
+          {grouped ? 'Tracked time' : 'Active time'} per day, with each day&apos;s{' '}
+          {grouped ? 'groups' : 'apps'}
         </caption>
         <thead className="visually-hidden">
           <tr>
             <th scope="col">Day</th>
-            <th scope="col">Apps</th>
+            <th scope="col">{grouped ? 'Groups' : 'Apps'}</th>
             <th scope="col">Time</th>
           </tr>
         </thead>
@@ -108,13 +131,22 @@ function WeekSections({ days, rows, activeMs, awayMs, today }: WeekSectionsProps
               today={today}
               longestMs={longest}
               colorFor={colorFor}
+              grouped={grouped}
             />
           ))}
         </tbody>
       </table>
 
       <h3>Where the time went</h3>
-      <AppShareList rows={rows} />
+      {grouped ? (
+        <AppShareList
+          rows={rows}
+          grouped
+          groupHref={(name) => paths.group(from, to, name, 'week')}
+        />
+      ) : (
+        <AppShareList rows={rows} />
+      )}
     </>
   );
 }
@@ -124,9 +156,10 @@ interface WeekDayRowProps {
   today: string;
   longestMs: number;
   colorFor: (appKey: string) => string;
+  grouped: boolean;
 }
 
-function WeekDayRow({ day, today, longestMs, colorFor }: WeekDayRowProps) {
+function WeekDayRow({ day, today, longestMs, colorFor, grouped }: WeekDayRowProps) {
   const isFuture = day.date > today;
   const isToday = day.date === today;
   const href = isToday ? paths.today() : paths.day(day.date);
@@ -174,7 +207,9 @@ function WeekDayRow({ day, today, longestMs, colorFor }: WeekDayRowProps) {
           </span>
         )}
       </td>
-      <td className="week-days__duration">{isFuture ? '' : formatDuration(day.activeMs)}</td>
+      <td className="week-days__duration">
+        {isFuture ? '' : formatDuration(day.activeMs + (grouped ? day.awayMs : 0))}
+      </td>
     </tr>
   );
 }

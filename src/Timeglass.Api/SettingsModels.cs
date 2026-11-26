@@ -19,6 +19,7 @@ namespace Timeglass.Api;
 /// <param name="StartWithWindows">Whether the app starts when the user signs in; null where the host can't tell (read) or to leave it as it is (write).</param>
 /// <param name="WorkHoursStartMinutes">Minutes after local midnight that work hours begin, 0 to 1439; null keeps the current value (write).</param>
 /// <param name="WorkHoursEndMinutes">Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).</param>
+/// <param name="KeywordGroups">Ordered groups of keywords, or null to leave them unchanged.</param>
 public sealed record SettingsDto(
     int? IdleThresholdSeconds,
     IReadOnlyList<string> IdleExemptApps,
@@ -28,7 +29,8 @@ public sealed record SettingsDto(
     IReadOnlyList<AppAliasDto> AppAliases,
     bool? StartWithWindows,
     int? WorkHoursStartMinutes = null,
-    int? WorkHoursEndMinutes = null)
+    int? WorkHoursEndMinutes = null,
+    IReadOnlyList<KeywordGroupDto>? KeywordGroups = null)
 {
     internal static SettingsDto Create(TimeglassSettings settings, bool? startWithWindows) => new(
         settings.IdleThreshold is { } idle ? (int)Math.Round(idle.TotalSeconds) : null,
@@ -39,7 +41,8 @@ public sealed record SettingsDto(
         [.. (settings.AppAliases ?? []).Select(AppAliasDto.Create)],
         startWithWindows,
         (int)settings.WorkHoursStart.TotalMinutes,
-        (int)settings.WorkHoursEnd.TotalMinutes);
+        (int)settings.WorkHoursEnd.TotalMinutes,
+        [.. (settings.KeywordGroups ?? []).Select(g => new KeywordGroupDto(g.Name, g.Keywords))]);
 
     /// <summary>
     /// These settings on top of <paramref name="current"/>: the fields the dashboard doesn't edit
@@ -54,6 +57,7 @@ public sealed record SettingsDto(
         RecordWindowTitles = RecordWindowTitles,
         AppsWithoutTitles = Keys(AppsWithoutTitles),
         AppAliases = [.. (AppAliases ?? []).Select(a => a.ToSetting())],
+        KeywordGroups = KeywordGroups is null ? current.KeywordGroups : [.. KeywordGroups.Select(g => g?.ToSetting() ?? new KeywordGroupSetting())],
         MinimumInterval = current.MinimumInterval,
         CheckpointInterval = current.CheckpointInterval,
         RetentionMonths = current.RetentionMonths,
@@ -65,6 +69,18 @@ public sealed record SettingsDto(
 
     internal static List<string> Keys(IEnumerable<string?>? keys) =>
         [.. (keys ?? []).Select(k => k?.Trim() ?? string.Empty).Distinct(StringComparer.OrdinalIgnoreCase)];
+}
+
+/// <summary>A named group of keywords, matched in the order groups are listed.</summary>
+/// <param name="Name">Group name.</param>
+/// <param name="Keywords">Case-insensitive substrings to match.</param>
+public sealed record KeywordGroupDto(string Name, IReadOnlyList<string> Keywords)
+{
+    internal KeywordGroupSetting ToSetting() => new()
+    {
+        Name = Name?.Trim() ?? string.Empty,
+        Keywords = SettingsDto.Keys(Keywords),
+    };
 }
 
 /// <summary>An app rename or alias: which executables (and window titles) make up an app, and its name.</summary>

@@ -7,6 +7,7 @@ import { AliasEditor } from './AliasEditor.tsx';
 import { AppKeyList, FieldErrorList } from './AppKeyList.tsx';
 import { DeleteData } from './DeleteData.tsx';
 import { ExportData } from './ExportData.tsx';
+import { GroupEditor } from './GroupEditor.tsx';
 import {
   toForm,
   toSettings,
@@ -25,6 +26,7 @@ const FIELDS = new Set([
   'excludedApps',
   'appsWithoutTitles',
   'appAliases',
+  'keywordGroups',
   'workHoursStartMinutes',
   'workHoursEndMinutes',
 ]);
@@ -228,6 +230,15 @@ function SettingsEditor({ initial, today }: { initial: SettingsDto; today: strin
           rows={form.aliases}
           onChange={(aliases) => change({ aliases })}
           errors={errors.appAliases}
+        />
+      </section>
+
+      <section className="settings__section" aria-labelledby="settings-groups">
+        <h3 id="settings-groups">Groups</h3>
+        <GroupEditor
+          rows={form.groups}
+          onChange={(groups) => change({ groups })}
+          errors={errors.keywordGroups}
         />
       </section>
 

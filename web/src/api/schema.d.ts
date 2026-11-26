@@ -82,6 +82,60 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/range/groups': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Totals per day and keyword group over a range of days
+     * @description Includes tracked away time as a built-in group. Group shares are of active plus away time.
+     */
+    get: operations['GetGroupedRangeSummary'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/range/group-applications': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Applications contributing to one keyword group over a range of days */
+    get: operations['GetGroupApplications'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/range/group-application-titles': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Titles contributing to one application's time in a keyword group */
+    get: operations['GetGroupApplicationTitles'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/status': {
     parameters: {
       query?: never;
@@ -251,18 +305,18 @@ export interface components {
       /** @description Display name, e.g. `Outlook`. */
       name: string;
     };
-    /** @description One app's share of the active time. */
+    /** @description One app's or keyword group's share of the time. */
     AppTotalDto: {
-      /** @description The app. */
+      /** @description The app or group. */
       app: components['schemas']['AppDto'];
       /**
        * Format: int64
-       * @description Active time in the app, in milliseconds.
+       * @description Time in the app or group, in milliseconds.
        */
       durationMs: number;
       /**
        * Format: double
-       * @description Exact fraction of the active time, between 0 and 1.
+       * @description Exact fraction of active time, or active plus away for keyword groups, between 0 and 1.
        */
       share: number;
       /**
@@ -343,7 +397,7 @@ export interface components {
        * @description Away time, in milliseconds.
        */
       awayMs: number;
-      /** @description Every app used that day, longest first; shares are of the whole day. */
+      /** @description Every app used that day, or keyword groups including away time; longest first. */
       apps: components['schemas']['AppTotalDto'][];
     };
     /** @description Confirms a deletion. */
@@ -415,6 +469,18 @@ export interface components {
       /** @description True if the interval is still running. */
       isOpen: boolean;
     };
+    /** @description One application's titles assigned to a keyword group over a range. */
+    GroupAppTitlesDto: {
+      /** @description The application. */
+      app: components['schemas']['AppDto'];
+      /**
+       * Format: int64
+       * @description Active time assigned to the group, in milliseconds.
+       */
+      totalMs: number;
+      /** @description Titles and time without an available title, longest first. */
+      titles: components['schemas']['TitleTotalDto'][];
+    };
     HttpValidationProblemDetails: {
       type?: null | string;
       title?: null | string;
@@ -425,6 +491,13 @@ export interface components {
       errors?: {
         [key: string]: string[];
       };
+    };
+    /** @description A named group of keywords, matched in the order groups are listed. */
+    KeywordGroupDto: {
+      /** @description Group name. */
+      name: string;
+      /** @description Case-insensitive substrings to match. */
+      keywords: string[];
     };
     /**
      * @description How long to pause tracking for; the same choices as the tray menu.
@@ -470,7 +543,7 @@ export interface components {
       awayMs: number;
       /** @description One entry per day in date order, including days without any time. */
       days: components['schemas']['DayTotalDto'][];
-      /** @description Active time per app over the whole range, longest first. */
+      /** @description Active time per app, or keyword groups including away time; longest first. */
       apps: components['schemas']['AppTotalDto'][];
     };
     /** @description The settings the dashboard can change; the rest of `settings.json` is kept as it is. */
@@ -502,6 +575,8 @@ export interface components {
        * @description Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).
        */
       workHoursEndMinutes?: null | number;
+      /** @description Ordered groups of keywords, or null to leave them unchanged. */
+      keywordGroups?: null | components['schemas']['KeywordGroupDto'][];
     };
     /** @description The tracker's current state. */
     StatusDto: {
@@ -725,6 +800,114 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['RangeSummaryDto'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['HttpValidationProblemDetails'];
+        };
+      };
+    };
+  };
+  GetGroupedRangeSummary: {
+    parameters: {
+      query?: {
+        /** @description First local date, yyyy-MM-dd. Required. */
+        from?: string;
+        /** @description Last local date, yyyy-MM-dd, included. Required. */
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RangeSummaryDto'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['HttpValidationProblemDetails'];
+        };
+      };
+    };
+  };
+  GetGroupApplications: {
+    parameters: {
+      query?: {
+        /** @description First local date, yyyy-MM-dd. Required. */
+        from?: string;
+        /** @description Last local date, yyyy-MM-dd, included. Required. */
+        to?: string;
+        /** @description Name of the group, or Ungrouped. */
+        name?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RangeSummaryDto'];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['HttpValidationProblemDetails'];
+        };
+      };
+    };
+  };
+  GetGroupApplicationTitles: {
+    parameters: {
+      query?: {
+        /** @description First local date, yyyy-MM-dd. Required. */
+        from?: string;
+        /** @description Last local date, yyyy-MM-dd, included. Required. */
+        to?: string;
+        /** @description Name of the group, or Ungrouped. */
+        name?: string;
+        /** @description The application's key. */
+        appKey?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GroupAppTitlesDto'];
         };
       };
       /** @description Bad Request */

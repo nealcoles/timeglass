@@ -11,6 +11,7 @@ export type DaySummaryDto = Schemas['DaySummaryDto'];
 export type TimelineDto = Schemas['TimelineDto'];
 export type TimelineBlockDto = Schemas['TimelineBlockDto'];
 export type AppDayDto = Schemas['AppDayDto'];
+export type GroupAppTitlesDto = Schemas['GroupAppTitlesDto'];
 export type TitleTotalDto = Schemas['TitleTotalDto'];
 export type RangeSummaryDto = Schemas['RangeSummaryDto'];
 export type DayTotalDto = Schemas['DayTotalDto'];

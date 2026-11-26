@@ -2,8 +2,8 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { App } from './App.tsx';
-import { demoDate } from './test/fixtures.ts';
-import { unauthorized } from './test/handlers.ts';
+import { apps, demoDate, rangeSummary } from './test/fixtures.ts';
+import { badRequest, unauthorized } from './test/handlers.ts';
 import { renderWithApi } from './test/render.tsx';
 import { server } from './test/server.ts';
 
@@ -43,11 +43,133 @@ describe('App', () => {
 });
 
 describe('App routes', () => {
+  it.each([
+    ['/day/2026-11-05?view=groups', '2026-11-05', '2026-11-05', 'day'],
+    ['/week/2026-11-02?view=groups', '2026-11-02', '2026-11-08', 'week'],
+    ['/trends?view=groups&period=7', '2026-10-30', '2026-11-05', 'trends'],
+  ])(
+    'opens a filtered group from %s and returns to the same view',
+    async (url, from, to, source) => {
+      let detailQuery = '';
+      let titleQuery = '';
+      server.use(
+        http.get('/api/range/groups', ({ request }) => {
+          const query = new URL(request.url).searchParams;
+          const range = rangeSummary(query.get('from') ?? from, query.get('to') ?? to);
+          const rename = (app: (typeof range.apps)[number]) => ({
+            ...app,
+            app: { key: 'group-0', name: 'R&D / Prizm' },
+          });
+          return HttpResponse.json({
+            ...range,
+            apps: range.apps.slice(0, 1).map(rename),
+            days: range.days.map((day) => ({ ...day, apps: day.apps.slice(0, 1).map(rename) })),
+          });
+        }),
+        http.get('/api/range/group-applications', ({ request }) => {
+          detailQuery = new URL(request.url).search;
+          const range = rangeSummary(from, to);
+          return HttpResponse.json(range);
+        }),
+        http.get('/api/range/group-application-titles', ({ request }) => {
+          titleQuery = new URL(request.url).search;
+          return HttpResponse.json({
+            app: apps.code,
+            totalMs: 120000,
+            titles: [
+              { title: 'Matching Prizm project', durationMs: 60000, share: 0.5, percent: 50 },
+              { title: null, durationMs: 60000, share: 0.5, percent: 50 },
+            ],
+          });
+        }),
+      );
+      globalThis.history.replaceState(null, '', url);
+      const user = userEvent.setup();
+      renderWithApi(<App />);
+      await user.click(await screen.findByRole('link', { name: 'R&D / Prizm' }));
+      expect(await screen.findByRole('heading', { name: 'R&D / Prizm' })).toBeInTheDocument();
+      const applications = await screen.findByRole('table', {
+        name: 'Active time per app, longest first',
+      });
+      expect(applications).toHaveTextContent('Visual Studio Code');
+      const listColor = applications.querySelector<HTMLElement>(
+        'tr[data-app="vscode"] .app-shares__swatch',
+      )?.style.backgroundColor;
+      expect(listColor).toBeTruthy();
+      const query = new URLSearchParams(detailQuery);
+      expect(Object.fromEntries(query)).toEqual({ from, to, name: 'R&D / Prizm' });
+      await user.click(screen.getByRole('link', { name: 'Visual Studio Code' }));
+      const titles = await screen.findByRole('table', {
+        name: /Time in Visual Studio Code per window title/,
+      });
+      expect(titles).toHaveTextContent('Matching Prizm project');
+      expect(titles).toHaveTextContent('No title recorded or retained');
+      expect(
+        screen
+          .getByRole('heading', { name: 'Visual Studio Code' })
+          .querySelector<HTMLElement>('.app-day__swatch')?.style.backgroundColor,
+      ).toBe(listColor);
+      expect(titles.querySelector<HTMLElement>('.app-shares__bar')?.style.backgroundColor).toBe(
+        listColor,
+      );
+      expect(Object.fromEntries(new URLSearchParams(titleQuery))).toEqual({
+        from,
+        to,
+        name: 'R&D / Prizm',
+        appKey: 'vscode',
+      });
+      await user.click(screen.getByRole('link', { name: /Back to R&D \/ Prizm/ }));
+      expect(await screen.findByRole('heading', { name: 'R&D / Prizm' })).toBeInTheDocument();
+      await user.click(screen.getByRole('link', { name: /Back to/ }));
+      expect(await screen.findByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      if (source === 'trends') expect(screen.getByLabelText('Period')).toHaveValue('7');
+    },
+  );
+
+  it('shows an error when the selected group no longer exists', async () => {
+    server.use(
+      http.get('/api/range/group-applications', () =>
+        badRequest('name', 'The group no longer exists.'),
+      ),
+    );
+    globalThis.history.replaceState(
+      null,
+      '',
+      '/group/2026-11-05/2026-11-05?name=Missing&source=day',
+    );
+    renderWithApi(<App />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('The group no longer exists.');
+  });
+
+  it('explains unavailable titles in a group application', async () => {
+    server.use(
+      http.get('/api/range/group-application-titles', () =>
+        HttpResponse.json({
+          app: apps.code,
+          totalMs: 60000,
+          titles: [{ title: null, durationMs: 60000, share: 1, percent: 100 }],
+        }),
+      ),
+    );
+    globalThis.history.replaceState(
+      null,
+      '',
+      '/group/2026-11-05/2026-11-05/app?name=Work&source=day&app=vscode',
+    );
+    renderWithApi(<App />);
+    expect(await screen.findByText(/may have been removed by retention/)).toBeInTheDocument();
+  });
   it('opens an app from the day view and goes back', async () => {
     const user = userEvent.setup();
     renderWithApi(<App />);
 
     const table = await screen.findByRole('table');
+    const listColor = table.querySelector<HTMLElement>('tr[data-app="vscode"] .app-shares__swatch')
+      ?.style.backgroundColor;
+    expect(listColor).toBeTruthy();
     await user.click(within(table).getByRole('link', { name: 'Visual Studio Code' }));
 
     expect(globalThis.location.pathname).toBe(`/day/${demoDate}/app/vscode`);
@@ -55,6 +177,15 @@ describe('App routes', () => {
       'Visual Studio Code',
     );
     expect(await screen.findByText(/TrackingEngine\.cs/)).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole('heading', { name: 'Visual Studio Code' })
+        .querySelector<HTMLElement>('.app-day__swatch')?.style.backgroundColor,
+    ).toBe(listColor);
+    expect(
+      screen.getByRole('table').querySelector<HTMLElement>('.app-shares__bar')?.style
+        .backgroundColor,
+    ).toBe(listColor);
 
     await user.click(screen.getByRole('link', { name: /Back to today/ }));
     expect(globalThis.location.pathname).toBe('/');

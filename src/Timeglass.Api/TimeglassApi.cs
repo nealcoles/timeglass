@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi;
 using Timeglass.Core.Ports;
 using Timeglass.Core.Reporting;
+using Timeglass.Core.Settings;
 
 namespace Timeglass.Api;
 
@@ -136,6 +137,22 @@ public static partial class TimeglassApi
             .WithSummary("Totals per day and per app over a range of days")
             .WithDescription($"For the week view. A range is at most {RangeSummaries.MaxDays} days.");
 
+        api.MapGet("/range/groups", GetGroupedRangeSummaryAsync)
+            .WithName("GetGroupedRangeSummary")
+            .WithTags("Ranges")
+            .WithSummary("Totals per day and keyword group over a range of days")
+            .WithDescription("Includes tracked away time as a built-in group. Group shares are of active plus away time.");
+
+        api.MapGet("/range/group-applications", GetGroupApplicationsAsync)
+            .WithName("GetGroupApplications")
+            .WithTags("Ranges")
+            .WithSummary("Applications contributing to one keyword group over a range of days");
+
+        api.MapGet("/range/group-application-titles", GetGroupApplicationTitlesAsync)
+            .WithName("GetGroupApplicationTitles")
+            .WithTags("Ranges")
+            .WithSummary("Titles contributing to one application's time in a keyword group");
+
         api.MapGet("/status", GetStatusAsync)
             .WithName("GetStatus")
             .WithTags("Status")
@@ -232,6 +249,114 @@ public static partial class TimeglassApi
 
         var summary = await reports.GetRangeSummaryAsync(firstDay, lastDay, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(RangeSummaryDto.Create(summary));
+    }
+
+    private static async Task<Results<Ok<RangeSummaryDto>, ValidationProblem>> GetGroupedRangeSummaryAsync(
+        [Description("First local date, yyyy-MM-dd. Required.")] string? from,
+        [Description("Last local date, yyyy-MM-dd, included. Required.")] string? to,
+        [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
+        [FromServices] TimeProvider time,
+        CancellationToken cancellationToken)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var hasFrom = TryParseDate(from, out var first);
+        var hasTo = TryParseDate(to, out var last);
+        if (!hasFrom)
+        {
+            errors[nameof(from)] = [DateError(from)];
+        }
+        if (!hasTo)
+        {
+            errors[nameof(to)] = [DateError(to)];
+        }
+        if (hasFrom && hasTo && (last < first || last.DayNumber - first.DayNumber + 1 > RangeSummaries.MaxDays))
+        {
+            errors[nameof(to)] = [$"The range must be in order and at most {RangeSummaries.MaxDays} days."];
+        }
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var result = await reports.GetGroupedRangeSummaryAsync(first, last, time.LocalTimeZone, time.GetUtcNow(),
+            settings.Current.KeywordGroups ?? [], cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(RangeSummaryDto.Create(result));
+    }
+
+    private static async Task<Results<Ok<RangeSummaryDto>, ValidationProblem>> GetGroupApplicationsAsync(
+        [Description("First local date, yyyy-MM-dd. Required.")] string? from,
+        [Description("Last local date, yyyy-MM-dd, included. Required.")] string? to,
+        [Description("Name of the group, or Ungrouped.")] string? name,
+        [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
+        [FromServices] TimeProvider time,
+        CancellationToken cancellationToken)
+    {
+        var groups = settings.Current.KeywordGroups ?? [];
+        var errors = GroupRangeErrors(from, to, name, groups, out var first, out var last);
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var result = await reports.GetGroupApplicationsAsync(first, last, time.LocalTimeZone, time.GetUtcNow(),
+            groups, name!, cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(RangeSummaryDto.Create(result));
+    }
+
+    private static async Task<Results<Ok<GroupAppTitlesDto>, ValidationProblem>> GetGroupApplicationTitlesAsync(
+        [Description("First local date, yyyy-MM-dd. Required.")] string? from,
+        [Description("Last local date, yyyy-MM-dd, included. Required.")] string? to,
+        [Description("Name of the group, or Ungrouped.")] string? name,
+        [Description("The application's key.")] string? appKey,
+        [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
+        [FromServices] TimeProvider time,
+        CancellationToken cancellationToken)
+    {
+        var groups = settings.Current.KeywordGroups ?? [];
+        var errors = GroupRangeErrors(from, to, name, groups, out var first, out var last);
+        if (string.IsNullOrWhiteSpace(appKey))
+        {
+            errors[nameof(appKey)] = ["An application key is required."];
+        }
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var result = await reports.GetGroupApplicationTitlesAsync(first, last, time.LocalTimeZone, time.GetUtcNow(),
+            groups, name!, appKey!, cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(GroupAppTitlesDto.Create(result));
+    }
+
+    private static Dictionary<string, string[]> GroupRangeErrors(
+        string? from, string? to, string? name, IReadOnlyList<KeywordGroupSetting> groups,
+        out DateOnly first, out DateOnly last)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var hasFrom = TryParseDate(from, out first);
+        var hasTo = TryParseDate(to, out last);
+        if (!hasFrom)
+        {
+            errors[nameof(from)] = [DateError(from)];
+        }
+        if (!hasTo)
+        {
+            errors[nameof(to)] = [DateError(to)];
+        }
+        if (hasFrom && hasTo && (last < first || last.DayNumber - first.DayNumber + 1 > RangeSummaries.MaxDays || last == DateOnly.MaxValue))
+        {
+            errors[nameof(to)] = [$"The range must be in order and at most {RangeSummaries.MaxDays} days."];
+        }
+
+        if (string.IsNullOrWhiteSpace(name) || (!string.Equals(name, "Ungrouped", StringComparison.OrdinalIgnoreCase)
+            && !groups.Any(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase))))
+        {
+            errors[nameof(name)] = ["The group no longer exists. Check your keyword groups in Settings."];
+        }
+        return errors;
     }
 
     private static async Task<Ok<StatusDto>> GetStatusAsync(

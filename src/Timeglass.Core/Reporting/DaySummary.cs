@@ -22,10 +22,10 @@ public sealed record DaySummary(
     DateTimeOffset? LastActivity,
     IReadOnlyList<AppDayTotal> Apps);
 
-/// <summary>One app's share of a day's active time.</summary>
-/// <param name="App">The app.</param>
-/// <param name="Duration">Active time in the app during the day.</param>
-/// <param name="Share">Exact fraction of the day's active time, between 0 and 1.</param>
+/// <summary>One app's or keyword group's share of a reporting period.</summary>
+/// <param name="App">The app or group.</param>
+/// <param name="Duration">Time in the app or group.</param>
+/// <param name="Share">Exact fraction of active time, or active plus away for keyword groups, between 0 and 1.</param>
 /// <param name="Percent">
 /// <see cref="Share"/> as a whole percentage, rounded so that the percentages of a day add up to exactly 100.
 /// </param>

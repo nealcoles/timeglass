@@ -2,6 +2,7 @@ using System.Globalization;
 using Dapper;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Reporting;
+using Timeglass.Core.Settings;
 
 namespace Timeglass.Storage.Tests;
 
@@ -65,6 +66,37 @@ public sealed class RetentionTests : IAsyncLifetime
         await _repository.GetDaySummaryAsync(Day("2026-11-04"), Oslo, Now, cancellationToken: Ct),
         await _repository.GetDaySummaryAsync(Day("2026-11-05"), Oslo, Now, cancellationToken: Ct),
         await _repository.GetRangeSummaryAsync(Day("2026-11-02"), Day("2026-11-08"), Oslo, Now, cancellationToken: Ct));
+
+    [Fact]
+    public async Task Grouped_application_titles_include_retained_and_remaining_time()
+    {
+        await _repository.ApplyRetentionAsync(StartOf("2026-11-05"), Oslo, Ct);
+        KeywordGroupSetting[] groups = [new() { Name = "Code work", Keywords = ["code"] }];
+        var first = Day("2026-11-04");
+        var last = Day("2026-11-05");
+
+        var applications = await _repository.GetGroupApplicationsAsync(first, last, Oslo, Now, groups, "Code work", Ct);
+        var titles = await _repository.GetGroupApplicationTitlesAsync(first, last, Oslo, Now, groups, "Code work", "code", Ct);
+
+        titles.Total.ShouldBe(applications.Apps.Single(a => a.App.Key == "code").Duration);
+        titles.Titles.Select(t => (t.Title, t.Duration.TotalMinutes)).ShouldBe(
+            [((string?)null, 120d), ("late.cs", 60d)]);
+    }
+
+    [Fact]
+    public async Task Grouped_away_time_is_unchanged_by_retention()
+    {
+        var first = Day("2026-11-04");
+        var last = Day("2026-11-05");
+        var before = await _repository.GetGroupedRangeSummaryAsync(first, last, Oslo, Now, [], Ct);
+
+        await _repository.ApplyRetentionAsync(StartOf("2026-11-05"), Oslo, Ct);
+
+        var after = await _repository.GetGroupedRangeSummaryAsync(first, last, Oslo, Now, [], Ct);
+        after.Apps.Single(a => a.App.Key == "away").Duration.ShouldBe(TimeSpan.FromHours(1));
+        after.Apps.Single(a => a.App.Key == "away").ShouldBe(before.Apps.Single(a => a.App.Key == "away"));
+        after.Days[0].Apps.Single(a => a.App.Key == "away").Duration.ShouldBe(TimeSpan.FromHours(1));
+    }
 
     [Fact]
     public async Task The_rollup_equals_the_intervals_it_replaces()

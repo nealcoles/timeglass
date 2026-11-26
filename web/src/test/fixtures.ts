@@ -174,6 +174,7 @@ export function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
     recordWindowTitles: true,
     appsWithoutTitles: [],
     appAliases: [],
+    keywordGroups: [],
     startWithWindows: false,
     workHoursStartMinutes: 9 * 60,
     workHoursEndMinutes: 17 * 60,

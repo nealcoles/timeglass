@@ -1,7 +1,10 @@
-import { useDaySummary } from '../api/queries.ts';
+import { useState } from 'react';
+import { useDaySummary, useGroupedRangeSummary } from '../api/queries.ts';
 import { errorMessage } from '../api/errors.ts';
 import { formatClockTime, formatDuration, formatLongDate, localToday } from '../format.ts';
 import { DateNav } from '../nav/DateNav.tsx';
+import { ViewSelector, type GroupingView } from '../groups/ViewSelector.tsx';
+import { paths } from '../router.ts';
 import { AppShareList } from './AppShareList.tsx';
 import { OTHER_COLOR } from './appColor.ts';
 import { appShares } from './appShares.ts';
@@ -12,6 +15,7 @@ interface DayViewProps {
   date: string;
   /** Today's date, `yyyy-MM-dd`: the wording says "today", and the way forward stops there. */
   today?: string;
+  initialView?: GroupingView;
 }
 
 /**
@@ -19,9 +23,14 @@ interface DayViewProps {
  * went to. Each app links to its drill-down by window title (#34); the date bar moves between days
  * and to the week (#35).
  */
-export function DayView({ date, today = localToday() }: DayViewProps) {
+export function DayView({ date, today = localToday(), initialView = 'apps' }: DayViewProps) {
   const isToday = date === today;
   const summary = useDaySummary(date);
+  const [view, setView] = useState<GroupingView>(initialView);
+  const grouped = useGroupedRangeSummary(date, date, { enabled: view === 'groups' });
+  const colors = new Map(
+    (summary.data ? appShares(summary.data.apps) : []).map((row) => [row.key, row.color]),
+  );
   const heading = isToday ? `Today, ${formatLongDate(date)}` : formatLongDate(date);
 
   return (
@@ -37,12 +46,19 @@ export function DayView({ date, today = localToday() }: DayViewProps) {
         <p role="alert" className="day__error">
           {errorMessage(summary.error)}
         </p>
-      ) : summary.data.activeMs === 0 && summary.data.apps.length === 0 ? (
-        <p className="day__empty">
-          {isToday
-            ? 'Nothing tracked yet today. Time shows up here as you use your computer.'
-            : 'Nothing was tracked on this day.'}
-        </p>
+      ) : summary.data.activeMs === 0 &&
+        summary.data.apps.length === 0 &&
+        (view !== 'groups' || summary.data.awayMs === 0) ? (
+        <>
+          <ViewSelector value={view} onChange={setView} />
+          <p className="day__empty">
+            {summary.data.awayMs > 0
+              ? 'No active time was tracked. Select Keyword group to see away time.'
+              : isToday
+                ? 'Nothing tracked yet today. Time shows up here as you use your computer.'
+                : 'Nothing was tracked on this day.'}
+          </p>
+        </>
       ) : (
         <>
           <dl className="day__totals">
@@ -74,25 +90,32 @@ export function DayView({ date, today = localToday() }: DayViewProps) {
             )}
           </dl>
 
-          <DaySections date={date} rows={appShares(summary.data.apps)} />
+          <h3>When</h3>
+          {view === 'groups' && (
+            <p className="settings__hint">The timeline is coloured by application.</p>
+          )}
+          <DayTimeline
+            date={date}
+            colorFor={(key) => colors.get(key) ?? OTHER_COLOR}
+            grouped={view === 'groups'}
+          />
+          <h3>Where the time went</h3>
+          <ViewSelector value={view} onChange={setView} />
+          {view === 'apps' ? (
+            <AppShareList rows={appShares(summary.data.apps)} date={date} />
+          ) : grouped.isPending ? (
+            <p role="status">Loading groups…</p>
+          ) : grouped.isError ? (
+            <p role="alert">{errorMessage(grouped.error)}</p>
+          ) : (
+            <AppShareList
+              rows={appShares(grouped.data.apps)}
+              grouped
+              groupHref={(name) => paths.group(date, date, name, 'day')}
+            />
+          )}
         </>
       )}
     </section>
-  );
-}
-
-function DaySections({ date, rows }: { date: string; rows: ReturnType<typeof appShares> }) {
-  // The timeline uses the list's colours, so each app is the same colour in both.
-  const colors = new Map(rows.map((r) => [r.key, r.color] as const));
-  const colorFor = (appKey: string) => colors.get(appKey) ?? OTHER_COLOR;
-
-  return (
-    <>
-      <h3>When</h3>
-      <DayTimeline date={date} colorFor={colorFor} />
-
-      <h3>Where the time went</h3>
-      <AppShareList rows={rows} date={date} />
-    </>
   );
 }

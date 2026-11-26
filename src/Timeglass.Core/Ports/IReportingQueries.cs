@@ -1,5 +1,6 @@
 using Timeglass.Core.Domain;
 using Timeglass.Core.Reporting;
+using Timeglass.Core.Settings;
 
 namespace Timeglass.Core.Ports;
 
@@ -75,6 +76,21 @@ public interface IReportingQueries
         DateTimeOffset now,
         TimeSpan dayStart = default,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Totals per day and keyword group over a range of local days.</summary>
+    Task<RangeSummary> GetGroupedRangeSummaryAsync(
+        DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default);
+
+    /// <summary>Applications contributing to one keyword group over a range of local days.</summary>
+    Task<RangeSummary> GetGroupApplicationsAsync(
+        DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, string groupName, CancellationToken cancellationToken = default);
+
+    /// <summary>Titles for an application's time assigned to a keyword group over a range.</summary>
+    Task<TitleBreakdown> GetGroupApplicationTitlesAsync(
+        DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, string groupName, string appKey, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The intervals that overlap [<paramref name="from"/>, <paramref name="to"/>), ordered by

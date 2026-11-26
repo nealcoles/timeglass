@@ -9,6 +9,11 @@ export interface AliasRow {
   titlePattern: string;
 }
 
+export interface GroupRow {
+  name: string;
+  keywords: string;
+}
+
 /** The settings form as the user edits it; {@link toSettings} turns it into what the API takes. */
 export interface SettingsForm {
   idleEnabled: boolean;
@@ -19,6 +24,7 @@ export interface SettingsForm {
   recordWindowTitles: boolean;
   appsWithoutTitles: string[];
   aliases: AliasRow[];
+  groups: GroupRow[];
   /** Null where the app can't start with Windows (the dev host), so the switch is hidden. */
   startWithWindows: boolean | null;
   /** When work hours begin and end, `HH:mm` as the time inputs give them. */
@@ -74,6 +80,10 @@ export function toForm(settings: SettingsDto): SettingsForm {
       exes: a.exes.join(', '),
       titlePattern: a.titlePattern ?? '',
     })),
+    groups: (settings.keywordGroups ?? []).map((group) => ({
+      name: group.name,
+      keywords: group.keywords.join(', '),
+    })),
     startWithWindows: settings.startWithWindows,
     workStart: toClock(settings.workHoursStartMinutes ?? DEFAULT_WORK_START),
     workEnd: toClock(settings.workHoursEndMinutes ?? DEFAULT_WORK_END),
@@ -101,6 +111,13 @@ export function toSettings(form: SettingsForm): SettingsDto {
         .map((e) => e.trim())
         .filter((e) => e !== ''),
       titlePattern: row.titlePattern.trim() === '' ? null : row.titlePattern,
+    })),
+    keywordGroups: form.groups.map((group) => ({
+      name: group.name.trim(),
+      keywords: group.keywords
+        .split(',')
+        .map((keyword) => keyword.trim())
+        .filter(Boolean),
     })),
     startWithWindows: form.startWithWindows,
     workHoursStartMinutes: fromClock(form.workStart),
@@ -145,6 +162,21 @@ export function validate(form: SettingsForm): FieldErrors {
   );
   if (aliasErrors.length > 0) {
     errors.appAliases = aliasErrors;
+  }
+  const names = new Set<string>();
+  const groupErrors: string[] = [];
+  form.groups.forEach((group, i) => {
+    const name = group.name.trim().toLowerCase();
+    if (!name || name === 'ungrouped' || names.has(name)) {
+      groupErrors.push(`Group ${i + 1}: enter a unique name other than Ungrouped.`);
+    }
+    names.add(name);
+    if (!group.keywords.split(',').some((keyword) => keyword.trim())) {
+      groupErrors.push(`Group ${i + 1}: enter at least one keyword.`);
+    }
+  });
+  if (groupErrors.length > 0) {
+    errors.keywordGroups = groupErrors;
   }
   return errors;
 }

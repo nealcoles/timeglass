@@ -1,5 +1,5 @@
 import type { AppTotalDto } from '../api/client.ts';
-import { appColor } from './appColor.ts';
+import { appColors } from './appColor.ts';
 
 /** One row of the app share list. */
 export interface AppShare {
@@ -15,6 +15,7 @@ export interface AppShare {
 
 /** Every app by time, longest first, each with its own colour (#96). */
 export function appShares(apps: readonly AppTotalDto[]): AppShare[] {
+  const colorFor = appColors(apps.map((a) => a.app.key));
   return [...apps]
     .sort((a, b) => b.durationMs - a.durationMs)
     .map((a) => ({
@@ -23,6 +24,6 @@ export function appShares(apps: readonly AppTotalDto[]): AppShare[] {
       durationMs: a.durationMs,
       percent: a.percent,
       share: a.share,
-      color: appColor(a.app.key),
+      color: colorFor(a.app.key),
     }));
 }

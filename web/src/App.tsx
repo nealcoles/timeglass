@@ -2,6 +2,8 @@ import { useStatus } from './api/queries';
 import { AppView } from './app/AppView.tsx';
 import { DayView } from './day/DayView.tsx';
 import { localToday } from './format.ts';
+import { GroupView } from './groups/GroupView.tsx';
+import { GroupAppView } from './groups/GroupAppView.tsx';
 import { Link } from './Link.tsx';
 import { paths, useRoute, type Route } from './router.ts';
 import { SettingsView } from './settings/SettingsView.tsx';
@@ -59,17 +61,42 @@ export function App() {
 function Screen({ route, today }: { route: Route; today: string }) {
   switch (route.name) {
     case 'today':
-      return <DayView date={today} today={today} />;
+      return <DayView date={today} today={today} initialView={route.view ?? 'apps'} />;
     case 'day':
-      return <DayView date={route.date} today={today} />;
+      return <DayView date={route.date} today={today} initialView={route.view ?? 'apps'} />;
     case 'app':
       return <AppView date={route.date} appKey={route.appKey} isToday={route.date === today} />;
     case 'thisWeek':
-      return <WeekView date={today} today={today} />;
+      return <WeekView date={today} today={today} initialView={route.view ?? 'apps'} />;
     case 'week':
-      return <WeekView date={route.date} today={today} />;
+      return <WeekView date={route.date} today={today} initialView={route.view ?? 'apps'} />;
     case 'trends':
-      return <TrendsView today={today} />;
+      return (
+        <TrendsView
+          today={today}
+          initialView={route.view ?? 'apps'}
+          initialPeriod={route.period ?? 30}
+        />
+      );
+    case 'group':
+      return (
+        <GroupView
+          from={route.from}
+          to={route.to}
+          groupName={route.groupName}
+          source={route.source}
+        />
+      );
+    case 'groupApp':
+      return (
+        <GroupAppView
+          from={route.from}
+          to={route.to}
+          groupName={route.groupName}
+          source={route.source}
+          appKey={route.appKey}
+        />
+      );
     case 'settings':
       return <SettingsView today={today} />;
     case 'notFound':

@@ -37,6 +37,31 @@ describe('parseRoute', () => {
     expect(parseRoute(paths.week('2026-11-02'))).toEqual({ name: 'week', date: '2026-11-02' });
     expect(parseRoute(paths.settings())).toEqual({ name: 'settings' });
     expect(parseRoute(paths.trends())).toEqual({ name: 'trends' });
+    expect(parseRoute(paths.group('2026-11-02', '2026-11-08', 'R&D / Prizm', 'week'))).toEqual({
+      name: 'group',
+      from: '2026-11-02',
+      to: '2026-11-08',
+      groupName: 'R&D / Prizm',
+      source: 'week',
+    });
+    expect(
+      parseRoute(paths.groupApp('2026-11-02', '2026-11-08', 'R&D / Prizm', 'week', 'app/a b')),
+    ).toEqual({
+      name: 'groupApp',
+      from: '2026-11-02',
+      to: '2026-11-08',
+      groupName: 'R&D / Prizm',
+      source: 'week',
+      appKey: 'app/a b',
+    });
+    expect(parseRoute(paths.groupBack('2026-10-30', '2026-11-05', 'trends'))).toEqual({
+      name: 'trends',
+      view: 'groups',
+      period: 7,
+    });
+    expect(parseRoute('/group/2026-11-02/2026-11-08?name=A&source=invalid')).toEqual({
+      name: 'notFound',
+    });
   });
 });
 

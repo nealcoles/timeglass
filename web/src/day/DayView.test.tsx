@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
+import userEvent from '@testing-library/user-event';
 import type { DaySummaryDto } from '../api/client.ts';
 import { daySummary, demoDate } from '../test/fixtures.ts';
 import { renderWithApi } from '../test/render.tsx';
@@ -19,6 +20,87 @@ function totals() {
 }
 
 describe('DayView', () => {
+  it('switches to the grouped totals without changing the application timeline', async () => {
+    server.use(
+      http.get('/api/range/groups', () =>
+        HttpResponse.json({
+          from: demoDate,
+          to: demoDate,
+          start: '',
+          end: '',
+          activeMs: 60000,
+          awayMs: 0,
+          days: [],
+          apps: [
+            {
+              app: { key: 'group-0', name: 'Investigator' },
+              durationMs: 60000,
+              share: 1,
+              percent: 100,
+            },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithApi(<DayView date={demoDate} />);
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
+    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const table = await screen.findByRole('table', {
+      name: 'Tracked time per group, longest first',
+    });
+
+    expect(within(table).getByText('Investigator')).toBeInTheDocument();
+    expect(screen.getByText('The timeline is coloured by application.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Application' }));
+    expect(screen.getByRole('button', { name: 'Application' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(
+      screen.getByRole('table', { name: 'Active time per app, longest first' }),
+    ).toBeInTheDocument();
+  });
+
+  it('lets an away-only day be viewed as a group without an application link', async () => {
+    useSummary({
+      ...daySummary(),
+      activeMs: 0,
+      awayMs: 60000,
+      firstActivity: null,
+      lastActivity: null,
+      workdayMs: 0,
+      apps: [],
+    });
+    server.use(
+      http.get('/api/range/groups', () =>
+        HttpResponse.json({
+          from: demoDate,
+          to: demoDate,
+          start: '',
+          end: '',
+          activeMs: 0,
+          awayMs: 60000,
+          days: [],
+          apps: [{ app: { key: 'away', name: 'Away' }, durationMs: 60000, share: 1, percent: 100 }],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithApi(<DayView date={demoDate} />);
+    expect(await screen.findByText(/No active time was tracked/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
+    const table = await screen.findByRole('table', {
+      name: 'Tracked time per group, longest first',
+    });
+    expect(table).toHaveTextContent('Away');
+    expect(table).toHaveTextContent('100%');
+    expect(within(table).queryByRole('link', { name: 'Away' })).not.toBeInTheDocument();
+  });
   it('shows a loading state until the summary arrives', async () => {
     renderWithApi(<DayView date={demoDate} />);
 
@@ -154,7 +236,14 @@ describe('DayView', () => {
   });
 
   it('words the empty state for today', async () => {
-    useSummary({ ...daySummary(), activeMs: 0, firstActivity: null, lastActivity: null, apps: [] });
+    useSummary({
+      ...daySummary(),
+      activeMs: 0,
+      awayMs: 0,
+      firstActivity: null,
+      lastActivity: null,
+      apps: [],
+    });
 
     renderWithApi(<DayView date={demoDate} today={demoDate} />);
 

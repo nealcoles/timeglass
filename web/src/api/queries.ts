@@ -11,6 +11,11 @@ export const queryKeys = {
   timeline: (date: string) => ['days', date, 'timeline'] as const,
   appDay: (date: string, appKey: string) => ['days', date, 'apps', appKey] as const,
   range: (from: string, to: string) => ['range', from, to] as const,
+  groupedRange: (from: string, to: string) => ['groups', from, to] as const,
+  groupApplications: (from: string, to: string, name: string) =>
+    ['groups', 'applications', from, to, name] as const,
+  groupAppTitles: (from: string, to: string, name: string, appKey: string) =>
+    ['groups', 'titles', from, to, name, appKey] as const,
   settings: ['settings'] as const,
 };
 
@@ -66,6 +71,41 @@ export function useRangeSummary(from: string, to: string, { enabled = true } = {
   });
 }
 
+export function useGroupedRangeSummary(from: string, to: string, { enabled = true } = {}) {
+  const api = useApiClient();
+  return useQuery({
+    queryKey: queryKeys.groupedRange(from, to),
+    enabled,
+    queryFn: ({ signal }) =>
+      unwrap(api.GET('/api/range/groups', { params: { query: { from, to } }, signal })),
+  });
+}
+
+export function useGroupApplications(from: string, to: string, name: string) {
+  const api = useApiClient();
+  return useQuery({
+    queryKey: queryKeys.groupApplications(from, to, name),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/range/group-applications', { params: { query: { from, to, name } }, signal }),
+      ),
+  });
+}
+
+export function useGroupAppTitles(from: string, to: string, name: string, appKey: string) {
+  const api = useApiClient();
+  return useQuery({
+    queryKey: queryKeys.groupAppTitles(from, to, name, appKey),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/range/group-application-titles', {
+          params: { query: { from, to, name, appKey } },
+          signal,
+        }),
+      ),
+  });
+}
+
 /** The settings the dashboard can change (#36). */
 export function useSettings() {
   const api = useApiClient();
@@ -84,7 +124,10 @@ export function useSaveSettings() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (settings: SettingsDto) => unwrap(api.PUT('/api/settings', { body: settings })),
-    onSuccess: (saved) => queryClient.setQueryData(queryKeys.settings, saved),
+    onSuccess: async (saved) => {
+      queryClient.setQueryData(queryKeys.settings, saved);
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
   });
 }
 

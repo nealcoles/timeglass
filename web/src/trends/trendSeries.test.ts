@@ -1,6 +1,6 @@
 import type { RangeSummaryDto } from '../api/client.ts';
 import { addDays } from '../dates.ts';
-import { appColor } from '../day/appColor.ts';
+import { appShares } from '../day/appShares.ts';
 import { rangeSummary } from '../test/fixtures.ts';
 import { axisTicks, formatChange, trendChange, trendSeries } from './trendSeries.ts';
 
@@ -34,7 +34,7 @@ describe('trendSeries', () => {
     const code = trend.series[0];
     expect(code?.values).toEqual([3, 3, 3, 3, 3, 0, 0].map((h) => h * HOUR));
     expect(code?.totalMs).toBe(15 * HOUR);
-    expect(code?.color).toBe(appColor('vscode'));
+    expect(code?.color).toBe(appShares(week.apps).find((row) => row.key === 'vscode')?.color);
     expect(trend.maxMs).toBe(3 * HOUR);
   });
 
@@ -52,6 +52,14 @@ describe('trendSeries', () => {
 
     expect(trend.series.map((s) => s.key)).toEqual(['teams']);
     expect(trend.maxMs).toBe(45 * MINUTE);
+  });
+
+  it('keeps the same colours when limiting or picking an app', () => {
+    const all = trendSeries(week).series;
+    const limited = trendSeries(week, { limit: 3 }).series;
+    const picked = trendSeries(week, { appKey: 'vscode' }).series;
+    expect(limited.map((s) => s.color)).toEqual(all.slice(0, 3).map((s) => s.color));
+    expect(picked[0]?.color).toBe(all.find((s) => s.key === 'vscode')?.color);
   });
 
   it('has no lines for an app not in the range', () => {

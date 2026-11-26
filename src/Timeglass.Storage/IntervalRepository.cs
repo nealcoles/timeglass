@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Timeglass.Core.Domain;
 using Timeglass.Core.Ports;
 using Timeglass.Core.Reporting;
+using Timeglass.Core.Settings;
 
 namespace Timeglass.Storage;
 
@@ -341,6 +342,39 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
         return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, rolledUp);
+    }
+
+    /// <inheritdoc />
+    public async Task<RangeSummary> GetGroupedRangeSummaryAsync(
+        DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default)
+    {
+        var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
+        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
+        return KeywordGroups.Build(intervals, rolledUp, firstDay, lastDay, zone, now, groups);
+    }
+
+    /// <inheritdoc />
+    public async Task<RangeSummary> GetGroupApplicationsAsync(
+        DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, string groupName, CancellationToken cancellationToken = default)
+    {
+        var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
+        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
+        return KeywordGroups.BuildForGroup(intervals, rolledUp, firstDay, lastDay, zone, now, groups, groupName);
+    }
+
+    /// <inheritdoc />
+    public async Task<TitleBreakdown> GetGroupApplicationTitlesAsync(
+        DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, string groupName, string appKey, CancellationToken cancellationToken = default)
+    {
+        var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
+        var intervals = await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
+        var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
+        return KeywordGroups.BuildAppTitles(intervals, rolledUp, firstDay, lastDay, zone, now, groups, groupName, appKey);
     }
 
     /// <summary>
