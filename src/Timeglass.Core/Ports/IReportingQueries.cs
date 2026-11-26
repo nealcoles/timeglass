@@ -10,6 +10,11 @@ namespace Timeglass.Core.Ports;
 /// </summary>
 public interface IReportingQueries
 {
+    /// <summary>Returns persistent colours for the requested apps and assigns colours to new apps.</summary>
+    Task<IReadOnlyDictionary<string, string>> GetAppColorsAsync(
+        IReadOnlyCollection<string> keys,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Where the time went on one local day; see <see cref="DaySummaries.Build"/>.</summary>
     /// <param name="day">The local date.</param>
     /// <param name="zone">The user's time zone.</param>

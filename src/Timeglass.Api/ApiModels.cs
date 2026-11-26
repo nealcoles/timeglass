@@ -22,10 +22,11 @@ public sealed record AppDto(string Key, string Name)
 /// <param name="DurationMs">Active time in the app, in milliseconds.</param>
 /// <param name="Share">Exact fraction of the active time, between 0 and 1.</param>
 /// <param name="Percent">Whole percentage; the percentages of one list add up to 100.</param>
-public sealed record AppTotalDto(AppDto App, long DurationMs, double Share, int Percent)
+/// <param name="Color">Persistent display colour for the app.</param>
+public sealed record AppTotalDto(AppDto App, long DurationMs, double Share, int Percent, string Color)
 {
-    internal static AppTotalDto Create(AppDayTotal total) =>
-        new(AppDto.Create(total.App), total.Duration.ToMs(), total.Share, total.Percent);
+    internal static AppTotalDto Create(AppDayTotal total, IReadOnlyDictionary<string, string> colors) =>
+        new(AppDto.Create(total.App), total.Duration.ToMs(), total.Share, total.Percent, colors[total.App.Key]);
 }
 
 /// <summary>Where the time went on one local day.</summary>
@@ -49,7 +50,7 @@ public sealed record DaySummaryDto(
     long WorkdayMs,
     IReadOnlyList<AppTotalDto> Apps)
 {
-    internal static DaySummaryDto Create(DaySummary summary, TimeZoneInfo zone, WorkHours workHours) => new(
+    internal static DaySummaryDto Create(DaySummary summary, TimeZoneInfo zone, WorkHours workHours, IReadOnlyDictionary<string, string> colors) => new(
         summary.Day,
         summary.Start,
         summary.End,
@@ -58,7 +59,7 @@ public sealed record DaySummaryDto(
         summary.FirstActivity?.In(zone),
         summary.LastActivity?.In(zone),
         workHours.Within(summary.Day, summary.FirstActivity, summary.LastActivity, zone).ToMs(),
-        [.. summary.Apps.Select(AppTotalDto.Create)]);
+        [.. summary.Apps.Select(a => AppTotalDto.Create(a, colors))]);
 }
 
 /// <summary>Active or away.</summary>
@@ -116,21 +117,24 @@ public sealed record TimelineBlockDto(
 /// <param name="End">First instant of the next day (exclusive).</param>
 /// <param name="TotalMs">Active time in the app, in milliseconds.</param>
 /// <param name="Titles">Every title, longest first.</param>
+/// <param name="Color">Persistent display colour, or null if the app has no recorded time.</param>
 public sealed record AppDayDto(
     DateOnly Date,
     AppDto App,
     DateTimeOffset Start,
     DateTimeOffset End,
     long TotalMs,
-    IReadOnlyList<TitleTotalDto> Titles)
+    IReadOnlyList<TitleTotalDto> Titles,
+    string? Color)
 {
-    internal static AppDayDto Create(DateOnly date, TitleBreakdown breakdown) => new(
+    internal static AppDayDto Create(DateOnly date, TitleBreakdown breakdown, string? color) => new(
         date,
         AppDto.Create(breakdown.App),
         breakdown.Start,
         breakdown.End,
         breakdown.Total.ToMs(),
-        [.. breakdown.Titles.Select(t => new TitleTotalDto(t.Title, t.Duration.ToMs(), t.Share, t.Percent))]);
+        [.. breakdown.Titles.Select(t => new TitleTotalDto(t.Title, t.Duration.ToMs(), t.Share, t.Percent))],
+        color);
 }
 
 /// <summary>Time with one window title.</summary>
@@ -159,15 +163,15 @@ public sealed record RangeSummaryDto(
     IReadOnlyList<DayTotalDto> Days,
     IReadOnlyList<AppTotalDto> Apps)
 {
-    internal static RangeSummaryDto Create(RangeSummary summary) => new(
+    internal static RangeSummaryDto Create(RangeSummary summary, IReadOnlyDictionary<string, string> colors) => new(
         summary.FirstDay,
         summary.LastDay,
         summary.Start,
         summary.End,
         summary.Active.ToMs(),
         summary.Away.ToMs(),
-        [.. summary.Days.Select(d => new DayTotalDto(d.Day, d.Start, d.End, d.Active.ToMs(), d.Away.ToMs(), [.. d.Apps.Select(AppTotalDto.Create)]))],
-        [.. summary.Apps.Select(AppTotalDto.Create)]);
+        [.. summary.Days.Select(d => new DayTotalDto(d.Day, d.Start, d.End, d.Active.ToMs(), d.Away.ToMs(), [.. d.Apps.Select(a => AppTotalDto.Create(a, colors))]))],
+        [.. summary.Apps.Select(a => AppTotalDto.Create(a, colors))]);
 }
 
 /// <summary>One day in a range.</summary>

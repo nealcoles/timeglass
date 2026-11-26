@@ -1,5 +1,4 @@
 import type { AppTotalDto } from '../api/client.ts';
-import { appColor } from './appColor.ts';
 
 /** One row of the app share list. */
 export interface AppShare {
@@ -23,6 +22,6 @@ export function appShares(apps: readonly AppTotalDto[]): AppShare[] {
       durationMs: a.durationMs,
       percent: a.percent,
       share: a.share,
-      color: appColor(a.app.key),
+      color: a.color,
     }));
 }

@@ -104,6 +104,7 @@ describe('DayView', () => {
     const block = lane.querySelector<HTMLElement>('[data-app="vscode"]');
     expect(block?.style.backgroundColor).toBeTruthy();
     expect(block?.style.backgroundColor).toBe(swatch?.style.backgroundColor);
+    expect(swatch).toHaveStyle({ backgroundColor: daySummary().apps[0]?.color });
   });
 
   it('lists every app by name instead of folding some into Other', async () => {
@@ -113,6 +114,7 @@ describe('DayView', () => {
       durationMs: 60_000,
       share: 0.01,
       percent: 1,
+      color: 'hsl(180 75% 50%)',
     }));
     useSummary({ ...base, apps: [...base.apps, ...extra] });
 
