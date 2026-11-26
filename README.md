@@ -232,8 +232,9 @@ updates SQLite's statistics, empties the `-wal` file and, while you are away and
 the file is unused, rebuilds it to give the space back.
 
 With `retentionMonths` set, days older than that many months are reduced to their time per app:
-the day and week views show them as before, but window titles, executables and the timeline of
-those days are deleted (overwritten in the file, not just unlinked), and exports no longer contain them.
+window titles, executables and the timeline of those days are deleted (overwritten in the file,
+not just unlinked), and exports no longer contain them. The after-hours analysis rule cannot be
+applied to days reduced to totals.
 
 Log files roll over daily (and past 10 MB) and are deleted after seven days. The tray menu's
 _Open log folder_ opens them. The level is `Information` by default; set `"logLevel": "Debug"`
@@ -261,9 +262,17 @@ settings at startup stop the app with a message that names the problem.
 | `appAliases`         | `[]`            | Renames and extra apps on top of the built-in aliases, see below.               |
 | `workHoursStart`     | `"09:00:00"`    | When work hours begin, for the _Workday_ on the main screen.                    |
 | `workHoursEnd`       | `"17:00:00"`    | When work hours end; after `workHoursStart`.                                    |
+| `discardAfterHoursReturns` | `false` | Exclude a short final after-hours return and its preceding absence from analysis. |
+| `afterHoursMinimumAway` | `"01:00:00"` | Minimum preceding absence (1 minute to 24 hours). |
+| `afterHoursMaximumReturn` | `"00:10:00"` | Maximum return length (1 minute to 4 hours). |
 | `retentionMonths`    | `null`          | Months of detail to keep (1 to 120); older days keep only time per app. `null` keeps everything. |
 | `apiPort`            | `5381`          | Port of the API on 127.0.0.1 (1024 to 65535); another if taken. Needs a restart |
 | `logLevel`           | `"Information"` | `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical` or `None`.      |
+
+The after-hours rule is a heuristic: it only applies to a completed final return after work hours
+that ends on the same local day it starts. It excludes both the entire preceding absence and return
+from the day, timeline, app and range reports. The recorded intervals and exports remain unchanged.
+Days reduced to totals by retention cannot be recalculated, including when settings change later.
 
 An app can be in `excludedApps` or `appsWithoutTitles`, not both. Privacy settings apply to the
 open interval as soon as they change: an interval of a newly excluded app is closed, and a

@@ -175,7 +175,7 @@ public static partial class TimeglassApi
             return InvalidDate(nameof(date), date);
         }
 
-        var summary = await reports.GetDaySummaryAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
+        var summary = await reports.GetDaySummaryAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken, afterHours: settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
         var colors = await reports.GetAppColorsAsync([.. summary.Apps.Select(a => a.App.Key)], cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(DaySummaryDto.Create(summary, time.LocalTimeZone, settings.Current.ToWorkHours(), colors));
     }
@@ -194,8 +194,8 @@ public static partial class TimeglassApi
         }
 
         var timeline = grouped == true
-            ? await reports.GetGroupedTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), settings.Current.KeywordGroups ?? [], cancellationToken).ConfigureAwait(false)
-            : await reports.GetTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
+            ? await reports.GetGroupedTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), settings.Current.KeywordGroups ?? [], cancellationToken, settings.Current.ToAfterHoursOptions()).ConfigureAwait(false)
+            : await reports.GetTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken, afterHours: settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
         return TypedResults.Ok(TimelineDto.Create(timeline, time.LocalTimeZone));
     }
 
@@ -203,6 +203,7 @@ public static partial class TimeglassApi
         [Description("Local date, yyyy-MM-dd.")] string date,
         [Description("The app's key, e.g. outlook.")] string appKey,
         [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
         [FromServices] TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -211,7 +212,7 @@ public static partial class TimeglassApi
             return InvalidDate(nameof(date), date);
         }
 
-        var breakdown = await reports.GetTitleBreakdownAsync(appKey, day, day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
+        var breakdown = await reports.GetTitleBreakdownAsync(appKey, day, day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken, afterHours: settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
         var colors = await reports.GetAppColorsAsync(breakdown.Total > TimeSpan.Zero ? [breakdown.App.Key] : [], cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(AppDayDto.Create(day, breakdown, colors.GetValueOrDefault(breakdown.App.Key)));
     }
@@ -220,6 +221,7 @@ public static partial class TimeglassApi
         [Description("First local date, yyyy-MM-dd. Required.")] string? from,
         [Description("Last local date, yyyy-MM-dd, included. Required.")] string? to,
         [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
         [FromServices] TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -253,7 +255,7 @@ public static partial class TimeglassApi
             return TypedResults.ValidationProblem(errors);
         }
 
-        var summary = await reports.GetRangeSummaryAsync(firstDay, lastDay, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
+        var summary = await reports.GetRangeSummaryAsync(firstDay, lastDay, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken, afterHours: settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
         var colors = await reports.GetAppColorsAsync([.. summary.Apps.Select(a => a.App.Key), .. summary.Days.SelectMany(d => d.Apps.Select(a => a.App.Key))], cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(RangeSummaryDto.Create(summary, colors));
     }
@@ -287,8 +289,9 @@ public static partial class TimeglassApi
         }
 
         var result = await reports.GetGroupedRangeSummaryAsync(first, last, time.LocalTimeZone, time.GetUtcNow(),
-            settings.Current.KeywordGroups ?? [], cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(RangeSummaryDto.Create(result));
+            settings.Current.KeywordGroups ?? [], cancellationToken, settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
+        var colors = await reports.GetAppColorsAsync([.. result.Apps.Select(a => a.App.Key), .. result.Days.SelectMany(d => d.Apps.Select(a => a.App.Key))], cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(RangeSummaryDto.Create(result, colors));
     }
 
     private static async Task<Results<Ok<RangeSummaryDto>, ValidationProblem>> GetGroupApplicationsAsync(
@@ -308,8 +311,9 @@ public static partial class TimeglassApi
         }
 
         var result = await reports.GetGroupApplicationsAsync(first, last, time.LocalTimeZone, time.GetUtcNow(),
-            groups, name!, cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(RangeSummaryDto.Create(result));
+            groups, name!, cancellationToken, settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
+        var colors = await reports.GetAppColorsAsync([.. result.Apps.Select(a => a.App.Key), .. result.Days.SelectMany(d => d.Apps.Select(a => a.App.Key))], cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(RangeSummaryDto.Create(result, colors));
     }
 
     private static async Task<Results<Ok<GroupAppTitlesDto>, ValidationProblem>> GetGroupApplicationTitlesAsync(
@@ -334,7 +338,7 @@ public static partial class TimeglassApi
         }
 
         var result = await reports.GetGroupApplicationTitlesAsync(first, last, time.LocalTimeZone, time.GetUtcNow(),
-            groups, name!, appKey!, cancellationToken).ConfigureAwait(false);
+            groups, name!, appKey!, cancellationToken, settings.Current.ToAfterHoursOptions()).ConfigureAwait(false);
         return TypedResults.Ok(GroupAppTitlesDto.Create(result));
     }
 

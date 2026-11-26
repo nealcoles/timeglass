@@ -121,6 +121,37 @@ public sealed class SettingsEndpointTests : IAsyncLifetime
         return problem!["errors"]!.AsObject();
     }
 
+    [Fact]
+    public async Task After_hours_settings_round_trip_and_old_clients_preserve_them()
+    {
+        using var response = await PutAsync(Defaults with
+        {
+            DiscardAfterHoursReturns = true,
+            AfterHoursMinimumAwayMinutes = 90,
+            AfterHoursMaximumReturnMinutes = 15,
+        });
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var oldClientResponse = await PutAsync(Defaults);
+        oldClientResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var settings = await _host.GetJsonAsync<SettingsDto>("/api/settings", Ct);
+        settings.DiscardAfterHoursReturns.ShouldBe(true);
+        settings.AfterHoursMinimumAwayMinutes.ShouldBe(90);
+        settings.AfterHoursMaximumReturnMinutes.ShouldBe(15);
+    }
+
+    [Fact]
+    public async Task After_hours_thresholds_must_be_in_range()
+    {
+        using var response = await PutAsync(Defaults with
+        {
+            AfterHoursMinimumAwayMinutes = 0,
+            AfterHoursMaximumReturnMinutes = 241,
+        });
+        var errors = await ErrorsAsync(response);
+        errors["afterHoursMinimumAwayMinutes"].ShouldNotBeNull();
+        errors["afterHoursMaximumReturnMinutes"].ShouldNotBeNull();
+    }
+
     private async Task<HttpResponseMessage> DeleteAsync(string query, string? confirm)
     {
         using var request = new HttpRequestMessage(HttpMethod.Delete, new Uri($"/api/intervals{query}", UriKind.Relative))

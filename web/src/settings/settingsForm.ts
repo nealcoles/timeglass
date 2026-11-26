@@ -30,6 +30,9 @@ export interface SettingsForm {
   /** When work hours begin and end, `HH:mm` as the time inputs give them. */
   workStart: string;
   workEnd: string;
+  discardAfterHoursReturns: boolean;
+  afterHoursMinimumAwayMinutes: string;
+  afterHoursMaximumReturnMinutes: string;
 }
 
 /** Errors by the API's field names (`idleThresholdSeconds`, `excludedApps`, …). */
@@ -87,6 +90,9 @@ export function toForm(settings: SettingsDto): SettingsForm {
     startWithWindows: settings.startWithWindows,
     workStart: toClock(settings.workHoursStartMinutes ?? DEFAULT_WORK_START),
     workEnd: toClock(settings.workHoursEndMinutes ?? DEFAULT_WORK_END),
+    discardAfterHoursReturns: settings.discardAfterHoursReturns ?? false,
+    afterHoursMinimumAwayMinutes: String(settings.afterHoursMinimumAwayMinutes ?? 60),
+    afterHoursMaximumReturnMinutes: String(settings.afterHoursMaximumReturnMinutes ?? 10),
   };
 }
 
@@ -122,6 +128,9 @@ export function toSettings(form: SettingsForm): SettingsDto {
     startWithWindows: form.startWithWindows,
     workHoursStartMinutes: fromClock(form.workStart),
     workHoursEndMinutes: fromClock(form.workEnd),
+    discardAfterHoursReturns: form.discardAfterHoursReturns,
+    afterHoursMinimumAwayMinutes: Number(form.afterHoursMinimumAwayMinutes),
+    afterHoursMaximumReturnMinutes: Number(form.afterHoursMaximumReturnMinutes),
   };
 }
 
@@ -147,6 +156,16 @@ export function validate(form: SettingsForm): FieldErrors {
     errors.workHoursEndMinutes = ['Enter the time work hours end, such as 17:00.'];
   } else if (!Number.isNaN(workStart) && workEnd <= workStart) {
     errors.workHoursEndMinutes = ['Work hours must end after they begin.'];
+  }
+
+  for (const [field, text, max] of [
+    ['afterHoursMinimumAwayMinutes', form.afterHoursMinimumAwayMinutes, 1440],
+    ['afterHoursMaximumReturnMinutes', form.afterHoursMaximumReturnMinutes, 240],
+  ] as const) {
+    const value = Number(text);
+    if (text.trim() === '' || !Number.isInteger(value) || value < 1 || value > max) {
+      errors[field] = [`Enter a whole number of minutes from 1 to ${max}.`];
+    }
   }
 
   const withoutTitles = new Set(form.appsWithoutTitles.map((k) => k.toLowerCase()));

@@ -20,6 +20,9 @@ namespace Timeglass.Api;
 /// <param name="WorkHoursStartMinutes">Minutes after local midnight that work hours begin, 0 to 1439; null keeps the current value (write).</param>
 /// <param name="WorkHoursEndMinutes">Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).</param>
 /// <param name="KeywordGroups">Ordered groups of keywords, or null to leave them unchanged.</param>
+/// <param name="DiscardAfterHoursReturns">Whether to exclude qualifying after-hours returns; null keeps the current value (write).</param>
+/// <param name="AfterHoursMinimumAwayMinutes">Minimum preceding away time in minutes; null keeps the current value (write).</param>
+/// <param name="AfterHoursMaximumReturnMinutes">Maximum final return time in minutes; null keeps the current value (write).</param>
 public sealed record SettingsDto(
     int? IdleThresholdSeconds,
     IReadOnlyList<string> IdleExemptApps,
@@ -30,7 +33,10 @@ public sealed record SettingsDto(
     bool? StartWithWindows,
     int? WorkHoursStartMinutes = null,
     int? WorkHoursEndMinutes = null,
-    IReadOnlyList<KeywordGroupDto>? KeywordGroups = null)
+    IReadOnlyList<KeywordGroupDto>? KeywordGroups = null,
+    bool? DiscardAfterHoursReturns = null,
+    int? AfterHoursMinimumAwayMinutes = null,
+    int? AfterHoursMaximumReturnMinutes = null)
 {
     internal static SettingsDto Create(TimeglassSettings settings, bool? startWithWindows) => new(
         settings.IdleThreshold is { } idle ? (int)Math.Round(idle.TotalSeconds) : null,
@@ -42,7 +48,10 @@ public sealed record SettingsDto(
         startWithWindows,
         (int)settings.WorkHoursStart.TotalMinutes,
         (int)settings.WorkHoursEnd.TotalMinutes,
-        [.. (settings.KeywordGroups ?? []).Select(g => new KeywordGroupDto(g.Name, g.Keywords))]);
+        [.. (settings.KeywordGroups ?? []).Select(g => new KeywordGroupDto(g.Name, g.Keywords))],
+        settings.DiscardAfterHoursReturns,
+        (int)settings.AfterHoursMinimumAway.TotalMinutes,
+        (int)settings.AfterHoursMaximumReturn.TotalMinutes);
 
     /// <summary>
     /// These settings on top of <paramref name="current"/>: the fields the dashboard doesn't edit
@@ -65,6 +74,9 @@ public sealed record SettingsDto(
         LogLevel = current.LogLevel,
         WorkHoursStart = WorkHoursStartMinutes is { } start ? TimeSpan.FromMinutes(start) : current.WorkHoursStart,
         WorkHoursEnd = WorkHoursEndMinutes is { } end ? TimeSpan.FromMinutes(end) : current.WorkHoursEnd,
+        DiscardAfterHoursReturns = DiscardAfterHoursReturns ?? current.DiscardAfterHoursReturns,
+        AfterHoursMinimumAway = AfterHoursMinimumAwayMinutes is { } away ? TimeSpan.FromMinutes(away) : current.AfterHoursMinimumAway,
+        AfterHoursMaximumReturn = AfterHoursMaximumReturnMinutes is { } returned ? TimeSpan.FromMinutes(returned) : current.AfterHoursMaximumReturn,
     };
 
     internal static List<string> Keys(IEnumerable<string?>? keys) =>
@@ -153,6 +165,8 @@ internal static class SettingsValidation
         nameof(TimeglassSettings.IdleThreshold) => "idleThresholdSeconds",
         nameof(TimeglassSettings.WorkHoursStart) => "workHoursStartMinutes",
         nameof(TimeglassSettings.WorkHoursEnd) => "workHoursEndMinutes",
+        nameof(TimeglassSettings.AfterHoursMinimumAway) => "afterHoursMinimumAwayMinutes",
+        nameof(TimeglassSettings.AfterHoursMaximumReturn) => "afterHoursMaximumReturnMinutes",
         _ => JsonNamingPolicy.CamelCase.ConvertName(member),
     };
 }

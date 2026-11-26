@@ -131,8 +131,11 @@ export function useSaveSettings() {
     mutationFn: (settings: SettingsDto) => unwrap(api.PUT('/api/settings', { body: settings })),
     onSuccess: async (saved) => {
       queryClient.setQueryData(queryKeys.settings, saved);
-      await queryClient.invalidateQueries({ queryKey: ['groups'] });
-      await queryClient.invalidateQueries({ queryKey: ['days'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['days'] }),
+        queryClient.invalidateQueries({ queryKey: ['range'] }),
+      ]);
     },
   });
 }

@@ -29,6 +29,8 @@ const FIELDS = new Set([
   'keywordGroups',
   'workHoursStartMinutes',
   'workHoursEndMinutes',
+  'afterHoursMinimumAwayMinutes',
+  'afterHoursMaximumReturnMinutes',
 ]);
 
 /**
@@ -169,6 +171,51 @@ function SettingsEditor({ initial, today }: { initial: SettingsDto; today: strin
           </label>
           <FieldErrorList errors={errors.workHoursStartMinutes} />
           <FieldErrorList errors={errors.workHoursEndMinutes} />
+        </fieldset>
+
+        <fieldset className="settings__field">
+          <legend>After-hours returns</legend>
+          <label className="settings__check">
+            <input
+              type="checkbox"
+              checked={form.discardAfterHoursReturns}
+              onChange={(e) => change({ discardAfterHoursReturns: e.target.checked })}
+            />
+            Exclude a short final return after a long absence
+          </label>
+          <p className="settings__hint">
+            After work hours, exclude the last completed return and its preceding absence when they
+            meet these limits. Recorded intervals and exports are kept unchanged; days reduced to
+            totals cannot be adjusted.
+          </p>
+          <label className="settings__inline">
+            Minimum absence
+            <input
+              type="number"
+              min={1}
+              max={1440}
+              step={1}
+              value={form.afterHoursMinimumAwayMinutes}
+              aria-invalid={errors.afterHoursMinimumAwayMinutes !== undefined}
+              onChange={(e) => change({ afterHoursMinimumAwayMinutes: e.target.value })}
+            />
+            minutes
+          </label>
+          <FieldErrorList errors={errors.afterHoursMinimumAwayMinutes} />
+          <label className="settings__inline">
+            Maximum return
+            <input
+              type="number"
+              min={1}
+              max={240}
+              step={1}
+              value={form.afterHoursMaximumReturnMinutes}
+              aria-invalid={errors.afterHoursMaximumReturnMinutes !== undefined}
+              onChange={(e) => change({ afterHoursMaximumReturnMinutes: e.target.value })}
+            />
+            minutes
+          </label>
+          <FieldErrorList errors={errors.afterHoursMaximumReturnMinutes} />
         </fieldset>
 
         {form.startWithWindows !== null && (

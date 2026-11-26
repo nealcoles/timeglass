@@ -77,6 +77,21 @@ public sealed class TimeglassSettings : IValidatableObject
     /// <summary>The work hours these settings stand for.</summary>
     public WorkHours ToWorkHours() => new(WorkHoursStart, WorkHoursEnd);
 
+    /// <summary>Whether to exclude a short final after-hours return and its preceding absence.</summary>
+    public bool DiscardAfterHoursReturns { get; set; }
+
+    /// <summary>Minimum length of the preceding absence.</summary>
+    [Range(typeof(TimeSpan), "00:01:00", "24:00:00", ErrorMessage = "{0} must be between {1} and {2}.")]
+    public TimeSpan AfterHoursMinimumAway { get; set; } = TimeSpan.FromHours(1);
+
+    /// <summary>Maximum length of the final return.</summary>
+    [Range(typeof(TimeSpan), "00:01:00", "04:00:00", ErrorMessage = "{0} must be between {1} and {2}.")]
+    public TimeSpan AfterHoursMaximumReturn { get; set; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>The current after-hours analysis options.</summary>
+    public AfterHoursOptions ToAfterHoursOptions() =>
+        new(DiscardAfterHoursReturns, ToWorkHours(), AfterHoursMinimumAway, AfterHoursMaximumReturn);
+
     /// <summary>Port of the local HTTP API (#27). Always bound to loopback.</summary>
     [Range(1024, 65535, ErrorMessage = "{0} must be between {1} and {2}.")]
     public int ApiPort { get; set; } = DefaultApiPort;

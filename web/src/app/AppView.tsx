@@ -99,7 +99,7 @@ export function TitleList({
   missingTitleLabel = 'No title recorded',
   color = day.color ?? appColor(day.app.key),
 }: {
-  day: Pick<AppDayDto, 'app' | 'titles'>;
+  day: Pick<AppDayDto, 'app' | 'titles'> & { color?: string | null };
   missingTitleLabel?: string;
   color?: string;
 }) {

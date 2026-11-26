@@ -1333,6 +1333,29 @@
               "$ref": "#/components/schemas/KeywordGroupDto"
             },
             "description": "Ordered groups of keywords, or null to leave them unchanged."
+          },
+          "discardAfterHoursReturns": {
+            "type": [
+              "null",
+              "boolean"
+            ],
+            "description": "Whether to exclude qualifying after-hours returns; null keeps the current value (write)."
+          },
+          "afterHoursMinimumAwayMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "Minimum preceding away time in minutes; null keeps the current value (write).",
+            "format": "int32"
+          },
+          "afterHoursMaximumReturnMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "Maximum final return time in minutes; null keeps the current value (write).",
+            "format": "int32"
           }
         },
         "description": "The settings the dashboard can change; the rest of `settings.json` is kept as it is."

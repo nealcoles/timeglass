@@ -250,17 +250,19 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time the day begins, for people who work past midnight. Midnight by default.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     public async Task<DaySummary> GetDaySummaryAsync(
         DateOnly day,
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = DaySummaries.Bounds(day, zone, dayStart);
-        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(day, day, cancellationToken).ConfigureAwait(false);
-        return DaySummaries.Build(intervals, day, zone, now, dayStart, rolledUp);
+        return DaySummaries.Build(FilterAfterHours(intervals, zone, afterHours), day, zone, now, dayStart, rolledUp);
     }
 
     /// <summary>
@@ -289,27 +291,30 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     /// <param name="dayStart">Local time the day begins. Midnight by default.</param>
     /// <param name="mergeGap">Merge gaps shorter than this; <see cref="Timelines.DefaultMergeGap"/> if not given.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     public async Task<DayTimeline> GetTimelineAsync(
         DateOnly day,
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
         TimeSpan? mergeGap = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = DaySummaries.Bounds(day, zone, dayStart);
-        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
-        return Timelines.ForDay(intervals, day, zone, now, dayStart, mergeGap);
+        var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
+        return Timelines.ForDay(FilterAfterHours(intervals, zone, afterHours), day, zone, now, dayStart, mergeGap);
     }
 
     /// <inheritdoc />
     public async Task<DayTimeline> GetGroupedTimelineAsync(
         DateOnly day, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default)
+        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = DaySummaries.Bounds(day, zone);
-        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
-        return Timelines.ForDay(intervals, day, zone, now, groups: groups);
+        var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
+        return Timelines.ForDay(FilterAfterHours(intervals, zone, afterHours), day, zone, now, groups: groups);
     }
 
     /// <summary>
@@ -324,6 +329,7 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     public async Task<TitleBreakdown> GetTitleBreakdownAsync(
         string appKey,
         DateOnly firstDay,
@@ -331,12 +337,15 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(appKey);
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
-        var intervals = await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
-        return TitleBreakdowns.Build(intervals, appKey, from, to, now);
+        var intervals = afterHours?.Enabled == true
+            ? await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false)
+            : await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
+        return TitleBreakdowns.Build(FilterAfterHours(intervals, zone, afterHours), appKey, from, to, now);
     }
 
     /// <summary>
@@ -350,51 +359,94 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     public async Task<RangeSummary> GetRangeSummaryAsync(
         DateOnly firstDay,
         DateOnly lastDay,
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone, dayStart);
-        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return RangeSummaries.Build(intervals, firstDay, lastDay, zone, now, dayStart, rolledUp);
+        return RangeSummaries.Build(FilterAfterHours(intervals, zone, afterHours), firstDay, lastDay, zone, now, dayStart, rolledUp);
+    }
+
+    private static IReadOnlyList<ActivityInterval> FilterAfterHours(
+        IReadOnlyList<ActivityInterval> intervals, TimeZoneInfo zone, AfterHoursOptions? options) =>
+        options is { Enabled: true }
+            ? AfterHoursReturns.Filter(intervals, zone, options.WorkHours, options.MinimumAway, options.MaximumReturn)
+            : intervals;
+
+    private async Task<IReadOnlyList<ActivityInterval>> GetReportIntervalsAsync(
+        DateTimeOffset from, DateTimeOffset to, TimeZoneInfo zone, AfterHoursOptions? options, CancellationToken cancellationToken)
+    {
+        if (options?.Enabled != true)
+        {
+            return await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        }
+
+        var queryFrom = from > DateTimeOffset.MinValue.AddMilliseconds(1) ? from.AddMilliseconds(-1) : from;
+        var queryTo = to < DateTimeOffset.MaxValue.AddMilliseconds(-1) ? to.AddMilliseconds(1) : to;
+        var intervals = await GetRangeAsync(queryFrom, queryTo, cancellationToken).ConfigureAwait(false);
+        var crossingAway = intervals.LastOrDefault(i => i.Kind == IntervalKind.Away && !i.IsOpen && i.Start < to && i.End >= to);
+        if (crossingAway is not null)
+        {
+            var returnDay = DaySummaries.DayOf(crossingAway.End, zone);
+            var extendedTo = DaySummaries.Bounds(returnDay, zone).End;
+            if (extendedTo < DateTimeOffset.MaxValue.AddMilliseconds(-1))
+            {
+                extendedTo = extendedTo.AddMilliseconds(1);
+            }
+
+            if (extendedTo > queryTo)
+            {
+                intervals = await GetRangeAsync(queryFrom, extendedTo, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return intervals;
     }
 
     /// <inheritdoc />
     public async Task<RangeSummary> GetGroupedRangeSummaryAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default)
+        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
-        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return KeywordGroups.Build(intervals, rolledUp, firstDay, lastDay, zone, now, groups);
+        return KeywordGroups.Build(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, groups);
     }
 
     /// <inheritdoc />
     public async Task<RangeSummary> GetGroupApplicationsAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, string groupName, CancellationToken cancellationToken = default)
+        IReadOnlyList<KeywordGroupSetting> groups, string groupName, CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
-        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return KeywordGroups.BuildForGroup(intervals, rolledUp, firstDay, lastDay, zone, now, groups, groupName);
+        return KeywordGroups.BuildForGroup(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, groups, groupName);
     }
 
     /// <inheritdoc />
     public async Task<TitleBreakdown> GetGroupApplicationTitlesAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, string groupName, string appKey, CancellationToken cancellationToken = default)
+        IReadOnlyList<KeywordGroupSetting> groups, string groupName, string appKey, CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
-        var intervals = await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
+        var intervals = afterHours?.Enabled == true
+            ? await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false)
+            : await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return KeywordGroups.BuildAppTitles(intervals, rolledUp, firstDay, lastDay, zone, now, groups, groupName, appKey);
+        return KeywordGroups.BuildAppTitles(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, groups, groupName, appKey);
     }
 
     /// <summary>

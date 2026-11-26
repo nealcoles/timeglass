@@ -84,7 +84,7 @@ describe('SettingsView', () => {
     );
 
     expect(screen.getByRole('checkbox', { name: /Count me as away/ })).toBeChecked();
-    expect(screen.getByRole('spinbutton')).toHaveValue(10);
+    expect(screen.getByRole('spinbutton', { name: /after/i })).toHaveValue(10);
     expect(within(screen.getByRole('list', { name: 'Excluded apps' })).getByText('keepass'));
     expect(within(screen.getByRole('list', { name: 'Apps without titles' })).getByText('edge'));
     expect(screen.getByRole('textbox', { name: 'Name, row 1' })).toHaveValue('Mail');
@@ -101,7 +101,7 @@ describe('SettingsView', () => {
     const saved = captureSaves();
     const user = await renderSettings();
 
-    const minutes = screen.getByRole('spinbutton');
+    const minutes = screen.getByRole('spinbutton', { name: /after/i });
     await user.clear(minutes);
     await user.type(minutes, '2');
     await user.type(
@@ -130,6 +130,25 @@ describe('SettingsView', () => {
     ]);
   });
 
+  it('saves the after-hours rule and thresholds', async () => {
+    const saved = captureSaves();
+    const user = await renderSettings();
+    await user.click(screen.getByRole('checkbox', { name: /Exclude a short final return/ }));
+    const away = screen.getByRole('spinbutton', { name: /Minimum absence/ });
+    const returned = screen.getByRole('spinbutton', { name: /Maximum return/ });
+    await user.clear(away);
+    await user.type(away, '90');
+    await user.clear(returned);
+    await user.type(returned, '15');
+    await user.click(screen.getByRole('button', { name: 'Save settings' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]).toMatchObject({
+      discardAfterHoursReturns: true,
+      afterHoursMinimumAwayMinutes: 90,
+      afterHoursMaximumReturnMinutes: 15,
+    });
+  });
+
   it('turns idle detection and window titles off', async () => {
     const saved = captureSaves();
     const user = await renderSettings(settings({ appsWithoutTitles: ['edge'] }));
@@ -137,7 +156,7 @@ describe('SettingsView', () => {
     await user.click(screen.getByRole('checkbox', { name: /Count me as away/ }));
     await user.click(screen.getByRole('checkbox', { name: /Record window titles/ }));
 
-    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton', { name: /after/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Apps without titles' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
 
@@ -207,7 +226,7 @@ describe('SettingsView', () => {
     const saved = captureSaves();
     const user = await renderSettings(settings({ excludedApps: ['edge'] }));
 
-    const minutes = screen.getByRole('spinbutton');
+    const minutes = screen.getByRole('spinbutton', { name: /after/i });
     await user.clear(minutes);
     await user.type(minutes, '500');
     await user.type(

@@ -44,6 +44,94 @@ public sealed class EndpointTests : IAsyncLifetime
     private static long Minutes(double minutes) => (long)TimeSpan.FromMinutes(minutes).TotalMilliseconds;
 
     [Fact]
+    public async Task After_hours_rule_updates_all_reports_without_deleting_intervals()
+    {
+        await using var host = await StartAsync(Now,
+        [
+            Active("2026-11-04T08:00Z", "2026-11-04T15:30Z", Code, "work"),
+            Away("2026-11-04T15:30Z", "2026-11-04T19:00Z"),
+            Active("2026-11-04T19:00Z", "2026-11-04T19:05Z", Code, "shutdown"),
+        ], Ct);
+        host.Settings.Current = new TimeglassSettings
+        {
+            DiscardAfterHoursReturns = true,
+            KeywordGroups = [new KeywordGroupSetting { Name = "Code work", Keywords = ["code"] }],
+        };
+
+        var day = await host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
+        var range = await host.GetJsonAsync<RangeSummaryDto>("/api/range/summary?from=2026-11-04&to=2026-11-04", Ct);
+        var timeline = await host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline", Ct);
+        var app = await host.GetJsonAsync<AppDayDto>("/api/days/2026-11-04/apps/code", Ct);
+        var groupedTimeline = await host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline?grouped=true", Ct);
+        var groups = await host.GetJsonAsync<RangeSummaryDto>("/api/range/groups?from=2026-11-04&to=2026-11-04", Ct);
+        var groupApps = await host.GetJsonAsync<RangeSummaryDto>("/api/range/group-applications?from=2026-11-04&to=2026-11-04&name=Code%20work", Ct);
+        var groupTitles = await host.GetJsonAsync<GroupAppTitlesDto>("/api/range/group-application-titles?from=2026-11-04&to=2026-11-04&name=Code%20work&appKey=code", Ct);
+
+        day.ActiveMs.ShouldBe(Minutes(450));
+        day.AwayMs.ShouldBe(0);
+        day.LastActivity.ShouldBe(Utc("2026-11-04T15:30Z"));
+        range.ActiveMs.ShouldBe(day.ActiveMs);
+        range.AwayMs.ShouldBe(day.AwayMs);
+        timeline.Blocks.Count.ShouldBe(1);
+        app.TotalMs.ShouldBe(day.ActiveMs);
+        app.Titles.Select(t => t.Title).ShouldBe(["work"]);
+        groupedTimeline.Blocks.Count.ShouldBe(1);
+        groups.ActiveMs.ShouldBe(day.ActiveMs);
+        groups.AwayMs.ShouldBe(day.AwayMs);
+        groups.Apps.Single().App.Key.ShouldBe("group-0");
+        groups.Apps.Single().Color.ShouldNotBeNullOrWhiteSpace();
+        groupApps.ActiveMs.ShouldBe(day.ActiveMs);
+        groupApps.Apps.Single().DurationMs.ShouldBe(day.ActiveMs);
+        groupTitles.TotalMs.ShouldBe(day.ActiveMs);
+        groupTitles.Titles.Select(t => t.Title).ShouldBe(["work"]);
+
+        host.Settings.Current.DiscardAfterHoursReturns = false;
+        day = await host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
+        day.ActiveMs.ShouldBe(Minutes(455));
+        day.AwayMs.ShouldBe(Minutes(210));
+    }
+
+    [Fact]
+    public async Task Overnight_absence_is_excluded_from_every_day_it_spans()
+    {
+        await using var host = await StartAsync(Utc("2026-11-06T09:00Z"),
+        [
+            Active("2026-11-04T08:00Z", "2026-11-04T15:30Z", Code, "work"),
+            Away("2026-11-04T15:30Z", "2026-11-05T19:00Z"),
+            Active("2026-11-05T19:00Z", "2026-11-05T19:05Z", Code, "shutdown"),
+        ], Ct);
+        host.Settings.Current = new TimeglassSettings { DiscardAfterHoursReturns = true };
+
+        var first = await host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
+        var second = await host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-05/summary", Ct);
+        var range = await host.GetJsonAsync<RangeSummaryDto>("/api/range/summary?from=2026-11-04&to=2026-11-05", Ct);
+        first.AwayMs.ShouldBe(0);
+        second.AwayMs.ShouldBe(0);
+        second.ActiveMs.ShouldBe(0);
+        range.AwayMs.ShouldBe(0);
+        range.ActiveMs.ShouldBe(first.ActiveMs);
+    }
+
+    [Fact]
+    public async Task An_away_interval_immediately_after_a_return_at_midnight_is_not_a_shutdown()
+    {
+        await using var host = await StartAsync(Utc("2026-11-06T09:00Z"),
+        [
+            Away("2026-11-04T15:00Z", "2026-11-04T22:55Z"),
+            Active("2026-11-04T22:55Z", "2026-11-04T23:00Z", Code, "work"),
+            Away("2026-11-04T23:00Z", "2026-11-05T00:00Z"),
+        ], Ct);
+        host.Settings.Current = new TimeglassSettings { DiscardAfterHoursReturns = true };
+
+        var day = await host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
+        var range = await host.GetJsonAsync<RangeSummaryDto>("/api/range/summary?from=2026-11-04&to=2026-11-05", Ct);
+        day.AwayMs.ShouldBe(Minutes(475));
+        day.ActiveMs.ShouldBe(Minutes(5));
+        range.Days[0].AwayMs.ShouldBe(day.AwayMs);
+        range.Days[0].ActiveMs.ShouldBe(day.ActiveMs);
+    }
+
+    [Fact]
     public async Task Day_summary()
     {
         var day = await _host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
