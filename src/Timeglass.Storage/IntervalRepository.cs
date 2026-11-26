@@ -156,6 +156,16 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         return ValueTask.CompletedTask;
     }
 
+    /// <inheritdoc />
+    public Task<IReadOnlyDictionary<string, string>> GetAppColorsAsync(
+        IReadOnlyCollection<string> keys,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var connection = _database.Connect();
+        return Task.FromResult(AppColors.Get(connection, keys));
+    }
+
     /// <summary>
     /// Deletes [<paramref name="from"/>, <paramref name="to"/>) after the changes queued so far,
     /// cutting intervals that overlap its edges (<see cref="IntervalRange.Delete"/>). The open

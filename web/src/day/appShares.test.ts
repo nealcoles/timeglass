@@ -7,18 +7,13 @@ const app = (key: string, minutes: number, percent: number): AppTotalDto => ({
   durationMs: minutes * 60_000,
   share: percent / 100,
   percent,
+  color: `color-${key}`,
 });
 
 describe('appColor', () => {
-  it('is the same for the same key', () => {
+  it('is deterministic and returns a valid hsl colour', () => {
     expect(appColor('vscode')).toBe(appColor('vscode'));
-  });
-
-  it('differs between apps', () => {
     expect(appColor('vscode')).not.toBe(appColor('outlook'));
-  });
-
-  it('is a valid hsl colour', () => {
     expect(appColor('anything')).toMatch(/^hsl\(\d{1,3} [\d.]+% [\d.]+%\)$/);
   });
 });
@@ -28,7 +23,7 @@ describe('appShares', () => {
     const rows = appShares([app('a', 30, 60), app('b', 20, 40)]);
 
     expect(rows.map((r) => r.name)).toEqual(['A', 'B']);
-    expect(rows[0]?.color).toBe(appColor('a'));
+    expect(rows[0]?.color).toBe('color-a');
   });
 
   it('sorts longest first even if the API did not', () => {
@@ -37,22 +32,20 @@ describe('appShares', () => {
     expect(rows.map((r) => r.key)).toEqual(['b', 'a']);
   });
 
-  it('keeps colours stable when the displayed set and order change', () => {
+  it('uses the persistent colours supplied by the API', () => {
     const first = appShares([app('app-19', 10, 50), app('app-24', 20, 50)]);
     const second = appShares([app('app-24', 10, 50), app('app-19', 20, 50), app('new-app', 5, 1)]);
     const colors = (rows: typeof first) =>
       Object.fromEntries(rows.map((row) => [row.key, row.color]));
 
+    expect(colors(first)['app-19']).toBe('color-app-19');
     expect(colors(second)['app-19']).toBe(colors(first)['app-19']);
     expect(colors(second)['app-24']).toBe(colors(first)['app-24']);
-    expect(colors(first)['app-19']).not.toBe(colors(first)['app-24']);
   });
 
-  it('gives stable colours to more than 360 keys', () => {
-    const rows = appShares(['vscode', 'teams', 'terminal', 'edge'].map((key) => app(key, 1, 25)));
-    const many = appShares(Array.from({ length: 400 }, (_, i) => app(`key-${i}`, 1, 1)));
-    expect(new Set(many.map((row) => row.color)).size).toBe(400);
-    expect(rows.every((row) => row.color === appColor(row.key))).toBe(true);
+  it('keeps fallback colours distinct across many keys', () => {
+    const colors = Array.from({ length: 400 }, (_, i) => appColor(`key-${i}`));
+    expect(new Set(colors).size).toBe(400);
   });
 
   it('never folds apps into Other, however many there are (#96)', () => {

@@ -176,7 +176,8 @@ public static partial class TimeglassApi
         }
 
         var summary = await reports.GetDaySummaryAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(DaySummaryDto.Create(summary, time.LocalTimeZone, settings.Current.ToWorkHours()));
+        var colors = await reports.GetAppColorsAsync([.. summary.Apps.Select(a => a.App.Key)], cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(DaySummaryDto.Create(summary, time.LocalTimeZone, settings.Current.ToWorkHours(), colors));
     }
 
     private static async Task<Results<Ok<TimelineDto>, ValidationProblem>> GetTimelineAsync(
@@ -211,7 +212,8 @@ public static partial class TimeglassApi
         }
 
         var breakdown = await reports.GetTitleBreakdownAsync(appKey, day, day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(AppDayDto.Create(day, breakdown));
+        var colors = await reports.GetAppColorsAsync(breakdown.Total > TimeSpan.Zero ? [breakdown.App.Key] : [], cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(AppDayDto.Create(day, breakdown, colors.GetValueOrDefault(breakdown.App.Key)));
     }
 
     private static async Task<Results<Ok<RangeSummaryDto>, ValidationProblem>> GetRangeSummaryAsync(
@@ -252,7 +254,8 @@ public static partial class TimeglassApi
         }
 
         var summary = await reports.GetRangeSummaryAsync(firstDay, lastDay, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
-        return TypedResults.Ok(RangeSummaryDto.Create(summary));
+        var colors = await reports.GetAppColorsAsync([.. summary.Apps.Select(a => a.App.Key), .. summary.Days.SelectMany(d => d.Apps.Select(a => a.App.Key))], cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(RangeSummaryDto.Create(summary, colors));
     }
 
     private static async Task<Results<Ok<RangeSummaryDto>, ValidationProblem>> GetGroupedRangeSummaryAsync(

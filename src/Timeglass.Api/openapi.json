@@ -707,7 +707,8 @@
           "start",
           "end",
           "totalMs",
-          "titles"
+          "titles",
+          "color"
         ],
         "type": "object",
         "properties": {
@@ -741,6 +742,13 @@
               "$ref": "#/components/schemas/TitleTotalDto"
             },
             "description": "Every title, longest first."
+          },
+          "color": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Persistent display colour, or null if the app has no recorded time."
           }
         },
         "description": "Where the time in one app went on one local day, by window title."
@@ -768,7 +776,8 @@
           "app",
           "durationMs",
           "share",
-          "percent"
+          "percent",
+          "color"
         ],
         "type": "object",
         "properties": {
@@ -790,6 +799,10 @@
             "type": "integer",
             "description": "Whole percentage; the percentages of one list add up to 100.",
             "format": "int32"
+          },
+          "color": {
+            "type": "string",
+            "description": "Persistent display colour for the app."
           }
         },
         "description": "One app's or keyword group's share of the time."

@@ -1,6 +1,5 @@
 import type { RangeSummaryDto } from '../api/client.ts';
 import { addDays } from '../dates.ts';
-import { appShares } from '../day/appShares.ts';
 import { rangeSummary } from '../test/fixtures.ts';
 import { axisTicks, formatChange, trendChange, trendSeries } from './trendSeries.ts';
 
@@ -34,7 +33,7 @@ describe('trendSeries', () => {
     const code = trend.series[0];
     expect(code?.values).toEqual([3, 3, 3, 3, 3, 0, 0].map((h) => h * HOUR));
     expect(code?.totalMs).toBe(15 * HOUR);
-    expect(code?.color).toBe(appShares(week.apps).find((row) => row.key === 'vscode')?.color);
+    expect(code?.color).toBe(week.apps.find((a) => a.app.key === 'vscode')?.color);
     expect(trend.maxMs).toBe(3 * HOUR);
   });
 

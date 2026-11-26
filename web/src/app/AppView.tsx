@@ -30,7 +30,7 @@ export function AppView({ date, appKey, isToday = false }: AppViewProps) {
   const summary = useQueryClient().getQueryData<DaySummaryDto>(queryKeys.daySummary(date));
   const color = summary
     ? (appShares(summary.apps).find((row) => row.key === appKey)?.color ?? appColor(appKey))
-    : appColor(appKey);
+    : (appDay.data?.color ?? appColor(appKey));
   const name = appDay.data?.app.name ?? appKey;
   const longDate = formatLongDate(date);
 
@@ -97,7 +97,7 @@ export function AppView({ date, appKey, isToday = false }: AppViewProps) {
 export function TitleList({
   day,
   missingTitleLabel = 'No title recorded',
-  color = appColor(day.app.key),
+  color = day.color ?? appColor(day.app.key),
 }: {
   day: Pick<AppDayDto, 'app' | 'titles'>;
   missingTitleLabel?: string;

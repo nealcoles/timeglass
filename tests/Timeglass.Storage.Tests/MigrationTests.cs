@@ -41,10 +41,12 @@ public sealed class MigrationTests : IDisposable
         connection.Query<string>("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') ORDER BY name;")
             .ShouldBe(
             [
+                "app_colors",
                 "apps",
                 "daily_app_totals",
                 "intervals",
                 "ix_intervals_start_utc",
+                "sqlite_autoindex_app_colors_1",
                 "sqlite_autoindex_apps_1",
                 "sqlite_autoindex_intervals_1",
                 "ux_daily_app_totals",
