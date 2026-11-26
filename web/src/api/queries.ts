@@ -8,7 +8,7 @@ export const queryKeys = {
   status: ['status'] as const,
   day: (date: string) => ['days', date] as const,
   daySummary: (date: string) => ['days', date, 'summary'] as const,
-  timeline: (date: string) => ['days', date, 'timeline'] as const,
+  timeline: (date: string, grouped = false) => ['days', date, 'timeline', { grouped }] as const,
   appDay: (date: string, appKey: string) => ['days', date, 'apps', appKey] as const,
   range: (from: string, to: string) => ['range', from, to] as const,
   groupedRange: (from: string, to: string) => ['groups', from, to] as const,
@@ -39,12 +39,17 @@ export function useDaySummary(date: string) {
 }
 
 /** What happened when on `date`. */
-export function useTimeline(date: string) {
+export function useTimeline(date: string, grouped = false) {
   const api = useApiClient();
   return useQuery({
-    queryKey: queryKeys.timeline(date),
+    queryKey: queryKeys.timeline(date, grouped),
     queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/days/{date}/timeline', { params: { path: { date } }, signal })),
+      unwrap(
+        api.GET('/api/days/{date}/timeline', {
+          params: { path: { date }, query: grouped ? { grouped: true } : {} },
+          signal,
+        }),
+      ),
   });
 }
 
@@ -127,6 +132,7 @@ export function useSaveSettings() {
     onSuccess: async (saved) => {
       queryClient.setQueryData(queryKeys.settings, saved);
       await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['days'] });
     },
   });
 }

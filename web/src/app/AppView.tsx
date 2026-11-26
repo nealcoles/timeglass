@@ -5,6 +5,7 @@ import { errorMessage } from '../api/errors.ts';
 import { queryKeys, useAppDay } from '../api/queries.ts';
 import { appColor } from '../day/appColor.ts';
 import { appShares } from '../day/appShares.ts';
+import { DayTimeline } from '../day/DayTimeline.tsx';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { paths } from '../router.ts';
@@ -72,6 +73,12 @@ export function AppView({ date, appKey, isToday = false }: AppViewProps) {
               </div>
             )}
           </dl>
+          <h3>When</h3>
+          <DayTimeline
+            date={date}
+            colorFor={() => color}
+            includeBlock={(block) => block.kind === 'active' && block.app?.key === appKey}
+          />
           {hasNoTitles(appDay.data) ? (
             <p className="app-day__empty">
               No window titles were recorded for {name}, so its time can&apos;t be split by mail,

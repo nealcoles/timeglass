@@ -390,6 +390,12 @@ button.date-nav__view {
   gap: 0.25rem;
 }
 
+.day > .grouping-view,
+.week > .grouping-view {
+  display: flex;
+  margin-bottom: 1rem;
+}
+
 .grouping-view span {
   margin-right: 0.25rem;
 }

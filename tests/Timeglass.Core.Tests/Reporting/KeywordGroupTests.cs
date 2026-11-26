@@ -8,6 +8,30 @@ namespace Timeglass.Core.Tests.Reporting;
 public class KeywordGroupTests
 {
     [Fact]
+    public void Grouped_timeline_splits_app_blocks_at_group_boundaries()
+    {
+        var start = Utc("2026-11-02T08:00Z");
+        KeywordGroupSetting[] groups =
+        [
+            new() { Name = "First", Keywords = ["first"] },
+            new() { Name = "Research", Keywords = ["research"] },
+        ];
+        ActivityInterval[] intervals =
+        [
+            Active(start, start.AddMinutes(10), Code) with { Title = "Research" },
+            Active(start.AddMinutes(10), start.AddMinutes(20), Code) with { Title = "first research" },
+            Active(start.AddMinutes(20), start.AddMinutes(30), Code) with { Title = null },
+            Away(start.AddMinutes(30), start.AddMinutes(40)),
+        ];
+
+        var blocks = Timelines.Build(intervals, start, start.AddHours(1), Later, groups: groups);
+
+        blocks.Select(b => (b.App?.Key, b.Group?.Key, b.Duration.TotalMinutes))
+            .ShouldBe([("code", "group-1", 10d), ("code", "group-0", 10d), ("code", "ungrouped", 10d), (null, null, 10d)]);
+        Timelines.Build(intervals, start, start.AddHours(1), Later).Count.ShouldBe(2);
+    }
+
+    [Fact]
     public void Application_titles_include_only_time_assigned_to_the_group()
     {
         var first = Day("2026-11-02");

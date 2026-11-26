@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Timeglass.Core.Domain;
+using Timeglass.Core.Settings;
 using static Timeglass.Api.Tests.ApiHost;
 
 namespace Timeglass.Api.Tests;
@@ -93,6 +94,21 @@ public sealed class EndpointTests : IAsyncLifetime
         var away = timeline.Blocks.Single(b => b.Kind == ActivityKind.Away);
         away.App.ShouldBeNull();
         away.DurationMs.ShouldBe(Minutes(60));
+    }
+
+    [Fact]
+    public async Task Grouped_timeline_splits_title_changes_and_uses_current_settings()
+    {
+        _host.Settings.Current.KeywordGroups =
+        [
+            new KeywordGroupSetting { Name = "Main", Keywords = ["main.cs"] },
+            new KeywordGroupSetting { Name = "Tests", Keywords = ["tests.cs"] },
+        ];
+        var timeline = await _host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline?grouped=true", Ct);
+
+        timeline.Blocks.Take(2).Select(b => (b.App?.Key, b.Group?.Key, b.Group?.Name))
+            .ShouldBe([("code", "group-0", "Main"), ("code", "group-1", "Tests")]);
+        timeline.Blocks.Single(b => b.Kind == ActivityKind.Away).Group.ShouldBeNull();
     }
 
     [Fact]
@@ -191,7 +207,7 @@ public sealed class EndpointTests : IAsyncLifetime
 
         json!["date"]!.GetValue<string>().ShouldBe("2026-11-05");
         var block = json["blocks"]![0]!.AsObject();
-        block.Select(p => p.Key).ShouldBe(["kind", "app", "start", "end", "durationMs", "isOpen"]);
+        block.Select(p => p.Key).ShouldBe(["kind", "app", "start", "end", "durationMs", "isOpen", "group"]);
         block["kind"]!.GetValue<string>().ShouldBe("active");
         block["app"]!["name"]!.GetValue<string>().ShouldBe("Code");
 

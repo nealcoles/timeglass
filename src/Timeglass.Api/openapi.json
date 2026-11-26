@@ -68,6 +68,14 @@
               "type": "string",
               "format": "date"
             }
+          },
+          {
+            "name": "grouped",
+            "in": "query",
+            "description": "Split active blocks by keyword group.",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1378,7 +1386,8 @@
           "start",
           "end",
           "durationMs",
-          "isOpen"
+          "isOpen",
+          "group"
         ],
         "type": "object",
         "properties": {
@@ -1415,6 +1424,17 @@
           "isOpen": {
             "type": "boolean",
             "description": "True if the block is still running."
+          },
+          "group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "Keyword group for grouped timelines, otherwise null.",
+                "$ref": "#/components/schemas/AppDto"
+              }
+            ]
           }
         },
         "description": "A stretch of time in one app, or away; intervals a few seconds apart are merged."

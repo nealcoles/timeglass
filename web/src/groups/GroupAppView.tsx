@@ -1,7 +1,5 @@
-import { useQueryClient } from '@tanstack/react-query';
-import type { RangeSummaryDto } from '../api/client.ts';
 import { ApiError, errorMessage } from '../api/errors.ts';
-import { queryKeys, useGroupAppTitles } from '../api/queries.ts';
+import { useGroupApplications, useGroupAppTitles } from '../api/queries.ts';
 import { TitleList } from '../app/AppView.tsx';
 import { countTitles, hasNoTitles } from '../app/titleRows.ts';
 import { formatDateRange } from '../dates.ts';
@@ -10,6 +8,7 @@ import { appShares } from '../day/appShares.ts';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { paths, type GroupSource } from '../router.ts';
+import { GroupTimelines } from './GroupTimelines.tsx';
 
 export function GroupAppView({
   from,
@@ -25,11 +24,10 @@ export function GroupAppView({
   appKey: string;
 }) {
   const titles = useGroupAppTitles(from, to, groupName, appKey);
-  const applications = useQueryClient().getQueryData<RangeSummaryDto>(
-    queryKeys.groupApplications(from, to, groupName),
-  );
-  const color = applications
-    ? (appShares(applications.apps).find((row) => row.key === appKey)?.color ?? appColor(appKey))
+  const applications = useGroupApplications(from, to, groupName);
+  const color = applications.data
+    ? (appShares(applications.data.apps).find((row) => row.key === appKey)?.color ??
+      appColor(appKey))
     : appColor(appKey);
   const name = titles.data?.app.name ?? appKey;
   const date = from === to ? formatLongDate(from) : formatDateRange(from, to);
@@ -73,6 +71,18 @@ export function GroupAppView({
               </div>
             )}
           </dl>
+          {applications.isPending ? (
+            <p role="status">Loading the timeline…</p>
+          ) : applications.isError ? (
+            <p role="alert">{errorMessage(applications.error)}</p>
+          ) : (
+            <GroupTimelines
+              summary={applications.data}
+              groupName={groupName}
+              appKey={appKey}
+              colorFor={() => color}
+            />
+          )}
           {hasNoTitles(titles.data) ? (
             <p className="app-day__empty">
               No window titles are available for this time. Titles may not have been recorded or may

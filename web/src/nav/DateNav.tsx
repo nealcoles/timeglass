@@ -1,7 +1,8 @@
 import { useId } from 'react';
 import { addDays, weekStart } from '../dates.ts';
 import { Link } from '../Link.tsx';
-import { navigate, paths } from '../router.ts';
+import type { GroupingView } from '../groups/ViewSelector.tsx';
+import { navigate, paths, withGroupingView } from '../router.ts';
 import { useArrowKeys } from './useArrowKeys.ts';
 
 interface DateNavProps {
@@ -11,6 +12,7 @@ interface DateNavProps {
   date: string;
   /** Today's date, `yyyy-MM-dd`. Nothing after it can be tracked yet, so "next" stops there. */
   today: string;
+  grouping?: GroupingView;
 }
 
 /**
@@ -18,13 +20,13 @@ interface DateNavProps {
  * back to today, and a switch between the day and the week. Every step is a link, so it lands in
  * the browser history and the URL always names the date on screen.
  */
-export function DateNav({ view, date, today }: DateNavProps) {
+export function DateNav({ view, date, today, grouping = 'apps' }: DateNavProps) {
   const pickerId = useId();
   const isDay = view === 'day';
   const unit = isDay ? 'day' : 'week';
   const start = isDay ? date : weekStart(date);
   const step = isDay ? 1 : 7;
-  const pathFor = (d: string) => (isDay ? paths.day(d) : paths.week(d));
+  const pathFor = (d: string) => withGroupingView(isDay ? paths.day(d) : paths.week(d), grouping);
 
   const previous = pathFor(addDays(start, -step));
   const nextStart = addDays(start, step);
@@ -33,7 +35,8 @@ export function DateNav({ view, date, today }: DateNavProps) {
 
   const thisWeek = weekStart(today);
   // The day view's own address for today is `/`, so "Day" from this week opens today.
-  const dayPath = (d: string) => (d === today ? paths.today() : paths.day(d));
+  const dayPath = (d: string) =>
+    withGroupingView(d === today ? paths.today() : paths.day(d), grouping);
   const isCurrent = isDay ? date === today : start === thisWeek;
 
   return (
@@ -66,7 +69,7 @@ export function DateNav({ view, date, today }: DateNavProps) {
           </Link>
         )}
         <Link
-          href={isDay ? paths.today() : paths.week(thisWeek)}
+          href={isDay ? dayPath(today) : withGroupingView(paths.week(thisWeek), grouping)}
           className="date-nav__button"
           aria-current={isCurrent ? (isDay ? 'date' : 'page') : undefined}
         >
@@ -86,7 +89,7 @@ export function DateNav({ view, date, today }: DateNavProps) {
           onChange={(event) => {
             const picked = event.target.value;
             if (picked !== '') {
-              navigate(isDay ? paths.day(picked) : paths.week(weekStart(picked)));
+              navigate(pathFor(isDay ? picked : weekStart(picked)));
             }
           }}
         />
@@ -103,7 +106,7 @@ export function DateNav({ view, date, today }: DateNavProps) {
           Day
         </Link>
         <Link
-          href={paths.week(weekStart(date))}
+          href={withGroupingView(paths.week(weekStart(date)), grouping)}
           className="date-nav__view"
           aria-current={isDay ? undefined : 'page'}
         >

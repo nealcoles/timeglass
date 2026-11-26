@@ -15,7 +15,8 @@ interface DayViewProps {
   date: string;
   /** Today's date, `yyyy-MM-dd`: the wording says "today", and the way forward stops there. */
   today?: string;
-  initialView?: GroupingView;
+  view?: GroupingView;
+  onViewChange?: (view: GroupingView) => void;
 }
 
 /**
@@ -23,20 +24,34 @@ interface DayViewProps {
  * went to. Each app links to its drill-down by window title (#34); the date bar moves between days
  * and to the week (#35).
  */
-export function DayView({ date, today = localToday(), initialView = 'apps' }: DayViewProps) {
+export function DayView({
+  date,
+  today = localToday(),
+  view: selectedView,
+  onViewChange,
+}: DayViewProps) {
   const isToday = date === today;
   const summary = useDaySummary(date);
-  const [view, setView] = useState<GroupingView>(initialView);
+  const [localView, setLocalView] = useState<GroupingView>('apps');
+  const view = selectedView ?? localView;
+  const setView = onViewChange ?? setLocalView;
   const grouped = useGroupedRangeSummary(date, date, { enabled: view === 'groups' });
-  const colors = new Map(
-    (summary.data ? appShares(summary.data.apps) : []).map((row) => [row.key, row.color]),
-  );
+  const rows =
+    view === 'groups'
+      ? grouped.data
+        ? appShares(grouped.data.apps)
+        : []
+      : summary.data
+        ? appShares(summary.data.apps)
+        : [];
+  const colors = new Map(rows.map((row) => [row.key, row.color]));
   const heading = isToday ? `Today, ${formatLongDate(date)}` : formatLongDate(date);
 
   return (
     <section className="day" aria-labelledby="day-heading" aria-busy={summary.isPending}>
       <h2 id="day-heading">{heading}</h2>
-      <DateNav view="day" date={date} today={today} />
+      <DateNav view="day" date={date} today={today} grouping={view} />
+      <ViewSelector value={view} onChange={setView} />
 
       {summary.isPending ? (
         <p role="status" className="day__loading">
@@ -50,7 +65,6 @@ export function DayView({ date, today = localToday(), initialView = 'apps' }: Da
         summary.data.apps.length === 0 &&
         (view !== 'groups' || summary.data.awayMs === 0) ? (
         <>
-          <ViewSelector value={view} onChange={setView} />
           <p className="day__empty">
             {summary.data.awayMs > 0
               ? 'No active time was tracked. Select Keyword group to see away time.'
@@ -91,25 +105,24 @@ export function DayView({ date, today = localToday(), initialView = 'apps' }: Da
           </dl>
 
           <h3>When</h3>
-          {view === 'groups' && (
-            <p className="settings__hint">The timeline is coloured by application.</p>
-          )}
-          <DayTimeline
-            date={date}
-            colorFor={(key) => colors.get(key) ?? OTHER_COLOR}
-            grouped={view === 'groups'}
-          />
+          {view === 'apps' || grouped.isSuccess ? (
+            <DayTimeline
+              date={date}
+              colorFor={(key) => colors.get(key) ?? OTHER_COLOR}
+              grouped={view === 'groups'}
+              colorByGroup={view === 'groups'}
+            />
+          ) : null}
           <h3>Where the time went</h3>
-          <ViewSelector value={view} onChange={setView} />
           {view === 'apps' ? (
-            <AppShareList rows={appShares(summary.data.apps)} date={date} />
+            <AppShareList rows={rows} date={date} />
           ) : grouped.isPending ? (
             <p role="status">Loading groups…</p>
           ) : grouped.isError ? (
             <p role="alert">{errorMessage(grouped.error)}</p>
           ) : (
             <AppShareList
-              rows={appShares(grouped.data.apps)}
+              rows={rows}
               grouped
               groupHref={(name) => paths.group(date, date, name, 'day')}
             />

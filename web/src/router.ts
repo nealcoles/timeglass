@@ -1,5 +1,6 @@
 import { useSyncExternalStore, type MouseEvent } from 'react';
 import { isValidDate } from './dates.ts';
+import type { GroupingView } from './groups/ViewSelector.tsx';
 
 /**
  * The dashboard's routes. The app serves `index.html` for any path that isn't a file (SPA
@@ -26,6 +27,11 @@ export type Route =
   | { name: 'notFound' };
 
 export type GroupSource = 'day' | 'week' | 'trends';
+
+/** Preserve the grouping selection when moving between day and week views. */
+export function withGroupingView(path: string, view: GroupingView): string {
+  return view === 'groups' ? `${path}?view=groups` : path;
+}
 
 /**
  * The route for a path such as `/day/2026-11-05/app/outlook`. A week is named by any of its dates,

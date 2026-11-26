@@ -94,7 +94,8 @@ public static class KeywordGroups
         return TitleBreakdowns.BuildWithRetained(filtered, appKey, from, to, now, retained);
     }
 
-    private static AppIdentity Group(AppIdentity? app, string? title, IReadOnlyList<KeywordGroupSetting> groups)
+    /// <summary>Returns the first matching group for an application and title.</summary>
+    public static AppIdentity Group(AppIdentity? app, string? title, IReadOnlyList<KeywordGroupSetting> groups)
     {
         var name = (app ?? AppIdentity.Unknown).DisplayName;
         for (var i = 0; i < groups.Count; i++)

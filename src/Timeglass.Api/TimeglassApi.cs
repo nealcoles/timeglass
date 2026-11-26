@@ -181,7 +181,9 @@ public static partial class TimeglassApi
 
     private static async Task<Results<Ok<TimelineDto>, ValidationProblem>> GetTimelineAsync(
         [Description("Local date, yyyy-MM-dd.")] string date,
+        [Description("Split active blocks by keyword group.")] bool? grouped,
         [FromServices] IReportingQueries reports,
+        [FromServices] ISettingsStore settings,
         [FromServices] TimeProvider time,
         CancellationToken cancellationToken)
     {
@@ -190,7 +192,9 @@ public static partial class TimeglassApi
             return InvalidDate(nameof(date), date);
         }
 
-        var timeline = await reports.GetTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
+        var timeline = grouped == true
+            ? await reports.GetGroupedTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), settings.Current.KeywordGroups ?? [], cancellationToken).ConfigureAwait(false)
+            : await reports.GetTimelineAsync(day, time.LocalTimeZone, time.GetUtcNow(), cancellationToken: cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(TimelineDto.Create(timeline, time.LocalTimeZone));
     }
 

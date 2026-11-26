@@ -92,13 +92,15 @@ public sealed record TimelineDto(DateOnly Date, DateTimeOffset Start, DateTimeOf
 /// <param name="End">End (exclusive).</param>
 /// <param name="DurationMs">Time tracked in the block, in milliseconds: end minus start, less the short gaps merged over.</param>
 /// <param name="IsOpen">True if the block is still running.</param>
+/// <param name="Group">Keyword group for grouped timelines, otherwise null.</param>
 public sealed record TimelineBlockDto(
     ActivityKind Kind,
     AppDto? App,
     DateTimeOffset Start,
     DateTimeOffset End,
     long DurationMs,
-    bool IsOpen)
+    bool IsOpen,
+    AppDto? Group)
 {
     internal static TimelineBlockDto Create(TimelineBlock block, TimeZoneInfo zone) => new(
         block.Kind.ToDto(),
@@ -106,7 +108,8 @@ public sealed record TimelineBlockDto(
         block.Start.In(zone),
         block.End.In(zone),
         block.Duration.ToMs(),
-        block.IsOpen);
+        block.IsOpen,
+        block.Group is null ? null : AppDto.Create(block.Group));
 }
 
 /// <summary>Where the time in one app went on one local day, by window title.</summary>

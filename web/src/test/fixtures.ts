@@ -84,6 +84,7 @@ export function timeline(date: string = demoDate): TimelineDto {
     end: at(date, end),
     durationMs,
     isOpen,
+    group: null,
   });
   return {
     date,

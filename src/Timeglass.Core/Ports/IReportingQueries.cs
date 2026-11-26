@@ -39,6 +39,11 @@ public interface IReportingQueries
         TimeSpan? mergeGap = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Timeline split at keyword-group boundaries.</summary>
+    Task<DayTimeline> GetGroupedTimelineAsync(
+        DateOnly day, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// One app's time by window title over local days <paramref name="firstDay"/> to
     /// <paramref name="lastDay"/>, both included; see <see cref="TitleBreakdowns.Build"/>.

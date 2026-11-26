@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
 import type { DaySummaryDto } from '../api/client.ts';
-import { daySummary, demoDate } from '../test/fixtures.ts';
+import { daySummary, demoDate, timeline } from '../test/fixtures.ts';
 import { renderWithApi } from '../test/render.tsx';
 import { server } from '../test/server.ts';
 import { DayView } from './DayView.tsx';
@@ -20,7 +20,7 @@ function totals() {
 }
 
 describe('DayView', () => {
-  it('switches to the grouped totals without changing the application timeline', async () => {
+  it('colours the timeline by keyword group, including away time', async () => {
     server.use(
       http.get('/api/range/groups', () =>
         HttpResponse.json({
@@ -29,7 +29,7 @@ describe('DayView', () => {
           start: '',
           end: '',
           activeMs: 60000,
-          awayMs: 0,
+          awayMs: 60000,
           days: [],
           apps: [
             {
@@ -38,9 +38,32 @@ describe('DayView', () => {
               share: 1,
               percent: 100,
             },
+            {
+              app: { key: 'group-1', name: 'Other work' },
+              durationMs: 60000,
+              share: 0.5,
+              percent: 50,
+            },
+            { app: { key: 'away', name: 'Away' }, durationMs: 60000, share: 0.5, percent: 50 },
           ],
         }),
       ),
+      http.get('/api/days/:date/timeline', ({ request }) => {
+        const grouped = new URL(request.url).searchParams.get('grouped') === 'true';
+        const data = timeline();
+        return HttpResponse.json({
+          ...data,
+          blocks: data.blocks.map((block, index) => ({
+            ...block,
+            group:
+              grouped && block.kind === 'active'
+                ? index === 6
+                  ? { key: 'group-1', name: 'Other work' }
+                  : { key: 'group-0', name: 'Investigator' }
+                : null,
+          })),
+        });
+      }),
     );
     const user = userEvent.setup();
     renderWithApi(<DayView date={demoDate} />);
@@ -55,7 +78,22 @@ describe('DayView', () => {
     });
 
     expect(within(table).getByText('Investigator')).toBeInTheDocument();
-    expect(screen.getByText('The timeline is coloured by application.')).toBeInTheDocument();
+    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
+    const groupSwatch = table.querySelector<HTMLElement>(
+      'tr[data-app="group-0"] .app-shares__swatch',
+    );
+    const awaySwatch = table.querySelector<HTMLElement>('tr[data-app="away"] .app-shares__swatch');
+    expect(lane.querySelector<HTMLElement>('[data-app="vscode"]')?.style.backgroundColor).toBe(
+      groupSwatch?.style.backgroundColor,
+    );
+    const codeBlocks = lane.querySelectorAll<HTMLElement>('[data-app="vscode"]');
+    expect(codeBlocks[1]?.style.backgroundColor).toBe(
+      table.querySelector<HTMLElement>('tr[data-app="group-1"] .app-shares__swatch')?.style
+        .backgroundColor,
+    );
+    expect(lane.querySelector<HTMLElement>('[data-app="away"]')?.style.backgroundColor).toBe(
+      awaySwatch?.style.backgroundColor,
+    );
     await user.click(screen.getByRole('button', { name: 'Application' }));
     expect(screen.getByRole('button', { name: 'Application' })).toHaveAttribute(
       'aria-pressed',

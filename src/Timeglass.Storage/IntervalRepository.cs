@@ -292,6 +292,16 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
         return Timelines.ForDay(intervals, day, zone, now, dayStart, mergeGap);
     }
 
+    /// <inheritdoc />
+    public async Task<DayTimeline> GetGroupedTimelineAsync(
+        DateOnly day, TimeZoneInfo zone, DateTimeOffset now,
+        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default)
+    {
+        var (from, to) = DaySummaries.Bounds(day, zone);
+        var intervals = await GetRangeAsync(from, to, cancellationToken).ConfigureAwait(false);
+        return Timelines.ForDay(intervals, day, zone, now, groups: groups);
+    }
+
     /// <summary>
     /// One app's time grouped by window title over local days <paramref name="firstDay"/> to
     /// <paramref name="lastDay"/> (both included), every title listed (<see cref="TitleBreakdowns.Build"/>).

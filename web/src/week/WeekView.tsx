@@ -10,7 +10,7 @@ import { formatDuration } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { DateNav } from '../nav/DateNav.tsx';
 import { ViewSelector, type GroupingView } from '../groups/ViewSelector.tsx';
-import { navigate, paths } from '../router.ts';
+import { navigate, paths, withGroupingView } from '../router.ts';
 import { barSegments, describeSegments } from './weekBars.ts';
 
 interface WeekViewProps {
@@ -18,17 +18,20 @@ interface WeekViewProps {
   date: string;
   /** Today's date, `yyyy-MM-dd`. */
   today: string;
-  initialView?: GroupingView;
+  view?: GroupingView;
+  onViewChange?: (view: GroupingView) => void;
 }
 
 /**
  * The week at a glance (#35): each day's active time as a bar stacked by its apps, and the
  * week's apps below. A day opens in the day view.
  */
-export function WeekView({ date, today, initialView = 'apps' }: WeekViewProps) {
+export function WeekView({ date, today, view: selectedView, onViewChange }: WeekViewProps) {
   const from = weekStart(date);
   const to = addDays(from, 6);
-  const [view, setView] = useState<GroupingView>(initialView);
+  const [localView, setLocalView] = useState<GroupingView>('apps');
+  const view = selectedView ?? localView;
+  const setView = onViewChange ?? setLocalView;
   const apps = useRangeSummary(from, to, { enabled: view === 'apps' });
   const groups = useGroupedRangeSummary(from, to, { enabled: view === 'groups' });
   const range = view === 'apps' ? apps : groups;
@@ -38,7 +41,7 @@ export function WeekView({ date, today, initialView = 'apps' }: WeekViewProps) {
   return (
     <section className="week" aria-labelledby="week-heading" aria-busy={range.isPending}>
       <h2 id="week-heading">{heading}</h2>
-      <DateNav view="week" date={date} today={today} />
+      <DateNav view="week" date={date} today={today} grouping={view} />
       <ViewSelector value={view} onChange={setView} />
 
       {range.isPending ? (
@@ -162,7 +165,10 @@ interface WeekDayRowProps {
 function WeekDayRow({ day, today, longestMs, colorFor, grouped }: WeekDayRowProps) {
   const isFuture = day.date > today;
   const isToday = day.date === today;
-  const href = isToday ? paths.today() : paths.day(day.date);
+  const href = withGroupingView(
+    isToday ? paths.today() : paths.day(day.date),
+    grouped ? 'groups' : 'apps',
+  );
   const label = formatShortDay(day.date);
   const segments = isFuture ? [] : barSegments(day, longestMs, colorFor);
 

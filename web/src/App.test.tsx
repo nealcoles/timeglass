@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { App } from './App.tsx';
-import { apps, demoDate, rangeSummary } from './test/fixtures.ts';
+import { apps, demoDate, rangeSummary, timeline } from './test/fixtures.ts';
 import { badRequest, unauthorized } from './test/handlers.ts';
 import { renderWithApi } from './test/render.tsx';
 import { server } from './test/server.ts';
@@ -43,6 +43,115 @@ describe('App', () => {
 });
 
 describe('App routes', () => {
+  it('keeps the selected grouping across day and week navigation and browser history', async () => {
+    server.use(
+      http.get('/api/range/groups', ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          rangeSummary(query.get('from') ?? demoDate, query.get('to') ?? demoDate),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithApi(<App />);
+    await screen.findByRole('table', { name: 'Active time per app, longest first' });
+    const daySelector = screen.getByRole('group', { name: 'View by' });
+    expect(
+      daySelector.compareDocumentPosition(screen.getByRole('heading', { name: 'When' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Keyword group' }));
+    expect(globalThis.location.search).toBe('?view=groups');
+    await user.click(screen.getByRole('link', { name: 'Week' }));
+    expect(globalThis.location.pathname + globalThis.location.search).toBe(
+      '/week/2026-11-02?view=groups',
+    );
+    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const table = await screen.findByRole('table', { name: /each day.s groups/ });
+    expect(
+      screen.getByRole('group', { name: 'View by' }).compareDocumentPosition(table) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await user.click(within(table).getByRole('link', { name: /Wed/ }));
+    expect(globalThis.location.pathname + globalThis.location.search).toBe(
+      '/day/2026-11-04?view=groups',
+    );
+    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await user.click(screen.getByRole('button', { name: 'Application' }));
+    expect(globalThis.location.search).toBe('');
+    await user.click(screen.getByRole('link', { name: 'Week' }));
+    expect(screen.getByRole('button', { name: 'Application' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    act(() => {
+      globalThis.history.replaceState(null, '', '/week/2026-11-02?view=groups');
+      globalThis.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(screen.getByRole('button', { name: 'Keyword group' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('filters group and application timelines by group on every matching day', async () => {
+    server.use(
+      http.get('/api/days/:date/timeline', ({ params }) => {
+        const data = timeline(String(params.date));
+        return HttpResponse.json({
+          ...data,
+          blocks: data.blocks.map((block, i) => ({
+            ...block,
+            group:
+              block.kind === 'active'
+                ? { key: i === 6 ? 'group-1' : 'group-0', name: i === 6 ? 'Other' : 'Work' }
+                : null,
+          })),
+        });
+      }),
+      http.get('/api/range/group-application-titles', () =>
+        HttpResponse.json({
+          app: apps.code,
+          totalMs: 60000,
+          titles: [{ title: 'Work', durationMs: 60000, share: 1, percent: 100 }],
+        }),
+      ),
+    );
+    globalThis.history.replaceState(null, '', '/group/2026-11-04/2026-11-05?name=Work&source=week');
+    const user = userEvent.setup();
+    renderWithApi(<App />);
+    const lanes = await screen.findAllByRole('group', { name: /Timeline of the day/ });
+    await waitFor(() =>
+      expect(screen.getAllByRole('group', { name: /Timeline of the day/ })).toHaveLength(2),
+    );
+    const first = lanes[0];
+    if (!first) throw new Error('Expected a timeline');
+    expect(first.querySelectorAll('[data-app="vscode"]')).toHaveLength(1);
+    expect(first.querySelector('[data-app="away"]')).toBeNull();
+    const appList = screen.getByRole('table', { name: 'Active time per app, longest first' });
+    expect(first.querySelector<HTMLElement>('[data-app="vscode"]')?.style.backgroundColor).toBe(
+      appList.querySelector<HTMLElement>('tr[data-app="vscode"] .app-shares__swatch')?.style
+        .backgroundColor,
+    );
+    await user.click(within(appList).getByRole('link', { name: 'Visual Studio Code' }));
+    await screen.findByRole('table', { name: /Time in Visual Studio Code/ });
+    await waitFor(() =>
+      expect(screen.getAllByRole('group', { name: /Timeline of the day/ })).toHaveLength(2),
+    );
+    for (const lane of screen.getAllByRole('group', { name: /Timeline of the day/ })) {
+      expect(within(lane).getAllByRole('button')).toHaveLength(1);
+      expect(within(lane).getByRole('button')).toHaveAttribute('data-app', 'vscode');
+    }
+  });
+
   it.each([
     ['/day/2026-11-05?view=groups', '2026-11-05', '2026-11-05', 'day'],
     ['/week/2026-11-02?view=groups', '2026-11-02', '2026-11-08', 'week'],

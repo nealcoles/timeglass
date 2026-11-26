@@ -73,6 +73,14 @@ export const handlers = [
     }
     return HttpResponse.json(rangeSummary(from, to));
   }),
+  http.get('/api/range/group-applications', ({ request }) => {
+    const url = new URL(request.url);
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+    return isDate(from) && isDate(to)
+      ? HttpResponse.json(rangeSummary(from, to))
+      : badRequest('from', 'Give from and to as yyyy-MM-dd.');
+  }),
   http.get('/api/settings', () => HttpResponse.json(settings())),
   http.put('/api/settings', async ({ request }) =>
     HttpResponse.json((await request.json()) as SettingsDto),

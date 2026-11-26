@@ -626,6 +626,7 @@ export interface components {
       durationMs: number;
       /** @description True if the block is still running. */
       isOpen: boolean;
+      group: null | components['schemas']['AppDto'];
     };
     /** @description What happened when on one local day. */
     TimelineDto: {
@@ -715,7 +716,10 @@ export interface operations {
   };
   GetTimeline: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Split active blocks by keyword group. */
+        grouped?: boolean;
+      };
       header?: never;
       path: {
         /** @description Local date, yyyy-MM-dd. */

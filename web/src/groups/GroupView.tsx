@@ -6,6 +6,8 @@ import { appShares } from '../day/appShares.ts';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
 import { paths, type GroupSource } from '../router.ts';
+import { OTHER_COLOR } from '../day/appColor.ts';
+import { GroupTimelines } from './GroupTimelines.tsx';
 
 export function GroupView({
   from,
@@ -20,6 +22,8 @@ export function GroupView({
 }) {
   const applications = useGroupApplications(from, to, groupName);
   const date = from === to ? formatLongDate(from) : formatDateRange(from, to);
+  const rows = applications.data ? appShares(applications.data.apps) : [];
+  const colors = new Map(rows.map((row) => [row.key, row.color]));
   return (
     <section className="app-day" aria-labelledby="group-heading" aria-busy={applications.isPending}>
       <p className="app-day__back">
@@ -49,9 +53,14 @@ export function GroupView({
               <dd>{formatDuration(applications.data.activeMs)}</dd>
             </div>
           </dl>
+          <GroupTimelines
+            summary={applications.data}
+            groupName={groupName}
+            colorFor={(key) => colors.get(key) ?? OTHER_COLOR}
+          />
           <h3>Applications</h3>
           <AppShareList
-            rows={appShares(applications.data.apps)}
+            rows={rows}
             appHref={(appKey) => paths.groupApp(from, to, groupName, source, appKey)}
           />
         </>
