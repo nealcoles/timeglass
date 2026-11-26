@@ -16,12 +16,14 @@ public interface IReportingQueries
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time the day begins. Midnight by default.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     Task<DaySummary> GetDaySummaryAsync(
         DateOnly day,
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null);
 
     /// <summary>Active and away blocks of one local day, in time order; see <see cref="Timelines.ForDay"/>.</summary>
     /// <param name="day">The local date.</param>
@@ -30,13 +32,15 @@ public interface IReportingQueries
     /// <param name="dayStart">Local time the day begins. Midnight by default.</param>
     /// <param name="mergeGap">Merge gaps shorter than this; <see cref="Timelines.DefaultMergeGap"/> if not given.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     Task<DayTimeline> GetTimelineAsync(
         DateOnly day,
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
         TimeSpan? mergeGap = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null);
 
     /// <summary>
     /// One app's time by window title over local days <paramref name="firstDay"/> to
@@ -49,6 +53,7 @@ public interface IReportingQueries
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     Task<TitleBreakdown> GetTitleBreakdownAsync(
         string appKey,
         DateOnly firstDay,
@@ -56,7 +61,8 @@ public interface IReportingQueries
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null);
 
     /// <summary>
     /// Totals per day and per app over local days <paramref name="firstDay"/> to
@@ -68,13 +74,15 @@ public interface IReportingQueries
     /// <param name="now">The current time; the open interval counts as running until then.</param>
     /// <param name="dayStart">Local time each day begins. Midnight by default.</param>
     /// <param name="cancellationToken">Cancels the query.</param>
+    /// <param name="afterHours">Optional after-hours analysis rule.</param>
     Task<RangeSummary> GetRangeSummaryAsync(
         DateOnly firstDay,
         DateOnly lastDay,
         TimeZoneInfo zone,
         DateTimeOffset now,
         TimeSpan dayStart = default,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        AfterHoursOptions? afterHours = null);
 
     /// <summary>
     /// The intervals that overlap [<paramref name="from"/>, <paramref name="to"/>), ordered by

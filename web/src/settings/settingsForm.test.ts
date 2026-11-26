@@ -13,12 +13,20 @@ describe('settings form', () => {
       startWithWindows: true,
       workHoursStartMinutes: 8 * 60 + 30,
       workHoursEndMinutes: 16 * 60,
+      discardAfterHoursReturns: true,
+      afterHoursMinimumAwayMinutes: 90,
+      afterHoursMaximumReturnMinutes: 15,
     });
 
     const form = toForm(dto);
 
     expect(form.idleMinutes).toBe('1.5');
     expect([form.workStart, form.workEnd]).toEqual(['08:30', '16:00']);
+    expect(form.discardAfterHoursReturns).toBe(true);
+    expect([form.afterHoursMinimumAwayMinutes, form.afterHoursMaximumReturnMinutes]).toEqual([
+      '90',
+      '15',
+    ]);
     expect(form.aliases[0]?.exes).toBe('a.exe, b.exe');
     expect(toSettings(form)).toEqual(dto);
   });
@@ -37,6 +45,16 @@ describe('settings form', () => {
 
     expect(toSettings(form).idleThresholdSeconds).toBe(150);
     expect(validate(form)).toEqual({});
+  });
+
+  it('validates after-hours thresholds', () => {
+    const form = toForm(settings());
+    expect(
+      validate({ ...form, afterHoursMinimumAwayMinutes: '0' }).afterHoursMinimumAwayMinutes,
+    ).toBeDefined();
+    expect(
+      validate({ ...form, afterHoursMaximumReturnMinutes: '2.5' }).afterHoursMaximumReturnMinutes,
+    ).toBeDefined();
   });
 
   it.each(['', 'abc', '0.25', '241'])('rejects %j minutes', (minutes) => {
