@@ -84,7 +84,13 @@ export function useSaveSettings() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (settings: SettingsDto) => unwrap(api.PUT('/api/settings', { body: settings })),
-    onSuccess: (saved) => queryClient.setQueryData(queryKeys.settings, saved),
+    onSuccess: async (saved) => {
+      queryClient.setQueryData(queryKeys.settings, saved);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['days'] }),
+        queryClient.invalidateQueries({ queryKey: ['range'] }),
+      ]);
+    },
   });
 }
 

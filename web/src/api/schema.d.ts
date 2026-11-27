@@ -511,6 +511,18 @@ export interface components {
        * @description Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).
        */
       workHoursEndMinutes?: null | number;
+      /** @description Whether to exclude qualifying after-hours returns; null keeps the current value (write). */
+      discardAfterHoursReturns?: null | boolean;
+      /**
+       * Format: int32
+       * @description Minimum preceding away time in minutes; null keeps the current value (write).
+       */
+      afterHoursMinimumAwayMinutes?: null | number;
+      /**
+       * Format: int32
+       * @description Maximum final return time in minutes; null keeps the current value (write).
+       */
+      afterHoursMaximumReturnMinutes?: null | number;
     };
     /** @description The tracker's current state. */
     StatusDto: {

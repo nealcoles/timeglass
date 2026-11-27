@@ -8,19 +8,19 @@ test('a changed setting is saved and still there after a reload', async ({ page,
     await page.getByRole('link', { name: 'Settings' }).click();
     await expect(page).toHaveURL('/settings');
 
-    const minutes = page.getByRole('spinbutton');
+    const minutes = page.getByRole('spinbutton', { name: 'after minutes' });
     await expect(minutes).toBeVisible();
     await minutes.fill('7.5');
     await page.getByRole('button', { name: 'Save settings' }).click();
     await expect(page.getByText('Saved. The new settings apply right away.')).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole('spinbutton')).toHaveValue('7.5');
+    await expect(minutes).toHaveValue('7.5');
     const after = await (await request.get('/api/settings')).json();
     expect(after.idleThresholdSeconds).toBe(450);
 
     // A value the app can't use is caught before it is sent.
-    await page.getByRole('spinbutton').fill('0');
+    await minutes.fill('0');
     await page.getByRole('button', { name: 'Save settings' }).click();
     await expect(page.getByText('Some settings need fixing; see above.')).toBeVisible();
   } finally {
