@@ -208,6 +208,9 @@ export function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
     startWithWindows: false,
     workHoursStartMinutes: 9 * 60,
     workHoursEndMinutes: 17 * 60,
+    discardAfterHoursReturns: false,
+    afterHoursMinimumAwayMinutes: 60,
+    afterHoursMaximumReturnMinutes: 10,
     ...overrides,
   };
 }
