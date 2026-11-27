@@ -85,7 +85,7 @@ public static class RangeSummaries
 
         var rolledUpByDay = (rolledUp ?? []).ToLookup(t => t.Day);
         var days = new List<DayTotal>(dayCount);
-        var perApp = new Dictionary<string, (AppIdentity App, TimeSpan Duration)>(StringComparer.Ordinal);
+        var perApp = new Dictionary<string, (AppIdentity App, TimeSpan Duration, DateTimeOffset LastActivity)>(StringComparer.Ordinal);
         var active = TimeSpan.Zero;
         var away = TimeSpan.Zero;
         for (var i = 0; i < dayCount; i++)
@@ -99,7 +99,8 @@ public static class RangeSummaries
             foreach (var app in summary.Apps)
             {
                 // Days go forward, so a later day's display name replaces an earlier one.
-                perApp[app.App.Key] = (app.App, perApp.GetValueOrDefault(app.App.Key).Duration + app.Duration);
+                var previous = perApp.GetValueOrDefault(app.App.Key);
+                perApp[app.App.Key] = (app.App, previous.Duration + app.Duration, Clipping.Max(previous.LastActivity, app.LastActivity));
             }
         }
 
@@ -110,7 +111,7 @@ public static class RangeSummaries
             .ToList();
         var percents = DaySummaries.RoundToHundred([.. apps.Select(a => a.Duration.Ticks)]);
         var totals = apps
-            .Select((a, i) => new AppDayTotal(a.App, a.Duration, (double)a.Duration.Ticks / active.Ticks, percents[i]))
+            .Select((a, i) => new AppDayTotal(a.App, a.Duration, (double)a.Duration.Ticks / active.Ticks, percents[i], a.LastActivity))
             .ToList();
 
         return new RangeSummary(firstDay, lastDay, rangeStart, rangeEnd, active, away, days, totals);

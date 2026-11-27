@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type { DaySummaryDto } from '../api/client.ts';
 import { daySummary, demoDate } from '../test/fixtures.ts';
@@ -94,6 +95,84 @@ describe('DayView', () => {
     ]);
   });
 
+  it('can order apps by most recent activity and back by time', async () => {
+    const user = userEvent.setup();
+    renderWithApi(<DayView date={demoDate} />);
+
+    await screen.findByRole('table', { name: 'Active time per app, longest first' });
+    const sort = screen.getByRole('combobox', { name: 'Order by' });
+    expect(sort).toHaveValue('time');
+    await user.selectOptions(sort, 'recent');
+
+    const table = screen.getByRole('table', {
+      name: 'Active time per app, most recently used first',
+    });
+    expect(
+      within(table)
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      'Visual Studio Code',
+      'Windows Terminal',
+      'Microsoft Edge',
+      'Microsoft Teams',
+      'Outlook',
+    ]);
+    expect(within(table).getByRole('link', { name: 'Windows Terminal' })).toHaveAttribute(
+      'href',
+      `/day/${demoDate}/app/terminal`,
+    );
+
+    await user.selectOptions(sort, 'time');
+    expect(
+      within(screen.getByRole('table', { name: 'Active time per app, longest first' }))
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      'Visual Studio Code',
+      'Outlook',
+      'Microsoft Edge',
+      'Microsoft Teams',
+      'Windows Terminal',
+    ]);
+  });
+
+  it('orders recent activity by instant even when offsets differ', async () => {
+    const user = userEvent.setup();
+    const summary = daySummary();
+    useSummary({
+      ...summary,
+      apps: summary.apps.map((app) => ({
+        ...app,
+        lastActivity:
+          app.app.key === 'terminal'
+            ? '2026-11-05T13:00:00+02:00'
+            : app.app.key === 'edge'
+              ? '2026-11-05T12:30:00Z'
+              : app.lastActivity,
+      })),
+    });
+    renderWithApi(<DayView date={demoDate} />);
+
+    await screen.findByRole('table');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Order by' }), 'recent');
+
+    const table = screen.getByRole('table', {
+      name: 'Active time per app, most recently used first',
+    });
+    expect(
+      within(table)
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      'Visual Studio Code',
+      'Microsoft Edge',
+      'Windows Terminal',
+      'Microsoft Teams',
+      'Outlook',
+    ]);
+  });
+
   it('shows when the time went, in the app list colours', async () => {
     renderWithApi(<DayView date={demoDate} />);
 
@@ -115,6 +194,7 @@ describe('DayView', () => {
       share: 0.01,
       percent: 1,
       color: 'hsl(180 75% 50%)',
+      lastActivity: '2026-11-05T16:00:00Z',
     }));
     useSummary({ ...base, apps: [...base.apps, ...extra] });
 

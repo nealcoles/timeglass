@@ -591,7 +591,8 @@
           "durationMs",
           "share",
           "percent",
-          "color"
+          "color",
+          "lastActivity"
         ],
         "type": "object",
         "properties": {
@@ -617,6 +618,11 @@
           "color": {
             "type": "string",
             "description": "Persistent display colour for the app."
+          },
+          "lastActivity": {
+            "type": "string",
+            "description": "End of the app's latest active interval in the period.",
+            "format": "date-time"
           }
         },
         "description": "One app's share of the active time."

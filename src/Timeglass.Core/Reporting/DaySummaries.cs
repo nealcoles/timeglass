@@ -80,7 +80,7 @@ public static class DaySummaries
         var away = TimeSpan.Zero;
         DateTimeOffset? first = null;
         DateTimeOffset? last = null;
-        var perApp = new Dictionary<string, (AppIdentity App, DateTimeOffset LastSeen, TimeSpan Duration)>(StringComparer.Ordinal);
+        var perApp = new Dictionary<string, (AppIdentity App, DateTimeOffset LastSeen, DateTimeOffset LastActivity, TimeSpan Duration)>(StringComparer.Ordinal);
 
         foreach (var interval in intervals)
         {
@@ -129,11 +129,11 @@ public static class DaySummaries
             if (perApp.TryGetValue(app.Key, out var total))
             {
                 // Display names can change (a rename in settings); show the latest one.
-                perApp[app.Key] = (start > total.LastSeen ? app : total.App, Max(start, total.LastSeen), total.Duration + length);
+                perApp[app.Key] = (start > total.LastSeen ? app : total.App, Max(start, total.LastSeen), Max(end, total.LastActivity), total.Duration + length);
             }
             else
             {
-                perApp[app.Key] = (app, start, length);
+                perApp[app.Key] = (app, start, end, length);
             }
         }
 
@@ -144,7 +144,7 @@ public static class DaySummaries
             .ToList();
         var percents = RoundToHundred([.. apps.Select(a => a.Duration.Ticks)]);
         var totals = apps
-            .Select((a, i) => new AppDayTotal(a.App, a.Duration, (double)a.Duration.Ticks / active.Ticks, percents[i]))
+            .Select((a, i) => new AppDayTotal(a.App, a.Duration, (double)a.Duration.Ticks / active.Ticks, percents[i], a.LastActivity))
             .ToList();
 
         return new DaySummary(day, dayFrom, dayTo, active, away, first, last, totals);

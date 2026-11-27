@@ -119,6 +119,10 @@ public class DaySummaryTests
         summary.FirstActivity.ShouldBe(expectedFirst is null ? null : Utc(expectedFirst));
         summary.LastActivity.ShouldBe(expectedLast is null ? null : Utc(expectedLast));
         summary.Apps.Sum(a => a.Duration.Ticks).ShouldBe(summary.Active.Ticks);
+        if (summary.Apps.Count > 0)
+        {
+            summary.LastActivity.ShouldBe(summary.Apps[0].LastActivity);
+        }
     }
 
     [Fact]
@@ -153,6 +157,30 @@ public class DaySummaryTests
         var summary = DaySummaries.Build([open], Day(day), Oslo, Utc(now));
 
         summary.Active.ShouldBe(TimeSpan.FromMinutes(expectedMinutes));
+        if (summary.Apps.Count > 0)
+        {
+            summary.LastActivity.ShouldBe(summary.Apps[0].LastActivity);
+        }
+    }
+
+    [Fact]
+    public void App_last_activity_uses_the_latest_end_including_rolled_up_totals()
+    {
+        var day = Day("2026-11-05");
+        var summary = DaySummaries.Build(
+            [
+                Active(Utc("2026-11-05T10:00Z"), Utc("2026-11-05T10:30Z"), Code),
+                Active(Utc("2026-11-05T07:00Z"), Utc("2026-11-05T11:00Z"), Code),
+                Active(Utc("2026-11-05T08:00Z"), Utc("2026-11-05T09:00Z"), Outlook),
+            ],
+            day,
+            Oslo,
+            Later,
+            rolledUp: [new RolledUpTotal(day, IntervalKind.Active, Outlook, TimeSpan.FromMinutes(30),
+                Utc("2026-11-05T12:00Z"), Utc("2026-11-05T12:30Z"))]);
+
+        summary.Apps.Single(a => a.App == Code).LastActivity.ShouldBe(Utc("2026-11-05T11:00Z"));
+        summary.Apps.Single(a => a.App == Outlook).LastActivity.ShouldBe(Utc("2026-11-05T12:30Z"));
     }
 
     [Fact]

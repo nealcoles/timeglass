@@ -58,6 +58,8 @@ public sealed class EndpointTests : IAsyncLifetime
         day.WorkdayMs.ShouldBe(Minutes(8 * 60)); // 08:00 to midnight local, within 09:00 to 17:00
         day.Apps.Select(a => (a.App.Key, a.App.Name, a.DurationMs, a.Percent))
             .ShouldBe([("code", "Code", Minutes(180) - 3000, 86), ("outlook", "Outlook", Minutes(30), 14)]);
+        day.Apps.Select(a => (a.App.Key, a.LastActivity)).ShouldBe(
+            [("code", Utc("2026-11-04T23:00Z")), ("outlook", Utc("2026-11-04T09:00Z"))]);
     }
 
     [Fact]
@@ -136,6 +138,8 @@ public sealed class EndpointTests : IAsyncLifetime
         range.ActiveMs.ShouldBe(Minutes(390) - 3000);
         range.AwayMs.ShouldBe(Minutes(60));
         range.Apps.Select(a => (a.App.Key, a.Percent)).ShouldBe([("code", 69), ("outlook", 31)]);
+        range.Apps.Select(a => (a.App.Key, a.LastActivity)).ShouldBe(
+            [("code", Now), ("outlook", Utc("2026-11-05T08:30Z"))]);
     }
 
     [Fact]

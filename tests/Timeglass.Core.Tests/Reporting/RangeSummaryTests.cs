@@ -109,6 +109,12 @@ public class RangeSummaryTests
             ("Outlook", 90, 38),
             ("Teams", 30, 12),
         ]);
+        summary.Apps.Select(a => (a.App.Key, a.LastActivity)).ShouldBe(
+        [
+            ("code", Utc("2026-11-04T09:00Z")),
+            ("outlook", Utc("2026-11-03T09:30Z")),
+            ("teams", Utc("2026-11-05T08:30Z")),
+        ]);
     }
 
     [Fact]

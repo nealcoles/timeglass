@@ -8,6 +8,7 @@ const app = (key: string, minutes: number, percent: number): AppTotalDto => ({
   share: percent / 100,
   percent,
   color: `color-${key}`,
+  lastActivity: '2026-11-05T12:00:00Z',
 });
 
 describe('appShares', () => {

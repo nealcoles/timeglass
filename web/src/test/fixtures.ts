@@ -42,6 +42,7 @@ const appTotals: AppTotalDto[] = [
     share: 180 / 420,
     percent: 43,
     color: 'hsl(0 75% 50%)',
+    lastActivity: at(demoDate, '16:05:00'),
   },
   {
     app: apps.outlook,
@@ -49,6 +50,7 @@ const appTotals: AppTotalDto[] = [
     share: 105 / 420,
     percent: 25,
     color: 'hsl(120 75% 50%)',
+    lastActivity: at(demoDate, '08:40:00'),
   },
   {
     app: apps.edge,
@@ -56,6 +58,7 @@ const appTotals: AppTotalDto[] = [
     share: 75 / 420,
     percent: 18,
     color: 'hsl(240 75% 50%)',
+    lastActivity: at(demoDate, '11:40:00'),
   },
   {
     app: apps.teams,
@@ -63,6 +66,7 @@ const appTotals: AppTotalDto[] = [
     share: 45 / 420,
     percent: 11,
     color: 'hsl(60 75% 50%)',
+    lastActivity: at(demoDate, '09:47:00'),
   },
   {
     app: apps.terminal,
@@ -70,8 +74,12 @@ const appTotals: AppTotalDto[] = [
     share: 15 / 420,
     percent: 3,
     color: 'hsl(300 75% 50%)',
+    lastActivity: at(demoDate, '12:35:00'),
   },
 ];
+
+const totalsOn = (date: string) =>
+  appTotals.map((app) => ({ ...app, lastActivity: app.lastActivity.replace(demoDate, date) }));
 
 export function status(overrides: Partial<StatusDto> = {}): StatusDto {
   return {
@@ -96,7 +104,7 @@ export function daySummary(date: string = demoDate): DaySummaryDto {
     lastActivity: at(date, '16:05:00'),
     // From 09:00, when work hours begin, to the last activity at 16:05.
     workdayMs: minutes(425),
-    apps: appTotals,
+    apps: totalsOn(date),
   };
 }
 
@@ -179,10 +187,12 @@ export function rangeSummary(from: string, to: string): RangeSummaryDto {
       end: at(nextDay(date), '00:00:00'),
       activeMs: workday ? minutes(420) : 0,
       awayMs: workday ? minutes(65) : 0,
-      apps: workday ? appTotals : [],
+      apps: workday ? totalsOn(date) : [],
     });
   }
-  const workdays = days.filter((d) => d.activeMs > 0).length;
+  const activeDays = days.filter((d) => d.activeMs > 0);
+  const workdays = activeDays.length;
+  const lastActiveDay = activeDays.at(-1);
   return {
     from,
     to,
@@ -192,7 +202,12 @@ export function rangeSummary(from: string, to: string): RangeSummaryDto {
     awayMs: workdays * minutes(65),
     days,
     apps:
-      workdays === 0 ? [] : appTotals.map((a) => ({ ...a, durationMs: a.durationMs * workdays })),
+      lastActiveDay === undefined
+        ? []
+        : totalsOn(lastActiveDay.date).map((a) => ({
+            ...a,
+            durationMs: a.durationMs * workdays,
+          })),
   };
 }
 

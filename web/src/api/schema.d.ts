@@ -274,6 +274,11 @@ export interface components {
       percent: number;
       /** @description Persistent display colour for the app. */
       color: string;
+      /**
+       * Format: date-time
+       * @description End of the app's latest active interval in the period.
+       */
+      lastActivity: string;
     };
     /** @description Where the time went on one local day. */
     DaySummaryDto: {

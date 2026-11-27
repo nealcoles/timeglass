@@ -10,6 +10,7 @@ export interface AppShare {
   /** Exact fraction of the active time, for the bar width. */
   share: number;
   color: string;
+  lastActivity: string;
 }
 
 /** Every app by time, longest first, each with its own colour (#96). */
@@ -23,5 +24,6 @@ export function appShares(apps: readonly AppTotalDto[]): AppShare[] {
       percent: a.percent,
       share: a.share,
       color: a.color,
+      lastActivity: a.lastActivity,
     }));
 }

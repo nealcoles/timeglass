@@ -23,10 +23,11 @@ public sealed record AppDto(string Key, string Name)
 /// <param name="Share">Exact fraction of the active time, between 0 and 1.</param>
 /// <param name="Percent">Whole percentage; the percentages of one list add up to 100.</param>
 /// <param name="Color">Persistent display colour for the app.</param>
-public sealed record AppTotalDto(AppDto App, long DurationMs, double Share, int Percent, string Color)
+/// <param name="LastActivity">End of the app's latest active interval in the period.</param>
+public sealed record AppTotalDto(AppDto App, long DurationMs, double Share, int Percent, string Color, DateTimeOffset LastActivity)
 {
     internal static AppTotalDto Create(AppDayTotal total, IReadOnlyDictionary<string, string> colors) =>
-        new(AppDto.Create(total.App), total.Duration.ToMs(), total.Share, total.Percent, colors[total.App.Key]);
+        new(AppDto.Create(total.App), total.Duration.ToMs(), total.Share, total.Percent, colors[total.App.Key], total.LastActivity);
 }
 
 /// <summary>Where the time went on one local day.</summary>

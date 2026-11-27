@@ -29,4 +29,5 @@ public sealed record DaySummary(
 /// <param name="Percent">
 /// <see cref="Share"/> as a whole percentage, rounded so that the percentages of a day add up to exactly 100.
 /// </param>
-public sealed record AppDayTotal(AppIdentity App, TimeSpan Duration, double Share, int Percent);
+/// <param name="LastActivity">End of the app's latest active interval in the period.</param>
+public sealed record AppDayTotal(AppIdentity App, TimeSpan Duration, double Share, int Percent, DateTimeOffset LastActivity);

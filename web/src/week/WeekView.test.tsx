@@ -159,6 +159,30 @@ describe('WeekView', () => {
     expect(within(apps).queryByRole('link')).not.toBeInTheDocument();
   });
 
+  it("can order the week's apps by their most recent activity", async () => {
+    const user = userEvent.setup();
+    renderWithApi(<WeekView date={demoDate} today={demoDate} />);
+
+    await dayTable();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Order by' }), 'recent');
+
+    const apps = screen.getByRole('table', {
+      name: 'Active time per app, most recently used first',
+    });
+    expect(
+      within(apps)
+        .getAllByRole('rowheader')
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      'Visual Studio Code',
+      'Windows Terminal',
+      'Microsoft Edge',
+      'Microsoft Teams',
+      'Outlook',
+    ]);
+    expect(within(apps).queryByRole('link')).not.toBeInTheDocument();
+  });
+
   it('says so when nothing was tracked', async () => {
     server.use(
       http.get('/api/range/summary', () =>
