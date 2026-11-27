@@ -243,6 +243,8 @@ export interface components {
       totalMs: number;
       /** @description Every title, longest first. */
       titles: components['schemas']['TitleTotalDto'][];
+      /** @description Persistent display colour, or null if the app has no recorded time. */
+      color: null | string;
     };
     /** @description An app as shown to the user. */
     AppDto: {
@@ -270,6 +272,8 @@ export interface components {
        * @description Whole percentage; the percentages of one list add up to 100.
        */
       percent: number;
+      /** @description Persistent display colour for the app. */
+      color: string;
     };
     /** @description Where the time went on one local day. */
     DaySummaryDto: {

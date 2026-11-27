@@ -211,6 +211,23 @@ public sealed class EndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task App_colors_match_across_days_range_and_drilldown()
+    {
+        var day = await _host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
+        var next = await _host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-05/summary", Ct);
+        var range = await _host.GetJsonAsync<RangeSummaryDto>("/api/range/summary?from=2026-11-04&to=2026-11-05", Ct);
+        var detail = await _host.GetJsonAsync<AppDayDto>("/api/days/2026-11-05/apps/code", Ct);
+        var color = day.Apps.Single(a => a.App.Key == "code").Color;
+
+        next.Apps.Single(a => a.App.Key == "code").Color.ShouldBe(color);
+        range.Apps.Single(a => a.App.Key == "code").Color.ShouldBe(color);
+        range.Days.SelectMany(d => d.Apps).Where(a => a.App.Key == "code").Select(a => a.Color)
+            .ShouldAllBe(c => c == color);
+        detail.Color.ShouldBe(color);
+        day.Apps.Select(a => a.Color).Distinct().Count().ShouldBe(day.Apps.Count);
+    }
+
+    [Fact]
     public async Task Status_while_tracking_names_the_current_app()
     {
         var status = await _host.GetJsonAsync<StatusDto>("/api/status", Ct);

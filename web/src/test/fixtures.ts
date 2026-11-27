@@ -36,11 +36,41 @@ export const apps = {
 const minutes = (n: number) => n * 60_000;
 
 const appTotals: AppTotalDto[] = [
-  { app: apps.code, durationMs: minutes(180), share: 180 / 420, percent: 43 },
-  { app: apps.outlook, durationMs: minutes(105), share: 105 / 420, percent: 25 },
-  { app: apps.edge, durationMs: minutes(75), share: 75 / 420, percent: 18 },
-  { app: apps.teams, durationMs: minutes(45), share: 45 / 420, percent: 11 },
-  { app: apps.terminal, durationMs: minutes(15), share: 15 / 420, percent: 3 },
+  {
+    app: apps.code,
+    durationMs: minutes(180),
+    share: 180 / 420,
+    percent: 43,
+    color: 'hsl(0 75% 50%)',
+  },
+  {
+    app: apps.outlook,
+    durationMs: minutes(105),
+    share: 105 / 420,
+    percent: 25,
+    color: 'hsl(120 75% 50%)',
+  },
+  {
+    app: apps.edge,
+    durationMs: minutes(75),
+    share: 75 / 420,
+    percent: 18,
+    color: 'hsl(240 75% 50%)',
+  },
+  {
+    app: apps.teams,
+    durationMs: minutes(45),
+    share: 45 / 420,
+    percent: 11,
+    color: 'hsl(60 75% 50%)',
+  },
+  {
+    app: apps.terminal,
+    durationMs: minutes(15),
+    share: 15 / 420,
+    percent: 3,
+    color: 'hsl(300 75% 50%)',
+  },
 ];
 
 export function status(overrides: Partial<StatusDto> = {}): StatusDto {
@@ -110,6 +140,7 @@ export function appDay(date: string = demoDate, appKey: string = apps.code.key):
     start: at(date, '00:00:00'),
     end: at(nextDay(date), '00:00:00'),
     totalMs: total,
+    color: appTotals.find((a) => a.app.key === appKey)?.color ?? null,
     titles:
       total === 0
         ? []
