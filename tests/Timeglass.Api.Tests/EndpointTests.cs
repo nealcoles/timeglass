@@ -55,17 +55,17 @@ public sealed class EndpointTests : IAsyncLifetime
         host.Settings.Current = new TimeglassSettings
         {
             DiscardAfterHoursReturns = true,
-            KeywordGroups = [new KeywordGroupSetting { Name = "Code work", Keywords = ["code"] }],
+            Categories = [new CategorySetting { Name = "Code work", Keywords = ["code"] }],
         };
 
         var day = await host.GetJsonAsync<DaySummaryDto>("/api/days/2026-11-04/summary", Ct);
         var range = await host.GetJsonAsync<RangeSummaryDto>("/api/range/summary?from=2026-11-04&to=2026-11-04", Ct);
         var timeline = await host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline", Ct);
         var app = await host.GetJsonAsync<AppDayDto>("/api/days/2026-11-04/apps/code", Ct);
-        var groupedTimeline = await host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline?grouped=true", Ct);
-        var groups = await host.GetJsonAsync<RangeSummaryDto>("/api/range/groups?from=2026-11-04&to=2026-11-04", Ct);
-        var groupApps = await host.GetJsonAsync<RangeSummaryDto>("/api/range/group-applications?from=2026-11-04&to=2026-11-04&name=Code%20work", Ct);
-        var groupTitles = await host.GetJsonAsync<GroupAppTitlesDto>("/api/range/group-application-titles?from=2026-11-04&to=2026-11-04&name=Code%20work&appKey=code", Ct);
+        var categoryTimeline = await host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline?byCategory=true", Ct);
+        var categories = await host.GetJsonAsync<RangeSummaryDto>("/api/range/categories?from=2026-11-04&to=2026-11-04", Ct);
+        var categoryApps = await host.GetJsonAsync<RangeSummaryDto>("/api/range/category-applications?from=2026-11-04&to=2026-11-04&category=Code%20work", Ct);
+        var groupTitles = await host.GetJsonAsync<CategoryAppTitlesDto>("/api/range/category-application-titles?from=2026-11-04&to=2026-11-04&category=Code%20work&appKey=code", Ct);
 
         day.ActiveMs.ShouldBe(Minutes(450));
         day.AwayMs.ShouldBe(0);
@@ -75,13 +75,13 @@ public sealed class EndpointTests : IAsyncLifetime
         timeline.Blocks.Count.ShouldBe(1);
         app.TotalMs.ShouldBe(day.ActiveMs);
         app.Titles.Select(t => t.Title).ShouldBe(["work"]);
-        groupedTimeline.Blocks.Count.ShouldBe(1);
-        groups.ActiveMs.ShouldBe(day.ActiveMs);
-        groups.AwayMs.ShouldBe(day.AwayMs);
-        groups.Apps.Single().App.Key.ShouldBe("group-0");
-        groups.Apps.Single().Color.ShouldNotBeNullOrWhiteSpace();
-        groupApps.ActiveMs.ShouldBe(day.ActiveMs);
-        groupApps.Apps.Single().DurationMs.ShouldBe(day.ActiveMs);
+        categoryTimeline.Blocks.Count.ShouldBe(1);
+        categories.ActiveMs.ShouldBe(day.ActiveMs);
+        categories.AwayMs.ShouldBe(day.AwayMs);
+        categories.Apps.Single().App.Key.ShouldBe("category-0");
+        categories.Apps.Single().Color.ShouldNotBeNullOrWhiteSpace();
+        categoryApps.ActiveMs.ShouldBe(day.ActiveMs);
+        categoryApps.Apps.Single().DurationMs.ShouldBe(day.ActiveMs);
         groupTitles.TotalMs.ShouldBe(day.ActiveMs);
         groupTitles.Titles.Select(t => t.Title).ShouldBe(["work"]);
 
@@ -185,18 +185,18 @@ public sealed class EndpointTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Grouped_timeline_splits_title_changes_and_uses_current_settings()
+    public async Task Category_timeline_splits_title_changes_and_uses_current_settings()
     {
-        _host.Settings.Current.KeywordGroups =
+        _host.Settings.Current.Categories =
         [
-            new KeywordGroupSetting { Name = "Main", Keywords = ["main.cs"] },
-            new KeywordGroupSetting { Name = "Tests", Keywords = ["tests.cs"] },
+            new CategorySetting { Name = "Main", Keywords = ["main.cs"] },
+            new CategorySetting { Name = "Tests", Keywords = ["tests.cs"] },
         ];
-        var timeline = await _host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline?grouped=true", Ct);
+        var timeline = await _host.GetJsonAsync<TimelineDto>("/api/days/2026-11-04/timeline?byCategory=true", Ct);
 
-        timeline.Blocks.Take(2).Select(b => (b.App?.Key, b.Group?.Key, b.Group?.Name))
-            .ShouldBe([("code", "group-0", "Main"), ("code", "group-1", "Tests")]);
-        timeline.Blocks.Single(b => b.Kind == ActivityKind.Away).Group.ShouldBeNull();
+        timeline.Blocks.Take(2).Select(b => (b.App?.Key, b.Category?.Key, b.Category?.Name))
+            .ShouldBe([("code", "category-0", "Main"), ("code", "category-1", "Tests")]);
+        timeline.Blocks.Single(b => b.Kind == ActivityKind.Away).Category.ShouldBeNull();
     }
 
     [Fact]
@@ -312,7 +312,7 @@ public sealed class EndpointTests : IAsyncLifetime
 
         json!["date"]!.GetValue<string>().ShouldBe("2026-11-05");
         var block = json["blocks"]![0]!.AsObject();
-        block.Select(p => p.Key).ShouldBe(["kind", "app", "start", "end", "durationMs", "isOpen", "group"]);
+        block.Select(p => p.Key).ShouldBe(["kind", "app", "start", "end", "durationMs", "isOpen", "category"]);
         block["kind"]!.GetValue<string>().ShouldBe("active");
         block["app"]!["name"]!.GetValue<string>().ShouldBe("Code");
 
@@ -348,7 +348,7 @@ public sealed class EndpointTests : IAsyncLifetime
     [InlineData("/api/range/summary?from=2026-11-02&to=11/08/2026", "to")]
     [InlineData("/api/range/summary?from=2026-11-08&to=2026-11-02", "to")]
     [InlineData("/api/range/summary?from=2024-01-01&to=2025-01-01", "to")] // 367 days: 2024 is a leap year
-    [InlineData("/api/range/groups?from=9999-12-31&to=9999-12-31", "to")]
+    [InlineData("/api/range/categories?from=9999-12-31&to=9999-12-31", "to")]
     public async Task Invalid_dates_are_a_problem_details_400(string url, string field)
     {
         using var response = await _host.Client.GetAsync(new Uri(url, UriKind.Relative), Ct);

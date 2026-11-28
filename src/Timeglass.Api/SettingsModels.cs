@@ -19,7 +19,7 @@ namespace Timeglass.Api;
 /// <param name="StartWithWindows">Whether the app starts when the user signs in; null where the host can't tell (read) or to leave it as it is (write).</param>
 /// <param name="WorkHoursStartMinutes">Minutes after local midnight that work hours begin, 0 to 1439; null keeps the current value (write).</param>
 /// <param name="WorkHoursEndMinutes">Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).</param>
-/// <param name="KeywordGroups">Ordered groups of keywords, or null to leave them unchanged.</param>
+/// <param name="Categories">Ordered categories of keywords, or null to leave them unchanged.</param>
 /// <param name="DiscardAfterHoursReturns">Whether to exclude qualifying after-hours returns; null keeps the current value (write).</param>
 /// <param name="AfterHoursMinimumAwayMinutes">Minimum preceding away time in minutes; null keeps the current value (write).</param>
 /// <param name="AfterHoursMaximumReturnMinutes">Maximum final return time in minutes; null keeps the current value (write).</param>
@@ -33,7 +33,7 @@ public sealed record SettingsDto(
     bool? StartWithWindows,
     int? WorkHoursStartMinutes = null,
     int? WorkHoursEndMinutes = null,
-    IReadOnlyList<KeywordGroupDto>? KeywordGroups = null,
+    IReadOnlyList<CategoryDto>? Categories = null,
     bool? DiscardAfterHoursReturns = null,
     int? AfterHoursMinimumAwayMinutes = null,
     int? AfterHoursMaximumReturnMinutes = null)
@@ -48,7 +48,7 @@ public sealed record SettingsDto(
         startWithWindows,
         (int)settings.WorkHoursStart.TotalMinutes,
         (int)settings.WorkHoursEnd.TotalMinutes,
-        [.. (settings.KeywordGroups ?? []).Select(g => new KeywordGroupDto(g.Name, g.Keywords))],
+        [.. (settings.Categories ?? []).Select(g => new CategoryDto(g.Name, g.Keywords))],
         settings.DiscardAfterHoursReturns,
         (int)settings.AfterHoursMinimumAway.TotalMinutes,
         (int)settings.AfterHoursMaximumReturn.TotalMinutes);
@@ -66,7 +66,7 @@ public sealed record SettingsDto(
         RecordWindowTitles = RecordWindowTitles,
         AppsWithoutTitles = Keys(AppsWithoutTitles),
         AppAliases = [.. (AppAliases ?? []).Select(a => a.ToSetting())],
-        KeywordGroups = KeywordGroups is null ? current.KeywordGroups : [.. KeywordGroups.Select(g => g?.ToSetting() ?? new KeywordGroupSetting())],
+        Categories = Categories is null ? current.Categories : [.. Categories.Select(g => g?.ToSetting() ?? new CategorySetting())],
         MinimumInterval = current.MinimumInterval,
         CheckpointInterval = current.CheckpointInterval,
         RetentionMonths = current.RetentionMonths,
@@ -83,12 +83,12 @@ public sealed record SettingsDto(
         [.. (keys ?? []).Select(k => k?.Trim() ?? string.Empty).Distinct(StringComparer.OrdinalIgnoreCase)];
 }
 
-/// <summary>A named group of keywords, matched in the order groups are listed.</summary>
-/// <param name="Name">Group name.</param>
+/// <summary>A named category of keywords, matched in the order categories are listed.</summary>
+/// <param name="Name">Category name.</param>
 /// <param name="Keywords">Case-insensitive substrings to match.</param>
-public sealed record KeywordGroupDto(string Name, IReadOnlyList<string> Keywords)
+public sealed record CategoryDto(string Name, IReadOnlyList<string> Keywords)
 {
-    internal KeywordGroupSetting ToSetting() => new()
+    internal CategorySetting ToSetting() => new()
     {
         Name = Name?.Trim() ?? string.Empty,
         Keywords = SettingsDto.Keys(Keywords),

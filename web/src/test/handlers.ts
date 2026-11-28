@@ -73,7 +73,7 @@ export const handlers = [
     }
     return HttpResponse.json(rangeSummary(from, to));
   }),
-  http.get('/api/range/group-applications', ({ request }) => {
+  http.get('/api/range/category-applications', ({ request }) => {
     const url = new URL(request.url);
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');

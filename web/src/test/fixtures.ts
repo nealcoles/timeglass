@@ -114,7 +114,7 @@ export function timeline(date: string = demoDate): TimelineDto {
     end: at(date, end),
     durationMs,
     isOpen,
-    group: null,
+    category: null,
   });
   return {
     date,
@@ -206,7 +206,7 @@ export function settings(overrides: Partial<SettingsDto> = {}): SettingsDto {
     recordWindowTitles: true,
     appsWithoutTitles: [],
     appAliases: [],
-    keywordGroups: [],
+    categories: [],
     startWithWindows: false,
     workHoursStartMinutes: 9 * 60,
     workHoursEndMinutes: 17 * 60,

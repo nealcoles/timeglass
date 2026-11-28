@@ -1,6 +1,6 @@
 import { formatDuration } from '../format.ts';
 import { Link } from '../Link.tsx';
-import { AWAY_GROUP_KEY } from '../groups/groupKeys.ts';
+import { AWAY_CATEGORY_KEY } from '../categories/categoryKeys.ts';
 import { paths } from '../router.ts';
 import type { AppShare } from './appShares.ts';
 
@@ -11,8 +11,8 @@ interface AppShareListProps {
    * (the week view), the apps aren't links.
    */
   date?: string;
-  grouped?: boolean;
-  groupHref?: (name: string) => string;
+  byCategory?: boolean;
+  categoryHref?: (name: string) => string;
   appHref?: (key: string) => string;
 }
 
@@ -24,8 +24,8 @@ interface AppShareListProps {
 export function AppShareList({
   rows,
   date,
-  grouped = false,
-  groupHref,
+  byCategory = false,
+  categoryHref,
   appHref,
 }: AppShareListProps) {
   const longest = Math.max(...rows.map((r) => r.durationMs), 1);
@@ -33,11 +33,11 @@ export function AppShareList({
   return (
     <table className="app-shares">
       <caption className="visually-hidden">
-        {grouped ? 'Tracked time per category' : 'Active time per app'}, longest first
+        {byCategory ? 'Tracked time per category' : 'Active time per app'}, longest first
       </caption>
       <thead className="visually-hidden">
         <tr>
-          <th scope="col">{grouped ? 'Category' : 'App'}</th>
+          <th scope="col">{byCategory ? 'Category' : 'App'}</th>
           <th scope="col">Time</th>
           <th scope="col">Share</th>
         </tr>
@@ -51,8 +51,8 @@ export function AppShareList({
                 style={{ backgroundColor: row.color }}
                 aria-hidden="true"
               />
-              {groupHref && row.key !== AWAY_GROUP_KEY ? (
-                <Link href={groupHref(row.name)} className="app-shares__link">
+              {categoryHref && row.key !== AWAY_CATEGORY_KEY ? (
+                <Link href={categoryHref(row.name)} className="app-shares__link">
                   {row.name}
                 </Link>
               ) : appHref ? (

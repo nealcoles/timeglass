@@ -56,8 +56,8 @@ public sealed class TimeglassSettings : IValidatableObject
     /// </summary>
     public List<AppAliasSetting> AppAliases { get; set; } = [];
 
-    /// <summary>Ordered keyword groups used by the grouped reporting view.</summary>
-    public List<KeywordGroupSetting> KeywordGroups { get; set; } = [];
+    /// <summary>Categories matched by ordered application-name and window-title keywords.</summary>
+    public List<CategorySetting> Categories { get; set; } = [];
 
     /// <summary>
     /// How many months of intervals (window titles, the timeline) are kept. Older days are reduced
@@ -128,20 +128,20 @@ public sealed class TimeglassSettings : IValidatableObject
     /// <inheritdoc />
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (KeywordGroups is not null)
+        if (Categories is not null)
         {
-            if (KeywordGroups.Any(g => g is null || string.IsNullOrWhiteSpace(g.Name)
+            if (Categories.Any(g => g is null || string.IsNullOrWhiteSpace(g.Name)
                 || g.Keywords is null || g.Keywords.Count == 0 || g.Keywords.Any(string.IsNullOrWhiteSpace)))
             {
-                yield return new ValidationResult("Each keyword group needs a name and at least one non-empty keyword.", [nameof(KeywordGroups)]);
+                yield return new ValidationResult("Each category needs a name and at least one non-empty keyword.", [nameof(Categories)]);
             }
 
-            var names = KeywordGroups.Where(g => g is not null && !string.IsNullOrWhiteSpace(g.Name))
+            var names = Categories.Where(g => g is not null && !string.IsNullOrWhiteSpace(g.Name))
                 .Select(g => g.Name.Trim()).ToList();
             if (names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Count
                 || names.Contains("Ungrouped", StringComparer.OrdinalIgnoreCase))
             {
-                yield return new ValidationResult("Group names must be unique and cannot be Ungrouped.", [nameof(KeywordGroups)]);
+                yield return new ValidationResult("Category names must be unique and cannot be Ungrouped.", [nameof(Categories)]);
             }
         }
 
@@ -197,10 +197,10 @@ public sealed class TimeglassSettings : IValidatableObject
     }
 }
 
-/// <summary>A named group and the keywords that match it, in priority order.</summary>
-public sealed class KeywordGroupSetting
+/// <summary>A named category and the keywords that match it, in priority order.</summary>
+public sealed class CategorySetting
 {
-    /// <summary>Display name of the group.</summary>
+    /// <summary>Display name of the category.</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>Case-insensitive substrings matched against application names and window titles.</summary>

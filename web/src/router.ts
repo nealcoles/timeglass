@@ -1,6 +1,6 @@
 import { useSyncExternalStore, type MouseEvent } from 'react';
 import { isValidDate } from './dates.ts';
-import type { GroupingView } from './groups/ViewSelector.tsx';
+import type { CategoryView } from './categories/ViewSelector.tsx';
 
 /**
  * The dashboard's routes. The app serves `index.html` for any path that isn't a file (SPA
@@ -8,29 +8,29 @@ import type { GroupingView } from './groups/ViewSelector.tsx';
  * a small history-API router does the job without a routing library.
  */
 export type Route =
-  | { name: 'today'; view?: 'groups' }
-  | { name: 'day'; date: string; view?: 'groups' }
+  | { name: 'today'; view?: 'categories' }
+  | { name: 'day'; date: string; view?: 'categories' }
   | { name: 'app'; date: string; appKey: string }
-  | { name: 'thisWeek'; view?: 'groups' }
-  | { name: 'week'; date: string; view?: 'groups' }
-  | { name: 'trends'; view?: 'groups'; period?: number }
-  | { name: 'group'; from: string; to: string; groupName: string; source: GroupSource }
+  | { name: 'thisWeek'; view?: 'categories' }
+  | { name: 'week'; date: string; view?: 'categories' }
+  | { name: 'trends'; view?: 'categories'; period?: number }
+  | { name: 'category'; from: string; to: string; categoryName: string; source: CategorySource }
   | {
-      name: 'groupApp';
+      name: 'categoryApp';
       from: string;
       to: string;
-      groupName: string;
-      source: GroupSource;
+      categoryName: string;
+      source: CategorySource;
       appKey: string;
     }
   | { name: 'settings' }
   | { name: 'notFound' };
 
-export type GroupSource = 'day' | 'week' | 'trends';
+export type CategorySource = 'day' | 'week' | 'trends';
 
-/** Preserve the grouping selection when moving between day and week views. */
-export function withGroupingView(path: string, view: GroupingView): string {
-  return view === 'groups' ? `${path}?view=groups` : path;
+/** Preserve the category view when moving between day and week views. */
+export function withCategoryView(path: string, view: CategoryView): string {
+  return view === 'categories' ? `${path}?view=categories` : path;
 }
 
 /**
@@ -40,7 +40,7 @@ export function withGroupingView(path: string, view: GroupingView): string {
 export function parseRoute(pathname: string): Route {
   const [path = '', search = ''] = pathname.split('?', 2);
   const params = new URLSearchParams(search);
-  const view = params.get('view') === 'groups' ? { view: 'groups' as const } : {};
+  const view = params.get('view') === 'categories' ? { view: 'categories' as const } : {};
   const parts = path.split('/').filter((p) => p !== '');
   if (parts.length === 0) {
     return { name: 'today', ...view };
@@ -57,7 +57,7 @@ export function parseRoute(pathname: string): Route {
     };
   }
   if (
-    parts[0] === 'group' &&
+    parts[0] === 'category' &&
     (parts.length === 3 || (parts.length === 4 && parts[3] === 'app')) &&
     parts[1] &&
     parts[2] &&
@@ -65,15 +65,15 @@ export function parseRoute(pathname: string): Route {
     isValidDate(parts[2]) &&
     parts[1] <= parts[2]
   ) {
-    const groupName = params.get('name');
+    const categoryName = params.get('category');
     const source = params.get('source');
-    if (groupName && (source === 'day' || source === 'week' || source === 'trends')) {
+    if (categoryName && (source === 'day' || source === 'week' || source === 'trends')) {
       if (parts.length === 3) {
-        return { name: 'group', from: parts[1], to: parts[2], groupName, source };
+        return { name: 'category', from: parts[1], to: parts[2], categoryName, source };
       }
       const appKey = params.get('app');
       if (appKey?.trim()) {
-        return { name: 'groupApp', from: parts[1], to: parts[2], groupName, source, appKey };
+        return { name: 'categoryApp', from: parts[1], to: parts[2], categoryName, source, appKey };
       }
     }
     return { name: 'notFound' };
@@ -113,16 +113,22 @@ export const paths = {
   week: (date: string) => `/week/${date}`,
   trends: () => '/trends',
   settings: () => '/settings',
-  group: (from: string, to: string, groupName: string, source: GroupSource) =>
-    `/group/${from}/${to}?${new URLSearchParams({ name: groupName, source })}`,
-  groupApp: (from: string, to: string, groupName: string, source: GroupSource, appKey: string) =>
-    `/group/${from}/${to}/app?${new URLSearchParams({ name: groupName, source, app: appKey })}`,
-  groupBack: (from: string, to: string, source: GroupSource) =>
+  category: (from: string, to: string, categoryName: string, source: CategorySource) =>
+    `/category/${from}/${to}?${new URLSearchParams({ category: categoryName, source })}`,
+  categoryApp: (
+    from: string,
+    to: string,
+    categoryName: string,
+    source: CategorySource,
+    appKey: string,
+  ) =>
+    `/category/${from}/${to}/app?${new URLSearchParams({ category: categoryName, source, app: appKey })}`,
+  categoryBack: (from: string, to: string, source: CategorySource) =>
     source === 'day'
-      ? `/day/${from}?view=groups`
+      ? `/day/${from}?view=categories`
       : source === 'week'
-        ? `/week/${from}?view=groups`
-        : `/trends?view=groups&period=${Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1}`,
+        ? `/week/${from}?view=categories`
+        : `/trends?view=categories&period=${Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1}`,
 };
 
 const listeners = new Set<() => void>();

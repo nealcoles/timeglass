@@ -1,10 +1,10 @@
 import { useId, useState } from 'react';
 import { errorMessage } from '../api/errors.ts';
-import { useGroupedRangeSummary, useRangeSummary } from '../api/queries.ts';
+import { useCategoryRangeSummary, useRangeSummary } from '../api/queries.ts';
 import { addDays, formatDateRange } from '../dates.ts';
 import { formatDuration } from '../format.ts';
-import { ViewSelector, type GroupingView } from '../groups/ViewSelector.tsx';
-import { AWAY_GROUP_KEY } from '../groups/groupKeys.ts';
+import { ViewSelector, type CategoryView } from '../categories/ViewSelector.tsx';
+import { AWAY_CATEGORY_KEY } from '../categories/categoryKeys.ts';
 import { Link } from '../Link.tsx';
 import { paths } from '../router.ts';
 import { TrendChart } from './TrendChart.tsx';
@@ -29,7 +29,7 @@ const ALL_APPS = '';
 interface TrendsViewProps {
   /** Today's date, `yyyy-MM-dd`; the period ends on it. */
   today: string;
-  initialView?: GroupingView;
+  initialView?: CategoryView;
   initialPeriod?: number;
 }
 
@@ -48,12 +48,12 @@ export function TrendsView({
   const [period, setPeriod] = useState<number>(initialPeriod);
   const [limit, setLimit] = useState<AppLimit>(DEFAULT_LIMIT);
   const [appKey, setAppKey] = useState<string>(ALL_APPS);
-  const [view, setView] = useState<GroupingView>(initialView);
+  const [view, setView] = useState<CategoryView>(initialView);
 
   const from = addDays(today, -(period - 1));
   const applications = useRangeSummary(from, today, { enabled: view === 'apps' });
-  const groups = useGroupedRangeSummary(from, today, { enabled: view === 'groups' });
-  const range = view === 'apps' ? applications : groups;
+  const categories = useCategoryRangeSummary(from, today, { enabled: view === 'categories' });
+  const range = view === 'apps' ? applications : categories;
   const apps = range.data
     ? [...range.data.apps].sort((a, b) => a.app.name.localeCompare(b.app.name))
     : [];
@@ -100,16 +100,16 @@ export function TrendsView({
             {LIMITS.map((l) => (
               <option key={l} value={String(l)}>
                 {l === 'all'
-                  ? `All ${view === 'groups' ? 'categories' : 'apps'}`
-                  : `Top ${l} ${view === 'groups' ? 'categories' : 'apps'}`}
+                  ? `All ${view === 'categories' ? 'categories' : 'apps'}`
+                  : `Top ${l} ${view === 'categories' ? 'categories' : 'apps'}`}
               </option>
             ))}
           </select>
         </div>
         <div className="trends__control">
-          <label htmlFor={appId}>{view === 'groups' ? 'Category' : 'App'}</label>
+          <label htmlFor={appId}>{view === 'categories' ? 'Category' : 'App'}</label>
           <select id={appId} value={picked} onChange={(event) => setAppKey(event.target.value)}>
-            <option value={ALL_APPS}>Top {view === 'groups' ? 'categories' : 'apps'}</option>
+            <option value={ALL_APPS}>Top {view === 'categories' ? 'categories' : 'apps'}</option>
             {apps.map((a) => (
               <option key={a.app.key} value={a.app.key}>
                 {a.app.name}
@@ -131,7 +131,7 @@ export function TrendsView({
         <p className="day__empty">Nothing was tracked in this period.</p>
       ) : (
         <TrendSections
-          grouped={view === 'groups'}
+          byCategory={view === 'categories'}
           from={from}
           to={today}
           trend={trendSeries(range.data, {
@@ -146,27 +146,27 @@ export function TrendsView({
 
 function TrendSections({
   trend,
-  grouped,
+  byCategory,
   from,
   to,
 }: {
   trend: Trend;
-  grouped: boolean;
+  byCategory: boolean;
   from: string;
   to: string;
 }) {
   const days = trend.buckets.reduce((total, b) => total + b.days, 0);
   return (
     <>
-      <TrendChart trend={trend} grouped={grouped} />
+      <TrendChart trend={trend} byCategory={byCategory} />
       <table className="app-shares trends__table">
         <caption className="visually-hidden">
-          The {grouped ? 'categories' : 'apps'} in the chart, with their time in the period and how
-          it changed
+          The {byCategory ? 'categories' : 'apps'} in the chart, with their time in the period and
+          how it changed
         </caption>
         <thead>
           <tr>
-            <th scope="col">{grouped ? 'Category' : 'App'}</th>
+            <th scope="col">{byCategory ? 'Category' : 'App'}</th>
             <th scope="col">Total</th>
             <th scope="col">Per day</th>
             <th scope="col" title="The second half of the period against the first">
@@ -183,8 +183,11 @@ function TrendSections({
                   style={{ backgroundColor: s.color }}
                   aria-hidden="true"
                 />
-                {grouped && s.key !== AWAY_GROUP_KEY ? (
-                  <Link href={paths.group(from, to, s.name, 'trends')} className="app-shares__link">
+                {byCategory && s.key !== AWAY_CATEGORY_KEY ? (
+                  <Link
+                    href={paths.category(from, to, s.name, 'trends')}
+                    className="app-shares__link"
+                  >
                     {s.name}
                   </Link>
                 ) : (

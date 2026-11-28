@@ -48,10 +48,10 @@ public interface IReportingQueries
         CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null);
 
-    /// <summary>Timeline split at keyword-group boundaries.</summary>
-    Task<DayTimeline> GetGroupedTimelineAsync(
+    /// <summary>Timeline annotated with matching categories.</summary>
+    Task<DayTimeline> GetCategoryTimelineAsync(
         DateOnly day, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null);
 
     /// <summary>
@@ -96,22 +96,22 @@ public interface IReportingQueries
         CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null);
 
-    /// <summary>Totals per day and keyword group over a range of local days.</summary>
-    Task<RangeSummary> GetGroupedRangeSummaryAsync(
+    /// <summary>Totals per day and category over a range of local days.</summary>
+    Task<RangeSummary> GetCategoryRangeSummaryAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null);
 
-    /// <summary>Applications contributing to one keyword group over a range of local days.</summary>
-    Task<RangeSummary> GetGroupApplicationsAsync(
+    /// <summary>Applications contributing to one category over a range of local days.</summary>
+    Task<RangeSummary> GetCategoryApplicationsAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, string groupName, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, string categoryName, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null);
 
-    /// <summary>Titles for an application's time assigned to a keyword group over a range.</summary>
-    Task<TitleBreakdown> GetGroupApplicationTitlesAsync(
+    /// <summary>Titles for an application's time assigned to a category over a range.</summary>
+    Task<TitleBreakdown> GetCategoryApplicationTitlesAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, string groupName, string appKey, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, string categoryName, string appKey, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null);
 
     /// <summary>

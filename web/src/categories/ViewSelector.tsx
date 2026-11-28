@@ -1,14 +1,14 @@
-export type GroupingView = 'apps' | 'groups';
+export type CategoryView = 'apps' | 'categories';
 
 export function ViewSelector({
   value,
   onChange,
 }: {
-  value: GroupingView;
-  onChange: (value: GroupingView) => void;
+  value: CategoryView;
+  onChange: (value: CategoryView) => void;
 }) {
   return (
-    <div className="grouping-view" role="group" aria-label="View by">
+    <div className="category-view" role="group" aria-label="View by">
       <span>View by</span>
       <button
         type="button"
@@ -21,8 +21,8 @@ export function ViewSelector({
       <button
         type="button"
         className="date-nav__view"
-        aria-pressed={value === 'groups'}
-        onClick={() => onChange('groups')}
+        aria-pressed={value === 'categories'}
+        onClick={() => onChange('categories')}
       >
         Category
       </button>

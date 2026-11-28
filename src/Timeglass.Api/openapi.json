@@ -70,9 +70,9 @@
             }
           },
           {
-            "name": "grouped",
+            "name": "byCategory",
             "in": "query",
-            "description": "Split active blocks by keyword group.",
+            "description": "Include the matching category on each active block.",
             "schema": {
               "type": "boolean"
             }
@@ -207,14 +207,14 @@
         }
       }
     },
-    "/api/range/groups": {
+    "/api/range/categories": {
       "get": {
         "tags": [
           "Ranges"
         ],
-        "summary": "Totals per day and keyword group over a range of days",
-        "description": "Includes tracked away time as a built-in group. Group shares are of active plus away time.",
-        "operationId": "GetGroupedRangeSummary",
+        "summary": "Totals per category over a range of days",
+        "description": "Includes tracked away time as a built-in category. Category shares are of active plus away time.",
+        "operationId": "GetCategoryRangeSummary",
         "parameters": [
           {
             "name": "from",
@@ -259,13 +259,13 @@
         }
       }
     },
-    "/api/range/group-applications": {
+    "/api/range/category-applications": {
       "get": {
         "tags": [
           "Ranges"
         ],
-        "summary": "Applications contributing to one keyword group over a range of days",
-        "operationId": "GetGroupApplications",
+        "summary": "Applications contributing to one category over a range of days",
+        "operationId": "GetCategoryApplications",
         "parameters": [
           {
             "name": "from",
@@ -286,9 +286,9 @@
             }
           },
           {
-            "name": "name",
+            "name": "category",
             "in": "query",
-            "description": "Name of the group, or Ungrouped.",
+            "description": "Name of the category, or Ungrouped.",
             "schema": {
               "type": "string"
             }
@@ -318,13 +318,13 @@
         }
       }
     },
-    "/api/range/group-application-titles": {
+    "/api/range/category-application-titles": {
       "get": {
         "tags": [
           "Ranges"
         ],
-        "summary": "Titles contributing to one application's time in a keyword group",
-        "operationId": "GetGroupApplicationTitles",
+        "summary": "Titles contributing to one application's time in a category",
+        "operationId": "GetCategoryApplicationTitles",
         "parameters": [
           {
             "name": "from",
@@ -345,9 +345,9 @@
             }
           },
           {
-            "name": "name",
+            "name": "category",
             "in": "query",
-            "description": "Name of the group, or Ungrouped.",
+            "description": "Name of the category, or Ungrouped.",
             "schema": {
               "type": "string"
             }
@@ -367,7 +367,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GroupAppTitlesDto"
+                  "$ref": "#/components/schemas/CategoryAppTitlesDto"
                 }
               }
             }
@@ -782,17 +782,17 @@
         "type": "object",
         "properties": {
           "app": {
-            "description": "The app or group.",
+            "description": "The app or category.",
             "$ref": "#/components/schemas/AppDto"
           },
           "durationMs": {
             "type": "integer",
-            "description": "Time in the app or group, in milliseconds.",
+            "description": "Time in the app or category, in milliseconds.",
             "format": "int64"
           },
           "share": {
             "type": "number",
-            "description": "Exact fraction of active time, or active plus away for keyword groups, between 0 and 1.",
+            "description": "Exact fraction of active time, or active plus away for categories, between 0 and 1.",
             "format": "double"
           },
           "percent": {
@@ -805,7 +805,55 @@
             "description": "Persistent display colour for the app."
           }
         },
-        "description": "One app's or keyword group's share of the time."
+        "description": "One app's or category's share of the time."
+      },
+      "CategoryAppTitlesDto": {
+        "required": [
+          "app",
+          "totalMs",
+          "titles"
+        ],
+        "type": "object",
+        "properties": {
+          "app": {
+            "description": "The application.",
+            "$ref": "#/components/schemas/AppDto"
+          },
+          "totalMs": {
+            "type": "integer",
+            "description": "Active time assigned to the category, in milliseconds.",
+            "format": "int64"
+          },
+          "titles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TitleTotalDto"
+            },
+            "description": "Titles and time without an available title, longest first."
+          }
+        },
+        "description": "One application's titles assigned to a category over a range."
+      },
+      "CategoryDto": {
+        "required": [
+          "name",
+          "keywords"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Category name."
+          },
+          "keywords": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Case-insensitive substrings to match."
+          }
+        },
+        "description": "A named category of keywords, matched in the order categories are listed."
       },
       "DaySummaryDto": {
         "required": [
@@ -918,7 +966,7 @@
             "items": {
               "$ref": "#/components/schemas/AppTotalDto"
             },
-            "description": "Every app used that day, or keyword groups including away time; longest first."
+            "description": "Every app used that day, or categories including away time; longest first."
           }
         },
         "description": "One day in a range."
@@ -1074,33 +1122,6 @@
         },
         "description": "One recorded interval."
       },
-      "GroupAppTitlesDto": {
-        "required": [
-          "app",
-          "totalMs",
-          "titles"
-        ],
-        "type": "object",
-        "properties": {
-          "app": {
-            "description": "The application.",
-            "$ref": "#/components/schemas/AppDto"
-          },
-          "totalMs": {
-            "type": "integer",
-            "description": "Active time assigned to the group, in milliseconds.",
-            "format": "int64"
-          },
-          "titles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TitleTotalDto"
-            },
-            "description": "Titles and time without an available title, longest first."
-          }
-        },
-        "description": "One application's titles assigned to a keyword group over a range."
-      },
       "HttpValidationProblemDetails": {
         "type": "object",
         "properties": {
@@ -1145,27 +1166,6 @@
             }
           }
         }
-      },
-      "KeywordGroupDto": {
-        "required": [
-          "name",
-          "keywords"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Group name."
-          },
-          "keywords": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Case-insensitive substrings to match."
-          }
-        },
-        "description": "A named group of keywords, matched in the order groups are listed."
       },
       "PauseDuration": {
         "enum": [
@@ -1244,7 +1244,7 @@
             "items": {
               "$ref": "#/components/schemas/AppTotalDto"
             },
-            "description": "Active time per app, or keyword groups including away time; longest first."
+            "description": "Active time per app, or categories including away time; longest first."
           }
         },
         "description": "Totals per day and per app over a range of local days."
@@ -1324,15 +1324,15 @@
             "description": "Minutes after local midnight that work hours end, after the start and at most 1439; null keeps the current value (write).",
             "format": "int32"
           },
-          "keywordGroups": {
+          "categories": {
             "type": [
               "null",
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/KeywordGroupDto"
+              "$ref": "#/components/schemas/CategoryDto"
             },
-            "description": "Ordered groups of keywords, or null to leave them unchanged."
+            "description": "Ordered categories of keywords, or null to leave them unchanged."
           },
           "discardAfterHoursReturns": {
             "type": [
@@ -1423,7 +1423,7 @@
           "end",
           "durationMs",
           "isOpen",
-          "group"
+          "category"
         ],
         "type": "object",
         "properties": {
@@ -1461,13 +1461,13 @@
             "type": "boolean",
             "description": "True if the block is still running."
           },
-          "group": {
+          "category": {
             "oneOf": [
               {
                 "type": "null"
               },
               {
-                "description": "Keyword group for grouped timelines, otherwise null.",
+                "description": "Category for category timelines, otherwise null.",
                 "$ref": "#/components/schemas/AppDto"
               }
             ]

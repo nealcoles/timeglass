@@ -117,7 +117,7 @@ export function layoutTimeline(
       .map((block) => ({
         block,
         color: options.colorByGroup
-          ? colorFor(block.kind === 'away' ? 'away' : (block.group?.key ?? 'ungrouped'))
+          ? colorFor(block.kind === 'away' ? 'away' : (block.category?.key ?? 'ungrouped'))
           : block.kind === 'active' && block.app
             ? colorFor(block.app.key)
             : null,

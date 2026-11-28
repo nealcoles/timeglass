@@ -2,14 +2,14 @@ import type { RangeSummaryDto } from '../api/client.ts';
 import { DayTimeline } from '../day/DayTimeline.tsx';
 import { formatLongDate } from '../format.ts';
 
-export function GroupTimelines({
+export function CategoryTimelines({
   summary,
-  groupName,
+  categoryName,
   colorFor,
   appKey,
 }: {
   summary: RangeSummaryDto;
-  groupName: string;
+  categoryName: string;
   colorFor: (key: string) => string;
   appKey?: string;
 }) {
@@ -24,11 +24,11 @@ export function GroupTimelines({
           {summary.from !== summary.to && <h4>{formatLongDate(day.date)}</h4>}
           <DayTimeline
             date={day.date}
-            grouped
+            byCategory
             colorFor={colorFor}
             includeBlock={(block) =>
               block.kind === 'active' &&
-              block.group?.name.toLowerCase() === groupName.toLowerCase() &&
+              block.category?.name.toLowerCase() === categoryName.toLowerCase() &&
               (appKey === undefined || block.app?.key === appKey)
             }
           />

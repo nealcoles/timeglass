@@ -260,6 +260,7 @@ settings at startup stop the app with a message that names the problem.
 | `excludedApps`       | `[]`            | App keys that are not tracked at all: while one is in front, nothing is stored. |
 | `appsWithoutTitles`  | `[]`            | App keys whose time is tracked but whose window titles are never stored.        |
 | `appAliases`         | `[]`            | Renames and extra apps on top of the built-in aliases, see below.               |
+| `categories`         | `[]`            | Ordered categories matched against application names and window titles.        |
 | `workHoursStart`     | `"09:00:00"`    | When work hours begin, for the _Workday_ on the main screen.                    |
 | `workHoursEnd`       | `"17:00:00"`    | When work hours end; after `workHoursStart`.                                    |
 | `discardAfterHoursReturns` | `false` | Exclude a short final after-hours return and its preceding absence from analysis. |

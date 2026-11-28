@@ -42,16 +42,16 @@ describe('SettingsView', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
     await screen.findByText(/Saved\. The new settings apply right away/);
-    expect(saved[0]?.keywordGroups).toEqual([
+    expect(saved[0]?.categories).toEqual([
       { name: 'Investigator', keywords: ['investigator', 'research'] },
     ]);
   });
 
-  it('reorders and removes groups without losing their keywords', async () => {
+  it('reorders and removes categories without losing their keywords', async () => {
     const saved = captureSaves();
     const user = await renderSettings(
       settings({
-        keywordGroups: [
+        categories: [
           { name: 'Investigator', keywords: ['research', 'investigator'] },
           { name: 'Prizm', keywords: ['prizm'] },
           { name: 'Other', keywords: ['other'] },
@@ -66,7 +66,7 @@ describe('SettingsView', () => {
     await user.click(screen.getByRole('button', { name: 'Remove category 3' }));
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
     await screen.findByText(/Saved\. The new settings apply right away/);
-    expect(saved[0]?.keywordGroups).toEqual([
+    expect(saved[0]?.categories).toEqual([
       { name: 'Prizm', keywords: ['prizm'] },
       { name: 'Investigator', keywords: ['research', 'investigator'] },
     ]);
@@ -157,7 +157,7 @@ describe('SettingsView', () => {
     await user.click(screen.getByRole('checkbox', { name: /Record window titles/ }));
 
     expect(screen.queryByRole('spinbutton', { name: /after/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('group', { name: 'Apps without titles' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('category', { name: 'Apps without titles' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));

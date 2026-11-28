@@ -1,5 +1,5 @@
 import { ApiError, errorMessage } from '../api/errors.ts';
-import { useGroupApplications, useGroupAppTitles } from '../api/queries.ts';
+import { useCategoryApplications, useCategoryAppTitles } from '../api/queries.ts';
 import { TitleList } from '../app/AppView.tsx';
 import { countTitles, hasNoTitles } from '../app/titleRows.ts';
 import { formatDateRange } from '../dates.ts';
@@ -7,24 +7,24 @@ import { appColor } from '../day/appColor.ts';
 import { appShares } from '../day/appShares.ts';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
-import { paths, type GroupSource } from '../router.ts';
-import { GroupTimelines } from './GroupTimelines.tsx';
+import { paths, type CategorySource } from '../router.ts';
+import { CategoryTimelines } from './CategoryTimelines.tsx';
 
-export function GroupAppView({
+export function CategoryAppView({
   from,
   to,
-  groupName,
+  categoryName,
   source,
   appKey,
 }: {
   from: string;
   to: string;
-  groupName: string;
-  source: GroupSource;
+  categoryName: string;
+  source: CategorySource;
   appKey: string;
 }) {
-  const titles = useGroupAppTitles(from, to, groupName, appKey);
-  const applications = useGroupApplications(from, to, groupName);
+  const titles = useCategoryAppTitles(from, to, categoryName, appKey);
+  const applications = useCategoryApplications(from, to, categoryName);
   const color = applications.data
     ? (appShares(applications.data.apps).find((row) => row.key === appKey)?.color ??
       appColor(appKey))
@@ -32,16 +32,20 @@ export function GroupAppView({
   const name = titles.data?.app.name ?? appKey;
   const date = from === to ? formatLongDate(from) : formatDateRange(from, to);
   return (
-    <section className="app-day" aria-labelledby="group-app-heading" aria-busy={titles.isPending}>
+    <section
+      className="app-day"
+      aria-labelledby="category-app-heading"
+      aria-busy={titles.isPending}
+    >
       <p className="app-day__back">
-        <Link href={paths.group(from, to, groupName, source)}>← Back to {groupName}</Link>
+        <Link href={paths.category(from, to, categoryName, source)}>← Back to {categoryName}</Link>
       </p>
-      <h2 id="group-app-heading">
+      <h2 id="category-app-heading">
         <span className="app-day__swatch" style={{ backgroundColor: color }} aria-hidden="true" />
         {name}
       </h2>
       <p className="app-day__date">
-        {groupName} · {date}
+        {categoryName} · {date}
       </p>
       {titles.isPending ? (
         <p role="status" className="app-day__loading">
@@ -76,9 +80,9 @@ export function GroupAppView({
           ) : applications.isError ? (
             <p role="alert">{errorMessage(applications.error)}</p>
           ) : (
-            <GroupTimelines
+            <CategoryTimelines
               summary={applications.data}
-              groupName={groupName}
+              categoryName={categoryName}
               appKey={appKey}
               colorFor={() => color}
             />

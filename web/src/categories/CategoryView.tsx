@@ -1,37 +1,41 @@
 import { ApiError, errorMessage } from '../api/errors.ts';
-import { useGroupApplications } from '../api/queries.ts';
+import { useCategoryApplications } from '../api/queries.ts';
 import { formatDateRange } from '../dates.ts';
 import { AppShareList } from '../day/AppShareList.tsx';
 import { appShares } from '../day/appShares.ts';
 import { formatDuration, formatLongDate } from '../format.ts';
 import { Link } from '../Link.tsx';
-import { paths, type GroupSource } from '../router.ts';
+import { paths, type CategorySource } from '../router.ts';
 import { OTHER_COLOR } from '../day/appColor.ts';
-import { GroupTimelines } from './GroupTimelines.tsx';
+import { CategoryTimelines } from './CategoryTimelines.tsx';
 
-export function GroupView({
+export function CategoryView({
   from,
   to,
-  groupName,
+  categoryName,
   source,
 }: {
   from: string;
   to: string;
-  groupName: string;
-  source: GroupSource;
+  categoryName: string;
+  source: CategorySource;
 }) {
-  const applications = useGroupApplications(from, to, groupName);
+  const applications = useCategoryApplications(from, to, categoryName);
   const date = from === to ? formatLongDate(from) : formatDateRange(from, to);
   const rows = applications.data ? appShares(applications.data.apps) : [];
   const colors = new Map(rows.map((row) => [row.key, row.color]));
   return (
-    <section className="app-day" aria-labelledby="group-heading" aria-busy={applications.isPending}>
+    <section
+      className="app-day"
+      aria-labelledby="category-heading"
+      aria-busy={applications.isPending}
+    >
       <p className="app-day__back">
-        <Link href={paths.groupBack(from, to, source)}>
+        <Link href={paths.categoryBack(from, to, source)}>
           ← Back to {source === 'day' ? 'the day' : source === 'week' ? 'the week' : 'trends'}
         </Link>
       </p>
-      <h2 id="group-heading">{groupName}</h2>
+      <h2 id="category-heading">{categoryName}</h2>
       <p className="app-day__date">{date}</p>
       {applications.isPending ? (
         <p role="status" className="app-day__loading">
@@ -53,15 +57,15 @@ export function GroupView({
               <dd>{formatDuration(applications.data.activeMs)}</dd>
             </div>
           </dl>
-          <GroupTimelines
+          <CategoryTimelines
             summary={applications.data}
-            groupName={groupName}
+            categoryName={categoryName}
             colorFor={(key) => colors.get(key) ?? OTHER_COLOR}
           />
           <h3>Applications</h3>
           <AppShareList
             rows={rows}
-            appHref={(appKey) => paths.groupApp(from, to, groupName, source, appKey)}
+            appHref={(appKey) => paths.categoryApp(from, to, categoryName, source, appKey)}
           />
         </>
       )}

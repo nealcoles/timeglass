@@ -307,14 +307,14 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     }
 
     /// <inheritdoc />
-    public async Task<DayTimeline> GetGroupedTimelineAsync(
+    public async Task<DayTimeline> GetCategoryTimelineAsync(
         DateOnly day, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null)
     {
         var (from, to) = DaySummaries.Bounds(day, zone);
         var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
-        return Timelines.ForDay(FilterAfterHours(intervals, zone, afterHours), day, zone, now, groups: groups);
+        return Timelines.ForDay(FilterAfterHours(intervals, zone, afterHours), day, zone, now, categories: categories);
     }
 
     /// <summary>
@@ -412,33 +412,33 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
     }
 
     /// <inheritdoc />
-    public async Task<RangeSummary> GetGroupedRangeSummaryAsync(
+    public async Task<RangeSummary> GetCategoryRangeSummaryAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
         var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return KeywordGroups.Build(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, groups);
+        return Categories.Build(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, categories);
     }
 
     /// <inheritdoc />
-    public async Task<RangeSummary> GetGroupApplicationsAsync(
+    public async Task<RangeSummary> GetCategoryApplicationsAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, string groupName, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, string categoryName, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
         var intervals = await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return KeywordGroups.BuildForGroup(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, groups, groupName);
+        return Categories.BuildForCategory(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, categories, categoryName);
     }
 
     /// <inheritdoc />
-    public async Task<TitleBreakdown> GetGroupApplicationTitlesAsync(
+    public async Task<TitleBreakdown> GetCategoryApplicationTitlesAsync(
         DateOnly firstDay, DateOnly lastDay, TimeZoneInfo zone, DateTimeOffset now,
-        IReadOnlyList<KeywordGroupSetting> groups, string groupName, string appKey, CancellationToken cancellationToken = default,
+        IReadOnlyList<CategorySetting> categories, string categoryName, string appKey, CancellationToken cancellationToken = default,
         AfterHoursOptions? afterHours = null)
     {
         var (from, to) = RangeSummaries.Bounds(firstDay, lastDay, zone);
@@ -446,7 +446,7 @@ public sealed class IntervalRepository : IIntervalSink, IReportingQueries, IAsyn
             ? await GetReportIntervalsAsync(from, to, zone, afterHours, cancellationToken).ConfigureAwait(false)
             : await QueryRangeAsync(from, to, appKey, cancellationToken).ConfigureAwait(false);
         var rolledUp = await GetRolledUpAsync(firstDay, lastDay, cancellationToken).ConfigureAwait(false);
-        return KeywordGroups.BuildAppTitles(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, groups, groupName, appKey);
+        return Categories.BuildCategoryAppTitles(FilterAfterHours(intervals, zone, afterHours), rolledUp, firstDay, lastDay, zone, now, categories, categoryName, appKey);
     }
 
     /// <summary>

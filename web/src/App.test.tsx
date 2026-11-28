@@ -43,9 +43,9 @@ describe('App', () => {
 });
 
 describe('App routes', () => {
-  it('keeps the selected grouping across day and week navigation and browser history', async () => {
+  it('keeps the selected category view across day and week navigation and browser history', async () => {
     server.use(
-      http.get('/api/range/groups', ({ request }) => {
+      http.get('/api/range/categories', ({ request }) => {
         const query = new URL(request.url).searchParams;
         return HttpResponse.json(
           rangeSummary(query.get('from') ?? demoDate, query.get('to') ?? demoDate),
@@ -62,10 +62,10 @@ describe('App routes', () => {
     ).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Category' }));
-    expect(globalThis.location.search).toBe('?view=groups');
+    expect(globalThis.location.search).toBe('?view=categories');
     await user.click(screen.getByRole('link', { name: 'Week' }));
     expect(globalThis.location.pathname + globalThis.location.search).toBe(
-      '/week/2026-11-02?view=groups',
+      '/week/2026-11-02?view=categories',
     );
     expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
       'aria-pressed',
@@ -78,7 +78,7 @@ describe('App routes', () => {
     ).toBeTruthy();
     await user.click(within(table).getByRole('link', { name: /Wed/ }));
     expect(globalThis.location.pathname + globalThis.location.search).toBe(
-      '/day/2026-11-04?view=groups',
+      '/day/2026-11-04?view=categories',
     );
     expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
       'aria-pressed',
@@ -93,7 +93,7 @@ describe('App routes', () => {
     );
 
     act(() => {
-      globalThis.history.replaceState(null, '', '/week/2026-11-02?view=groups');
+      globalThis.history.replaceState(null, '', '/week/2026-11-02?view=categories');
       globalThis.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.getByRole('button', { name: 'Category' })).toHaveAttribute(
@@ -102,7 +102,7 @@ describe('App routes', () => {
     );
   });
 
-  it('filters group and application timelines by group on every matching day', async () => {
+  it('filters category and application timelines by category on every matching day', async () => {
     server.use(
       http.get('/api/days/:date/timeline', ({ params }) => {
         const data = timeline(String(params.date));
@@ -110,14 +110,14 @@ describe('App routes', () => {
           ...data,
           blocks: data.blocks.map((block, i) => ({
             ...block,
-            group:
+            category:
               block.kind === 'active'
-                ? { key: i === 6 ? 'group-1' : 'group-0', name: i === 6 ? 'Other' : 'Work' }
+                ? { key: i === 6 ? 'category-1' : 'category-0', name: i === 6 ? 'Other' : 'Work' }
                 : null,
           })),
         });
       }),
-      http.get('/api/range/group-application-titles', () =>
+      http.get('/api/range/category-application-titles', () =>
         HttpResponse.json({
           app: apps.code,
           totalMs: 60000,
@@ -125,12 +125,16 @@ describe('App routes', () => {
         }),
       ),
     );
-    globalThis.history.replaceState(null, '', '/group/2026-11-04/2026-11-05?name=Work&source=week');
+    globalThis.history.replaceState(
+      null,
+      '',
+      '/category/2026-11-04/2026-11-05?category=Work&source=week',
+    );
     const user = userEvent.setup();
     renderWithApi(<App />);
-    const lanes = await screen.findAllByRole('group', { name: /Timeline of the day/ });
+    const lanes = await screen.findAllByRole('category', { name: /Timeline of the day/ });
     await waitFor(() =>
-      expect(screen.getAllByRole('group', { name: /Timeline of the day/ })).toHaveLength(2),
+      expect(screen.getAllByRole('category', { name: /Timeline of the day/ })).toHaveLength(2),
     );
     const first = lanes[0];
     if (!first) throw new Error('Expected a timeline');
@@ -144,30 +148,30 @@ describe('App routes', () => {
     await user.click(within(appList).getByRole('link', { name: 'Visual Studio Code' }));
     await screen.findByRole('table', { name: /Time in Visual Studio Code/ });
     await waitFor(() =>
-      expect(screen.getAllByRole('group', { name: /Timeline of the day/ })).toHaveLength(2),
+      expect(screen.getAllByRole('category', { name: /Timeline of the day/ })).toHaveLength(2),
     );
-    for (const lane of screen.getAllByRole('group', { name: /Timeline of the day/ })) {
+    for (const lane of screen.getAllByRole('category', { name: /Timeline of the day/ })) {
       expect(within(lane).getAllByRole('button')).toHaveLength(1);
       expect(within(lane).getByRole('button')).toHaveAttribute('data-app', 'vscode');
     }
   });
 
   it.each([
-    ['/day/2026-11-05?view=groups', '2026-11-05', '2026-11-05', 'day'],
-    ['/week/2026-11-02?view=groups', '2026-11-02', '2026-11-08', 'week'],
-    ['/trends?view=groups&period=7', '2026-10-30', '2026-11-05', 'trends'],
+    ['/day/2026-11-05?view=categories', '2026-11-05', '2026-11-05', 'day'],
+    ['/week/2026-11-02?view=categories', '2026-11-02', '2026-11-08', 'week'],
+    ['/trends?view=categories&period=7', '2026-10-30', '2026-11-05', 'trends'],
   ])(
-    'opens a filtered group from %s and returns to the same view',
+    'opens a filtered category from %s and returns to the same view',
     async (url, from, to, source) => {
       let detailQuery = '';
       let titleQuery = '';
       server.use(
-        http.get('/api/range/groups', ({ request }) => {
+        http.get('/api/range/categories', ({ request }) => {
           const query = new URL(request.url).searchParams;
           const range = rangeSummary(query.get('from') ?? from, query.get('to') ?? to);
           const rename = (app: (typeof range.apps)[number]) => ({
             ...app,
-            app: { key: 'group-0', name: 'R&D / Prizm' },
+            app: { key: 'category-0', name: 'R&D / Prizm' },
           });
           return HttpResponse.json({
             ...range,
@@ -175,12 +179,12 @@ describe('App routes', () => {
             days: range.days.map((day) => ({ ...day, apps: day.apps.slice(0, 1).map(rename) })),
           });
         }),
-        http.get('/api/range/group-applications', ({ request }) => {
+        http.get('/api/range/category-applications', ({ request }) => {
           detailQuery = new URL(request.url).search;
           const range = rangeSummary(from, to);
           return HttpResponse.json(range);
         }),
-        http.get('/api/range/group-application-titles', ({ request }) => {
+        http.get('/api/range/category-application-titles', ({ request }) => {
           titleQuery = new URL(request.url).search;
           return HttpResponse.json({
             app: apps.code,
@@ -238,24 +242,24 @@ describe('App routes', () => {
     },
   );
 
-  it('shows an error when the selected group no longer exists', async () => {
+  it('shows an error when the selected category no longer exists', async () => {
     server.use(
-      http.get('/api/range/group-applications', () =>
-        badRequest('name', 'The group no longer exists.'),
+      http.get('/api/range/category-applications', () =>
+        badRequest('name', 'The category no longer exists.'),
       ),
     );
     globalThis.history.replaceState(
       null,
       '',
-      '/group/2026-11-05/2026-11-05?name=Missing&source=day',
+      '/category/2026-11-05/2026-11-05?category=Missing&source=day',
     );
     renderWithApi(<App />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('The group no longer exists.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('The category no longer exists.');
   });
 
-  it('explains unavailable titles in a group application', async () => {
+  it('explains unavailable titles in a category application', async () => {
     server.use(
-      http.get('/api/range/group-application-titles', () =>
+      http.get('/api/range/category-application-titles', () =>
         HttpResponse.json({
           app: apps.code,
           totalMs: 60000,
@@ -266,7 +270,7 @@ describe('App routes', () => {
     globalThis.history.replaceState(
       null,
       '',
-      '/group/2026-11-05/2026-11-05/app?name=Work&source=day&app=vscode',
+      '/category/2026-11-05/2026-11-05/app?category=Work&source=day&app=vscode',
     );
     renderWithApi(<App />);
     expect(await screen.findByText(/may have been removed by retention/)).toBeInTheDocument();
@@ -387,13 +391,13 @@ describe('App routes', () => {
 describe('App settings', () => {
   it('opens Usage from the header and preserves category view', async () => {
     const user = userEvent.setup();
-    globalThis.history.replaceState(null, '', '/trends?view=groups');
+    globalThis.history.replaceState(null, '', '/trends?view=categories');
     renderWithApi(<App />);
 
     await screen.findByRole('heading', { level: 2, name: 'Trends' });
     await user.click(screen.getByRole('link', { name: 'Usage' }));
 
-    expect(globalThis.location.pathname + globalThis.location.search).toBe('/?view=groups');
+    expect(globalThis.location.pathname + globalThis.location.search).toBe('/?view=categories');
     expect(await screen.findByRole('heading', { level: 2, name: 'Today' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('aria-current', 'page');
   });

@@ -2,11 +2,11 @@ import { useStatus } from './api/queries';
 import { AppView } from './app/AppView.tsx';
 import { DayView } from './day/DayView.tsx';
 import { localToday } from './format.ts';
-import { GroupView } from './groups/GroupView.tsx';
-import { GroupAppView } from './groups/GroupAppView.tsx';
-import type { GroupingView } from './groups/ViewSelector.tsx';
+import { CategoryView } from './categories/CategoryView.tsx';
+import { CategoryAppView } from './categories/CategoryAppView.tsx';
+import type { CategoryView as CategoryViewMode } from './categories/ViewSelector.tsx';
 import { Link } from './Link.tsx';
-import { navigate, paths, useRoute, withGroupingView, type Route } from './router.ts';
+import { navigate, paths, useRoute, withCategoryView, type Route } from './router.ts';
 import { SettingsView } from './settings/SettingsView.tsx';
 import { TrackerControl } from './status/TrackerControl.tsx';
 import { TrendsView } from './trends/TrendsView.tsx';
@@ -41,8 +41,8 @@ export function App() {
           <nav className="app__nav" aria-label="Main navigation">
             <Link
               href={
-                'view' in route && route.view === 'groups'
-                  ? withGroupingView(paths.today(), 'groups')
+                'view' in route && route.view === 'categories'
+                  ? withCategoryView(paths.today(), 'categories')
                   : paths.today()
               }
               className="app__nav-link"
@@ -73,8 +73,8 @@ export function App() {
 }
 
 function Screen({ route, today }: { route: Route; today: string }) {
-  const setView = (view: GroupingView) =>
-    navigate(withGroupingView(globalThis.location.pathname, view));
+  const setView = (view: CategoryViewMode) =>
+    navigate(withCategoryView(globalThis.location.pathname, view));
   switch (route.name) {
     case 'today':
       return (
@@ -112,21 +112,21 @@ function Screen({ route, today }: { route: Route; today: string }) {
           initialPeriod={route.period ?? 30}
         />
       );
-    case 'group':
+    case 'category':
       return (
-        <GroupView
+        <CategoryView
           from={route.from}
           to={route.to}
-          groupName={route.groupName}
+          categoryName={route.categoryName}
           source={route.source}
         />
       );
-    case 'groupApp':
+    case 'categoryApp':
       return (
-        <GroupAppView
+        <CategoryAppView
           from={route.from}
           to={route.to}
-          groupName={route.groupName}
+          categoryName={route.categoryName}
           source={route.source}
           appKey={route.appKey}
         />

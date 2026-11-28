@@ -1,13 +1,13 @@
 import { FieldErrorList } from './AppKeyList.tsx';
-import type { GroupRow } from './settingsForm.ts';
+import type { CategoryRow } from './settingsForm.ts';
 
-export function GroupEditor({
+export function CategoryEditor({
   rows,
   onChange,
   errors,
 }: {
-  rows: GroupRow[];
-  onChange: (rows: GroupRow[]) => void;
+  rows: CategoryRow[];
+  onChange: (rows: CategoryRow[]) => void;
   errors: string[] | undefined;
 }) {
   function move(index: number, direction: number) {
@@ -32,12 +32,12 @@ export function GroupEditor({
       {rows.length === 0 ? (
         <p className="settings__none">No categories yet.</p>
       ) : (
-        <ol className="keyword-groups" aria-label="Categories in priority order">
+        <ol className="categories" aria-label="Categories in priority order">
           {rows.map((row, i) => (
-            <li className="keyword-groups__item" key={i}>
-              <div className="keyword-groups__header">
-                <span className="keyword-groups__priority">Priority {i + 1}</span>
-                <div className="keyword-groups__actions">
+            <li className="categories__item" key={i}>
+              <div className="categories__header">
+                <span className="categories__priority">Priority {i + 1}</span>
+                <div className="categories__actions">
                   <button
                     type="button"
                     className="settings__button"
@@ -66,7 +66,7 @@ export function GroupEditor({
                   </button>
                 </div>
               </div>
-              <div className="keyword-groups__fields">
+              <div className="categories__fields">
                 <label>
                   Category name
                   <input

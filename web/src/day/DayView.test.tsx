@@ -20,9 +20,9 @@ function totals() {
 }
 
 describe('DayView', () => {
-  it('colours the timeline by keyword group, including away time', async () => {
+  it('colours the timeline by category, including away time', async () => {
     server.use(
-      http.get('/api/range/groups', () =>
+      http.get('/api/range/categories', () =>
         HttpResponse.json({
           from: demoDate,
           to: demoDate,
@@ -33,13 +33,13 @@ describe('DayView', () => {
           days: [],
           apps: [
             {
-              app: { key: 'group-0', name: 'Investigator' },
+              app: { key: 'category-0', name: 'Investigator' },
               durationMs: 60000,
               share: 1,
               percent: 100,
             },
             {
-              app: { key: 'group-1', name: 'Other work' },
+              app: { key: 'category-1', name: 'Other work' },
               durationMs: 60000,
               share: 0.5,
               percent: 50,
@@ -49,17 +49,17 @@ describe('DayView', () => {
         }),
       ),
       http.get('/api/days/:date/timeline', ({ request }) => {
-        const grouped = new URL(request.url).searchParams.get('grouped') === 'true';
+        const byCategory = new URL(request.url).searchParams.get('byCategory') === 'true';
         const data = timeline();
         return HttpResponse.json({
           ...data,
           blocks: data.blocks.map((block, index) => ({
             ...block,
-            group:
-              grouped && block.kind === 'active'
+            category:
+              byCategory && block.kind === 'active'
                 ? index === 6
-                  ? { key: 'group-1', name: 'Other work' }
-                  : { key: 'group-0', name: 'Investigator' }
+                  ? { key: 'category-1', name: 'Other work' }
+                  : { key: 'category-0', name: 'Investigator' }
                 : null,
           })),
         });
@@ -78,9 +78,9 @@ describe('DayView', () => {
     });
 
     expect(within(table).getByText('Investigator')).toBeInTheDocument();
-    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
+    const lane = await screen.findByRole('category', { name: /Timeline of the day/ });
     const groupSwatch = table.querySelector<HTMLElement>(
-      'tr[data-app="group-0"] .app-shares__swatch',
+      'tr[data-app="category-0"] .app-shares__swatch',
     );
     const awaySwatch = table.querySelector<HTMLElement>('tr[data-app="away"] .app-shares__swatch');
     expect(lane.querySelector<HTMLElement>('[data-app="vscode"]')?.style.backgroundColor).toBe(
@@ -88,7 +88,7 @@ describe('DayView', () => {
     );
     const codeBlocks = lane.querySelectorAll<HTMLElement>('[data-app="vscode"]');
     expect(codeBlocks[1]?.style.backgroundColor).toBe(
-      table.querySelector<HTMLElement>('tr[data-app="group-1"] .app-shares__swatch')?.style
+      table.querySelector<HTMLElement>('tr[data-app="category-1"] .app-shares__swatch')?.style
         .backgroundColor,
     );
     expect(lane.querySelector<HTMLElement>('[data-app="away"]')?.style.backgroundColor).toBe(
@@ -104,7 +104,7 @@ describe('DayView', () => {
     ).toBeInTheDocument();
   });
 
-  it('lets an away-only day be viewed as a group without an application link', async () => {
+  it('lets an away-only day be viewed as a category without an application link', async () => {
     useSummary({
       ...daySummary(),
       activeMs: 0,
@@ -115,7 +115,7 @@ describe('DayView', () => {
       apps: [],
     });
     server.use(
-      http.get('/api/range/groups', () =>
+      http.get('/api/range/categories', () =>
         HttpResponse.json({
           from: demoDate,
           to: demoDate,
@@ -218,7 +218,7 @@ describe('DayView', () => {
     renderWithApi(<DayView date={demoDate} />);
 
     expect(await screen.findByRole('heading', { name: 'When' })).toBeInTheDocument();
-    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
+    const lane = await screen.findByRole('category', { name: /Timeline of the day/ });
     const table = screen.getByRole('table');
     const swatch = table.querySelector<HTMLElement>('tr[data-app="vscode"] .app-shares__swatch');
     const block = lane.querySelector<HTMLElement>('[data-app="vscode"]');

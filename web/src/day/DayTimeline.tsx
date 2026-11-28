@@ -9,7 +9,7 @@ interface DayTimelineProps {
   date: string;
   /** The colour of an app, the same one the app list uses. */
   colorFor: (appKey: string) => string;
-  grouped?: boolean;
+  byCategory?: boolean;
   colorByGroup?: boolean;
   includeBlock?: (block: TimelineBlockDto) => boolean;
 }
@@ -22,11 +22,11 @@ interface DayTimelineProps {
 export function DayTimeline({
   date,
   colorFor,
-  grouped = false,
+  byCategory = false,
   colorByGroup = false,
   includeBlock,
 }: DayTimelineProps) {
-  const timeline = useTimeline(date, grouped);
+  const timeline = useTimeline(date, byCategory);
   const [hovered, setHovered] = useState<number | null>(null);
   const [focused, setFocused] = useState<number | null>(null);
   const [current, setCurrent] = useState(0);
@@ -84,7 +84,6 @@ export function DayTimeline({
       <figure className="timeline">
         <div
           className="timeline__lane"
-          role="group"
           aria-label="Timeline of the day. Use the arrow keys to move between blocks."
         >
           {segments.map((s, i) => (

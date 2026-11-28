@@ -9,7 +9,7 @@ export interface AliasRow {
   titlePattern: string;
 }
 
-export interface GroupRow {
+export interface CategoryRow {
   name: string;
   keywords: string;
 }
@@ -24,7 +24,7 @@ export interface SettingsForm {
   recordWindowTitles: boolean;
   appsWithoutTitles: string[];
   aliases: AliasRow[];
-  groups: GroupRow[];
+  categories: CategoryRow[];
   /** Null where the app can't start with Windows (the dev host), so the switch is hidden. */
   startWithWindows: boolean | null;
   /** When work hours begin and end, `HH:mm` as the time inputs give them. */
@@ -83,9 +83,9 @@ export function toForm(settings: SettingsDto): SettingsForm {
       exes: a.exes.join(', '),
       titlePattern: a.titlePattern ?? '',
     })),
-    groups: (settings.keywordGroups ?? []).map((group) => ({
-      name: group.name,
-      keywords: group.keywords.join(', '),
+    categories: (settings.categories ?? []).map((category) => ({
+      name: category.name,
+      keywords: category.keywords.join(', '),
     })),
     startWithWindows: settings.startWithWindows,
     workStart: toClock(settings.workHoursStartMinutes ?? DEFAULT_WORK_START),
@@ -118,9 +118,9 @@ export function toSettings(form: SettingsForm): SettingsDto {
         .filter((e) => e !== ''),
       titlePattern: row.titlePattern.trim() === '' ? null : row.titlePattern,
     })),
-    keywordGroups: form.groups.map((group) => ({
-      name: group.name.trim(),
-      keywords: group.keywords
+    categories: form.categories.map((category) => ({
+      name: category.name.trim(),
+      keywords: category.keywords
         .split(',')
         .map((keyword) => keyword.trim())
         .filter(Boolean),
@@ -183,19 +183,19 @@ export function validate(form: SettingsForm): FieldErrors {
     errors.appAliases = aliasErrors;
   }
   const names = new Set<string>();
-  const groupErrors: string[] = [];
-  form.groups.forEach((group, i) => {
-    const name = group.name.trim().toLowerCase();
+  const categoryErrors: string[] = [];
+  form.categories.forEach((category, i) => {
+    const name = category.name.trim().toLowerCase();
     if (!name || name === 'ungrouped' || names.has(name)) {
-      groupErrors.push(`Category ${i + 1}: enter a unique name other than Ungrouped.`);
+      categoryErrors.push(`Category ${i + 1}: enter a unique name other than Ungrouped.`);
     }
     names.add(name);
-    if (!group.keywords.split(',').some((keyword) => keyword.trim())) {
-      groupErrors.push(`Category ${i + 1}: enter at least one keyword.`);
+    if (!category.keywords.split(',').some((keyword) => keyword.trim())) {
+      categoryErrors.push(`Category ${i + 1}: enter at least one keyword.`);
     }
   });
-  if (groupErrors.length > 0) {
-    errors.keywordGroups = groupErrors;
+  if (categoryErrors.length > 0) {
+    errors.categories = categoryErrors;
   }
   return errors;
 }

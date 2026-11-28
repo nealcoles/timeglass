@@ -27,12 +27,14 @@ function dayRows(table: HTMLElement) {
 }
 
 describe('WeekView', () => {
-  it('shows grouped totals and bars when the grouped view is selected', async () => {
+  it('shows category totals and bars when the category view is selected', async () => {
     const range = rangeSummary(monday, '2026-11-08');
     const renamed = (app: (typeof range.apps)[number], index: number) => ({
       ...app,
       app:
-        index === 0 ? { key: 'group-0', name: 'Investigator' } : { key: 'group-20', name: 'Prizm' },
+        index === 0
+          ? { key: 'category-0', name: 'Investigator' }
+          : { key: 'category-20', name: 'Prizm' },
     });
     const away = (durationMs: number) => ({
       app: { key: 'away', name: 'Away' },
@@ -41,7 +43,7 @@ describe('WeekView', () => {
       percent: 0,
     });
     server.use(
-      http.get('/api/range/groups', () =>
+      http.get('/api/range/categories', () =>
         HttpResponse.json({
           ...range,
           apps: [...range.apps.slice(0, 2).map(renamed), away(range.awayMs)],
@@ -68,7 +70,7 @@ describe('WeekView', () => {
     });
     expect(categories).toHaveTextContent('Investigator');
     expect(within(categories).queryByRole('link', { name: 'Away' })).not.toBeInTheDocument();
-    const colors = ['group-0', 'group-20'].map(
+    const colors = ['category-0', 'category-20'].map(
       (key) =>
         categories.querySelector<HTMLElement>(`tr[data-app="${key}"] .app-shares__swatch`)?.style
           .backgroundColor,

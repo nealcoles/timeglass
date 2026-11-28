@@ -25,7 +25,7 @@ public static class Timelines
     /// <param name="now">The current time, so a still-open interval has an end.</param>
     /// <param name="dayStart">Local time the day begins; see <see cref="DaySummaries.Bounds"/>.</param>
     /// <param name="mergeGap">Merge gaps shorter than this; <see cref="DefaultMergeGap"/> if not given.</param>
-    /// <param name="groups">When supplied, split blocks by their keyword group.</param>
+    /// <param name="categories">When supplied, each active block includes its matching category.</param>
     public static DayTimeline ForDay(
         IEnumerable<ActivityInterval> intervals,
         DateOnly day,
@@ -33,10 +33,10 @@ public static class Timelines
         DateTimeOffset now,
         TimeSpan dayStart = default,
         TimeSpan? mergeGap = null,
-        IReadOnlyList<KeywordGroupSetting>? groups = null)
+        IReadOnlyList<CategorySetting>? categories = null)
     {
         var (from, to) = DaySummaries.Bounds(day, zone, dayStart);
-        return new DayTimeline(day, from, to, Build(intervals, from, to, now, mergeGap, groups));
+        return new DayTimeline(day, from, to, Build(intervals, from, to, now, mergeGap, categories));
     }
 
     /// <summary>
@@ -52,7 +52,7 @@ public static class Timelines
         DateTimeOffset to,
         DateTimeOffset now,
         TimeSpan? mergeGap = null,
-        IReadOnlyList<KeywordGroupSetting>? groups = null)
+        IReadOnlyList<CategorySetting>? categories = null)
     {
         ArgumentNullException.ThrowIfNull(intervals);
         var gap = mergeGap ?? DefaultMergeGap;
@@ -68,15 +68,15 @@ public static class Timelines
         foreach (var (interval, start, end) in clipped)
         {
             var app = interval.Kind == IntervalKind.Active ? interval.App ?? AppIdentity.Unknown : null;
-            var group = groups is not null && interval.Kind == IntervalKind.Active
-                ? KeywordGroups.Group(app, interval.Title, groups) : null;
+            var category = categories is not null && interval.Kind == IntervalKind.Active
+                ? Categories.Match(app, interval.Title, categories) : null;
             if (blocks.Count > 0)
             {
                 var last = blocks[^1];
                 var between = start - last.End;
                 if (last.Kind == interval.Kind
                     && last.App?.Key == app?.Key
-                    && last.Group?.Key == group?.Key
+                    && last.Category?.Key == category?.Key
                     && (between <= TimeSpan.Zero || between < gap))
                 {
                     blocks[^1] = last with
@@ -91,7 +91,7 @@ public static class Timelines
                 }
             }
 
-            blocks.Add(new TimelineBlock(interval.Kind, app, start, end, end - start, interval.IsOpen, group));
+            blocks.Add(new TimelineBlock(interval.Kind, app, start, end, end - start, interval.IsOpen, category));
         }
 
         return blocks;

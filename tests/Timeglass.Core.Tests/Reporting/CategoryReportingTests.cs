@@ -5,13 +5,13 @@ using static Timeglass.Core.Tests.Reporting.ReportingData;
 
 namespace Timeglass.Core.Tests.Reporting;
 
-public class KeywordGroupTests
+public class CategoryReportingTests
 {
     [Fact]
-    public void Grouped_timeline_splits_app_blocks_at_group_boundaries()
+    public void Category_timeline_splits_app_blocks_at_category_boundaries()
     {
         var start = Utc("2026-11-02T08:00Z");
-        KeywordGroupSetting[] groups =
+        CategorySetting[] categories =
         [
             new() { Name = "First", Keywords = ["first"] },
             new() { Name = "Research", Keywords = ["research"] },
@@ -24,10 +24,10 @@ public class KeywordGroupTests
             Away(start.AddMinutes(30), start.AddMinutes(40)),
         ];
 
-        var blocks = Timelines.Build(intervals, start, start.AddHours(1), Later, groups: groups);
+        var blocks = Timelines.Build(intervals, start, start.AddHours(1), Later, categories: categories);
 
-        blocks.Select(b => (b.App?.Key, b.Group?.Key, b.Duration.TotalMinutes))
-            .ShouldBe([("code", "group-1", 10d), ("code", "group-0", 10d), ("code", "ungrouped", 10d), (null, null, 10d)]);
+        blocks.Select(b => (b.App?.Key, b.Category?.Key, b.Duration.TotalMinutes))
+            .ShouldBe([("code", "category-1", 10d), ("code", "category-0", 10d), ("code", "ungrouped", 10d), (null, null, 10d)]);
         Timelines.Build(intervals, start, start.AddHours(1), Later).Count.ShouldBe(2);
     }
 
@@ -37,7 +37,7 @@ public class KeywordGroupTests
         var first = Day("2026-11-02");
         var last = Day("2026-11-03");
         var start = Utc("2026-11-02T22:30Z");
-        KeywordGroupSetting[] groups =
+        CategorySetting[] categories =
         [
             new() { Name = "First", Keywords = ["first"] },
             new() { Name = "Research", Keywords = ["research"] },
@@ -50,8 +50,8 @@ public class KeywordGroupTests
             Active(start.AddHours(3), start.AddHours(4), Outlook) with { Title = "Research" },
         ];
 
-        var details = KeywordGroups.BuildAppTitles(intervals, [], first, last, Oslo, Later, groups, "Research", Code.Key);
-        var appTotal = KeywordGroups.BuildForGroup(intervals, [], first, last, Oslo, Later, groups, "Research")
+        var details = Categories.BuildCategoryAppTitles(intervals, [], first, last, Oslo, Later, categories, "Research", Code.Key);
+        var appTotal = Categories.BuildForCategory(intervals, [], first, last, Oslo, Later, categories, "Research")
             .Apps.Single(a => a.App.Key == Code.Key);
 
         details.Total.ShouldBe(appTotal.Duration);
@@ -64,7 +64,7 @@ public class KeywordGroupTests
     {
         var day = Day("2026-11-02");
         var start = Utc("2026-11-02T08:00Z");
-        KeywordGroupSetting[] groups = [new() { Name = "Mail", Keywords = ["outlook"] }];
+        CategorySetting[] categories = [new() { Name = "Mail", Keywords = ["outlook"] }];
         ActivityInterval[] intervals =
         [
             Active(start, start.AddMinutes(10), Outlook) with { Title = "Inbox" },
@@ -75,11 +75,11 @@ public class KeywordGroupTests
             new(day, IntervalKind.Active, Outlook, TimeSpan.FromMinutes(5), start, start.AddMinutes(5)),
         ];
 
-        var details = KeywordGroups.BuildAppTitles(intervals, retained, day, day, Oslo, Later, groups, "Mail", Outlook.Key);
+        var details = Categories.BuildCategoryAppTitles(intervals, retained, day, day, Oslo, Later, categories, "Mail", Outlook.Key);
         details.Total.ShouldBe(TimeSpan.FromMinutes(20));
         details.Titles.Select(t => (t.Title, t.Duration.TotalMinutes, t.Percent))
             .ShouldBe([("Inbox", 10d, 50), ((string?)null, 10d, 50)]);
-        var retainedOnly = KeywordGroups.BuildAppTitles([], retained, day, day, Oslo, Later, groups, "Mail", Outlook.Key);
+        var retainedOnly = Categories.BuildCategoryAppTitles([], retained, day, day, Oslo, Later, categories, "Mail", Outlook.Key);
         retainedOnly.Total.ShouldBe(TimeSpan.FromMinutes(5));
         retainedOnly.Titles.Single().Title.ShouldBeNull();
     }
@@ -89,7 +89,7 @@ public class KeywordGroupTests
     {
         var day = Day("2026-11-02");
         var start = Utc("2026-11-02T08:00Z");
-        KeywordGroupSetting[] groups =
+        CategorySetting[] categories =
         [
             new() { Name = "First", Keywords = ["first"] },
             new() { Name = "Research", Keywords = ["research", "outlook"] },
@@ -107,12 +107,12 @@ public class KeywordGroupTests
             new(day, IntervalKind.Active, Code, TimeSpan.FromMinutes(2), start, start.AddMinutes(2)),
         ];
 
-        var result = KeywordGroups.BuildForGroup(intervals, retained, day, day, Oslo, Later, groups, "research");
+        var result = Categories.BuildForCategory(intervals, retained, day, day, Oslo, Later, categories, "research");
 
         result.Active.ShouldBe(TimeSpan.FromMinutes(18));
         result.Apps.Select(a => (a.App.Key, a.Duration.TotalMinutes, a.Percent)).ShouldBe(
             [("code", 10d, 56), ("outlook", 8d, 44)]);
-        var ungrouped = KeywordGroups.BuildForGroup(intervals, retained, day, day, Oslo, Later, groups, "Ungrouped");
+        var ungrouped = Categories.BuildForCategory(intervals, retained, day, day, Oslo, Later, categories, "Ungrouped");
         ungrouped.Active.ShouldBe(TimeSpan.FromMinutes(7));
     }
 
@@ -122,7 +122,7 @@ public class KeywordGroupTests
         var first = Day("2026-11-02");
         var last = Day("2026-11-03");
         var start = Utc("2026-11-02T22:30Z");
-        KeywordGroupSetting[] groups =
+        CategorySetting[] categories =
         [
             new() { Name = "Investigator", Keywords = ["INVESTIGATOR", "research"] },
             new() { Name = "Prizm", Keywords = ["prizm"] },
@@ -135,7 +135,7 @@ public class KeywordGroupTests
             Away(start.AddHours(3), start.AddHours(4)),
         ];
 
-        var result = KeywordGroups.Build(intervals, [], first, last, Oslo, Later, groups);
+        var result = Categories.Build(intervals, [], first, last, Oslo, Later, categories);
 
         result.Apps.Select(a => (a.App.DisplayName, a.Duration.TotalHours)).ShouldBe(
             [("Away", 1d), ("Investigator", 1d), ("Prizm", 1d), ("Ungrouped", 1d)]);
@@ -162,15 +162,15 @@ public class KeywordGroupTests
         [
             new(day, IntervalKind.Away, null, TimeSpan.FromMinutes(5), start, start.AddMinutes(5)),
         ];
-        KeywordGroupSetting[] groups = [new() { Name = "Away", Keywords = ["away"] }];
+        CategorySetting[] categories = [new() { Name = "Away", Keywords = ["away"] }];
 
-        var result = KeywordGroups.Build(intervals, retained, day, day, Oslo, Later, groups);
+        var result = Categories.Build(intervals, retained, day, day, Oslo, Later, categories);
 
         result.Active.ShouldBe(TimeSpan.FromMinutes(10));
         result.Away.ShouldBe(TimeSpan.FromMinutes(15));
         result.Apps.Select(a => (a.App.Key, a.App.DisplayName, a.Duration.TotalMinutes, a.Percent))
-            .ShouldBe([("away", "Away (tracked)", 15d, 60), ("group-0", "Away", 10d, 40)]);
-        result.Days.Single().Apps.Select(a => (a.App.Key, a.Percent)).ShouldBe([("away", 60), ("group-0", 40)]);
+            .ShouldBe([("away", "Away (tracked)", 15d, 60), ("category-0", "Away", 10d, 40)]);
+        result.Days.Single().Apps.Select(a => (a.App.Key, a.Percent)).ShouldBe([("away", 60), ("category-0", 40)]);
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public class KeywordGroupTests
         var day = Day("2026-11-02");
         var start = Utc("2026-11-02T08:00Z");
 
-        var result = KeywordGroups.Build([Away(start, start.AddMinutes(10))], [], day, day, Oslo, Later, []);
+        var result = Categories.Build([Away(start, start.AddMinutes(10))], [], day, day, Oslo, Later, []);
 
         result.Active.ShouldBe(TimeSpan.Zero);
         result.Away.ShouldBe(TimeSpan.FromMinutes(10));
@@ -193,7 +193,7 @@ public class KeywordGroupTests
     {
         var first = Day("2026-11-02");
         var start = Utc("2026-11-02T22:30Z");
-        var result = KeywordGroups.Build([Away(start, start.AddHours(2))], [], first, first.AddDays(1), Oslo, Later, []);
+        var result = Categories.Build([Away(start, start.AddHours(2))], [], first, first.AddDays(1), Oslo, Later, []);
 
         result.Apps.Single().Duration.ShouldBe(TimeSpan.FromHours(2));
         result.Days.Select(d => d.Apps.Single().Duration.TotalMinutes).ShouldBe([30d, 90d]);
@@ -209,9 +209,9 @@ public class KeywordGroupTests
             new(day, IntervalKind.Active, new AppIdentity("prizm", "Prizm"), TimeSpan.FromMinutes(20), start, start.AddMinutes(20)),
             new(day, IntervalKind.Active, Code, TimeSpan.FromMinutes(10), start, start.AddMinutes(10)),
         ];
-        KeywordGroupSetting[] groups = [new() { Name = "Prizm work", Keywords = ["prizm"] }];
+        CategorySetting[] categories = [new() { Name = "Prizm work", Keywords = ["prizm"] }];
 
-        var result = KeywordGroups.Build([], retained, day, day, Oslo, Later, groups);
+        var result = Categories.Build([], retained, day, day, Oslo, Later, categories);
 
         result.Apps.Select(a => (a.App.DisplayName, a.Duration.TotalMinutes)).ShouldBe(
             [("Prizm work", 20d), ("Ungrouped", 10d)]);

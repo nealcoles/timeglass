@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useDaySummary, useGroupedRangeSummary } from '../api/queries.ts';
+import { useDaySummary, useCategoryRangeSummary } from '../api/queries.ts';
 import { errorMessage } from '../api/errors.ts';
 import { formatClockTime, formatDuration, formatLongDate, localToday } from '../format.ts';
 import { DateNav } from '../nav/DateNav.tsx';
-import { ViewSelector, type GroupingView } from '../groups/ViewSelector.tsx';
+import { ViewSelector, type CategoryView } from '../categories/ViewSelector.tsx';
 import { paths } from '../router.ts';
 import { AppShareList } from './AppShareList.tsx';
 import { OTHER_COLOR } from './appColor.ts';
@@ -15,8 +15,8 @@ interface DayViewProps {
   date: string;
   /** Today's date, `yyyy-MM-dd`: the wording says "today", and the way forward stops there. */
   today?: string;
-  view?: GroupingView;
-  onViewChange?: (view: GroupingView) => void;
+  view?: CategoryView;
+  onViewChange?: (view: CategoryView) => void;
 }
 
 /**
@@ -32,14 +32,14 @@ export function DayView({
 }: DayViewProps) {
   const isToday = date === today;
   const summary = useDaySummary(date);
-  const [localView, setLocalView] = useState<GroupingView>('apps');
+  const [localView, setLocalView] = useState<CategoryView>('apps');
   const view = selectedView ?? localView;
   const setView = onViewChange ?? setLocalView;
-  const grouped = useGroupedRangeSummary(date, date, { enabled: view === 'groups' });
+  const byCategory = useCategoryRangeSummary(date, date, { enabled: view === 'categories' });
   const rows =
-    view === 'groups'
-      ? grouped.data
-        ? appShares(grouped.data.apps)
+    view === 'categories'
+      ? byCategory.data
+        ? appShares(byCategory.data.apps)
         : []
       : summary.data
         ? appShares(summary.data.apps)
@@ -50,7 +50,7 @@ export function DayView({
   return (
     <section className="day" aria-labelledby="day-heading" aria-busy={summary.isPending}>
       <h2 id="day-heading">{heading}</h2>
-      <DateNav view="day" date={date} today={today} grouping={view} />
+      <DateNav view="day" date={date} today={today} categoryView={view} />
       <ViewSelector value={view} onChange={setView} />
 
       {summary.isPending ? (
@@ -63,7 +63,7 @@ export function DayView({
         </p>
       ) : summary.data.activeMs === 0 &&
         summary.data.apps.length === 0 &&
-        (view !== 'groups' || summary.data.awayMs === 0) ? (
+        (view !== 'categories' || summary.data.awayMs === 0) ? (
         <>
           <p className="day__empty">
             {summary.data.awayMs > 0
@@ -105,26 +105,26 @@ export function DayView({
           </dl>
 
           <h3>When</h3>
-          {view === 'apps' || grouped.isSuccess ? (
+          {view === 'apps' || byCategory.isSuccess ? (
             <DayTimeline
               date={date}
               colorFor={(key) => colors.get(key) ?? OTHER_COLOR}
-              grouped={view === 'groups'}
-              colorByGroup={view === 'groups'}
+              byCategory={view === 'categories'}
+              colorByGroup={view === 'categories'}
             />
           ) : null}
           <h3>Where the time went</h3>
           {view === 'apps' ? (
             <AppShareList rows={rows} date={date} />
-          ) : grouped.isPending ? (
+          ) : byCategory.isPending ? (
             <p role="status">Loading categories…</p>
-          ) : grouped.isError ? (
-            <p role="alert">{errorMessage(grouped.error)}</p>
+          ) : byCategory.isError ? (
+            <p role="alert">{errorMessage(byCategory.error)}</p>
           ) : (
             <AppShareList
               rows={rows}
-              grouped
-              groupHref={(name) => paths.group(date, date, name, 'day')}
+              byCategory
+              categoryHref={(name) => paths.category(date, date, name, 'day')}
             />
           )}
         </>
