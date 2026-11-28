@@ -80,7 +80,7 @@ public sealed class RetentionTests : IAsyncLifetime
 
         titles.Total.ShouldBe(applications.Apps.Single(a => a.App.Key == "code").Duration);
         titles.Titles.Select(t => (t.Title, t.Duration.TotalMinutes)).ShouldBe(
-            [((string?)null, 120d), ("late.cs", 60d)]);
+            [(null, 120d), ("late.cs", 60d)]);
     }
 
     [Fact]

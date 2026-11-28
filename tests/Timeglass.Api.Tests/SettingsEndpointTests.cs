@@ -179,7 +179,7 @@ public sealed class SettingsEndpointTests : IAsyncLifetime
         settings.ExcludedApps.ShouldBe(["keepass"]);
         settings.IdleExemptApps.ShouldBeEmpty();
         settings.RecordWindowTitles.ShouldBeFalse();
-        settings.AppAliases.Select(a => (a.Key, a.Name, a.Exes.Count, a.TitlePattern)).ShouldBe([("outlook", "Mail", 0, (string?)null)]);
+        settings.AppAliases.Select(a => (a.Key, a.Name, a.Exes.Count, a.TitlePattern)).ShouldBe([("outlook", "Mail", 0, null)]);
         settings.StartWithWindows.ShouldBe(true);
     }
 

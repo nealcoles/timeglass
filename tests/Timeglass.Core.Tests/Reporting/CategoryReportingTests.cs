@@ -78,7 +78,7 @@ public class CategoryReportingTests
         var details = Categories.BuildCategoryAppTitles(intervals, retained, day, day, Oslo, Later, categories, "Mail", Outlook.Key);
         details.Total.ShouldBe(TimeSpan.FromMinutes(20));
         details.Titles.Select(t => (t.Title, t.Duration.TotalMinutes, t.Percent))
-            .ShouldBe([("Inbox", 10d, 50), ((string?)null, 10d, 50)]);
+            .ShouldBe([("Inbox", 10d, 50), (null, 10d, 50)]);
         var retainedOnly = Categories.BuildCategoryAppTitles([], retained, day, day, Oslo, Later, categories, "Mail", Outlook.Key);
         retainedOnly.Total.ShouldBe(TimeSpan.FromMinutes(5));
         retainedOnly.Titles.Single().Title.ShouldBeNull();
