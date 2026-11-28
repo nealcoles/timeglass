@@ -78,7 +78,7 @@ describe('DayView', () => {
     });
 
     expect(within(table).getByText('Investigator')).toBeInTheDocument();
-    const lane = await screen.findByRole('category', { name: /Timeline of the day/ });
+    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
     const groupSwatch = table.querySelector<HTMLElement>(
       'tr[data-app="category-0"] .app-shares__swatch',
     );
@@ -218,7 +218,7 @@ describe('DayView', () => {
     renderWithApi(<DayView date={demoDate} />);
 
     expect(await screen.findByRole('heading', { name: 'When' })).toBeInTheDocument();
-    const lane = await screen.findByRole('category', { name: /Timeline of the day/ });
+    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
     const table = screen.getByRole('table');
     const swatch = table.querySelector<HTMLElement>('tr[data-app="vscode"] .app-shares__swatch');
     const block = lane.querySelector<HTMLElement>('[data-app="vscode"]');

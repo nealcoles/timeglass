@@ -84,6 +84,7 @@ export function DayTimeline({
       <figure className="timeline">
         <div
           className="timeline__lane"
+          role="group"
           aria-label="Timeline of the day. Use the arrow keys to move between blocks."
         >
           {segments.map((s, i) => (

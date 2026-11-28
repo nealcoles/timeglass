@@ -36,7 +36,7 @@ describe('AppView', () => {
 
   it('shows only this application on the timeline using its list colour', async () => {
     renderWithApi(<AppView date={demoDate} appKey="vscode" />);
-    const lane = await screen.findByRole('category', { name: /Timeline of the day/ });
+    const lane = await screen.findByRole('group', { name: /Timeline of the day/ });
     const blocks = within(lane).getAllByRole('button');
     expect(blocks).toHaveLength(2);
     expect(blocks.every((block) => block.dataset.app === 'vscode')).toBe(true);

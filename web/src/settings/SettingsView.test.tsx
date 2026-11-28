@@ -157,7 +157,7 @@ describe('SettingsView', () => {
     await user.click(screen.getByRole('checkbox', { name: /Record window titles/ }));
 
     expect(screen.queryByRole('spinbutton', { name: /after/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('category', { name: 'Apps without titles' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Apps without titles' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save settings' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));

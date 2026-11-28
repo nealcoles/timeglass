@@ -9,7 +9,7 @@ import { DayTimeline } from './DayTimeline.tsx';
 const colorFor = (key: string) => (key === 'vscode' ? 'rgb(0, 0, 255)' : 'rgb(128, 128, 128)');
 
 async function lane() {
-  return screen.findByRole('category', { name: /Timeline of the day/ });
+  return screen.findByRole('group', { name: /Timeline of the day/ });
 }
 
 describe('DayTimeline', () => {
@@ -115,7 +115,7 @@ describe('DayTimeline', () => {
     renderWithApi(<DayTimeline date={demoDate} colorFor={colorFor} />);
 
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
-    expect(screen.queryByRole('category')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /Timeline of the day/ })).not.toBeInTheDocument();
   });
 
   it('explains when a filtered day has no retained matching timeline', async () => {
