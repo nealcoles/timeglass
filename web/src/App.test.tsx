@@ -132,9 +132,9 @@ describe('App routes', () => {
     );
     const user = userEvent.setup();
     renderWithApi(<App />);
-    const lanes = await screen.findAllByRole('category', { name: /Timeline of the day/ });
+    const lanes = await screen.findAllByRole('group', { name: /Timeline of the day/ });
     await waitFor(() =>
-      expect(screen.getAllByRole('category', { name: /Timeline of the day/ })).toHaveLength(2),
+      expect(screen.getAllByRole('group', { name: /Timeline of the day/ })).toHaveLength(2),
     );
     const first = lanes[0];
     if (!first) throw new Error('Expected a timeline');
@@ -148,9 +148,9 @@ describe('App routes', () => {
     await user.click(within(appList).getByRole('link', { name: 'Visual Studio Code' }));
     await screen.findByRole('table', { name: /Time in Visual Studio Code/ });
     await waitFor(() =>
-      expect(screen.getAllByRole('category', { name: /Timeline of the day/ })).toHaveLength(2),
+      expect(screen.getAllByRole('group', { name: /Timeline of the day/ })).toHaveLength(2),
     );
-    for (const lane of screen.getAllByRole('category', { name: /Timeline of the day/ })) {
+    for (const lane of screen.getAllByRole('group', { name: /Timeline of the day/ })) {
       expect(within(lane).getAllByRole('button')).toHaveLength(1);
       expect(within(lane).getByRole('button')).toHaveAttribute('data-app', 'vscode');
     }
@@ -210,7 +210,7 @@ describe('App routes', () => {
       )?.style.backgroundColor;
       expect(listColor).toBeTruthy();
       const query = new URLSearchParams(detailQuery);
-      expect(Object.fromEntries(query)).toEqual({ from, to, name: 'R&D / Prizm' });
+      expect(Object.fromEntries(query)).toEqual({ from, to, category: 'R&D / Prizm' });
       await user.click(screen.getByRole('link', { name: 'Visual Studio Code' }));
       const titles = await screen.findByRole('table', {
         name: /Time in Visual Studio Code per window title/,
@@ -228,7 +228,7 @@ describe('App routes', () => {
       expect(Object.fromEntries(new URLSearchParams(titleQuery))).toEqual({
         from,
         to,
-        name: 'R&D / Prizm',
+        category: 'R&D / Prizm',
         appKey: 'vscode',
       });
       await user.click(screen.getByRole('link', { name: /Back to R&D \/ Prizm/ }));
@@ -398,7 +398,7 @@ describe('App settings', () => {
     await user.click(screen.getByRole('link', { name: 'Usage' }));
 
     expect(globalThis.location.pathname + globalThis.location.search).toBe('/?view=categories');
-    expect(await screen.findByRole('heading', { level: 2, name: 'Today' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: /^Today,/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Usage' })).toHaveAttribute('aria-current', 'page');
   });
 
