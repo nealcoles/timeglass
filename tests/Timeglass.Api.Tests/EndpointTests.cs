@@ -348,6 +348,7 @@ public sealed class EndpointTests : IAsyncLifetime
     [InlineData("/api/range/summary?from=2026-11-02&to=11/08/2026", "to")]
     [InlineData("/api/range/summary?from=2026-11-08&to=2026-11-02", "to")]
     [InlineData("/api/range/summary?from=2024-01-01&to=2025-01-01", "to")] // 367 days: 2024 is a leap year
+    [InlineData("/api/range/groups?from=9999-12-31&to=9999-12-31", "to")]
     public async Task Invalid_dates_are_a_problem_details_400(string url, string field)
     {
         using var response = await _host.Client.GetAsync(new Uri(url, UriKind.Relative), Ct);

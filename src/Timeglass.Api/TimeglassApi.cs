@@ -279,7 +279,8 @@ public static partial class TimeglassApi
         {
             errors[nameof(to)] = [DateError(to)];
         }
-        if (hasFrom && hasTo && (last < first || last.DayNumber - first.DayNumber + 1 > RangeSummaries.MaxDays))
+        if (hasFrom && hasTo && (last < first || last.DayNumber - first.DayNumber + 1 > RangeSummaries.MaxDays
+            || last == DateOnly.MaxValue))
         {
             errors[nameof(to)] = [$"The range must be in order and at most {RangeSummaries.MaxDays} days."];
         }
